@@ -1,9 +1,10 @@
 # Phase 0 引き継ぎ書
 
 **作成日**: 2025年11月25日  
-**バージョン**: v1.0  
+**最終更新日**: 2025年11月25日  
+**バージョン**: v2.0  
 **対象**: やどぺら Phase 0（準備期間）引き継ぎ  
-**進捗**: ステップ1-4完了（4/11ステップ）
+**進捗**: ステップ1-9完了（9/11ステップ、81.8%）
 
 ---
 
@@ -26,7 +27,7 @@
 - Redis 7.2
 - Alembic 1.13.1
 
-**フロントエンド**（準備中）:
+**フロントエンド**:
 - Vue.js 3.4+
 - TypeScript 5.3+
 - Vite 5.0+
@@ -48,20 +49,20 @@
 | ステップ2: プロジェクト構造作成 | 2025-11-25 | ディレクトリ構造 | `c5386db` |
 | ステップ3: Docker環境セットアップ | 2025-11-25 | `docker-compose.yml`, Dockerfiles | `6769dca` |
 | ステップ4: Backend初期設定 | 2025-11-25 | `requirements.txt`, `main.py`, `config.py`, Alembic | 最新 |
+| ステップ5: Frontend初期設定 | 2025-11-25 | `package.json`, `vite.config.ts`, `tsconfig.json`等 | `640a0f6` |
+| ステップ6: データベース・Redis環境構築確認 | 2025-11-25 | PostgreSQL + pgvector、Redis動作確認 | `640a0f6` |
+| ステップ7: 全サービス起動確認 | 2025-11-25 | Backend/Frontend動作確認完了 | `640a0f6` |
+| ステップ8: README.md作成 | 2025-11-25 | プロジェクトドキュメント作成 | `1e237a6` |
+| ステップ9: 外部サービス準備 | 2025-11-25 | OpenAI API キー設定、準備状況ドキュメント化 | `41dfac0` |
 
 ### 2.2 未完了のステップ
 
 | ステップ | ステータス | 優先度 | 予定工数 |
 |---------|----------|--------|---------|
-| ステップ5: Frontend初期設定 | ⏳ 未着手 | 高 | 1.5時間 |
-| ステップ6: データベース・Redis環境構築確認 | ⏳ 未着手 | 高 | 30分 |
-| ステップ7: 全サービス起動確認 | ⏳ 未着手 | 高 | 30分 |
-| ステップ8: README.md作成 | ⏳ 未着手 | 中 | 1時間 |
-| ステップ9: 外部サービス準備 | ⏳ 未着手 | 低 | 30分 |
 | ステップ10: 簡易ランディングページ作成 | ⏳ 未着手 | 低 | 4-6時間 |
 | ステップ11: やどびと多言語優先度アンケート実施 | ⏳ 未着手 | 低 | 2時間 |
 
-**進捗率**: 36.4%（4/11ステップ完了）
+**進捗率**: 81.8%（9/11ステップ完了）
 
 ---
 
@@ -73,6 +74,7 @@
 yadopera/
 ├── .gitignore                    ✅ 作成済み
 ├── docker-compose.yml            ✅ 作成済み
+├── README.md                     ✅ 作成済み（ステップ8）
 └── docs/                         ✅ 既存
 ```
 
@@ -84,6 +86,7 @@ backend/
 ├── .dockerignore                 ✅ 作成済み
 ├── requirements.txt              ✅ 作成済み
 ├── .env.example                  ✅ 作成済み
+├── .env                          ✅ 作成済み（ローカルのみ、Git管理外）
 ├── alembic.ini                   ✅ 作成済み
 ├── alembic/
 │   ├── __init__.py               ✅ 作成済み
@@ -107,18 +110,23 @@ backend/
 frontend/
 ├── Dockerfile                    ✅ 作成済み
 ├── .dockerignore                 ✅ 作成済み
+├── package.json                  ✅ 作成済み（ステップ5）
+├── .env.example                  ✅ 作成済み（ステップ5）
+├── vite.config.ts                ✅ 作成済み（ステップ5）
+├── tsconfig.json                 ✅ 作成済み（ステップ5）
+├── tsconfig.node.json            ✅ 作成済み（ステップ5）
+├── tailwind.config.js            ✅ 作成済み（ステップ5）
+├── postcss.config.js             ✅ 作成済み（ステップ5）
+├── index.html                    ✅ 作成済み（ステップ5）
+├── .eslintrc.cjs                 ✅ 作成済み（ステップ5）
 ├── public/                       ✅ ディレクトリ作成済み
 └── src/
+    ├── main.ts                   ✅ 作成済み（ステップ5）
+    ├── App.vue                   ✅ 作成済み（ステップ5）
+    ├── style.css                 ✅ 作成済み（ステップ5）
+    ├── vite-env.d.ts             ✅ 作成済み（ステップ5）
     └── components/               ✅ ディレクトリ作成済み
 ```
-
-**未作成ファイル**（ステップ5で作成予定）:
-- `package.json`
-- `.env.example`
-- `vite.config.ts`
-- `tsconfig.json`
-- `src/main.ts`
-- `src/App.vue`
 
 ---
 
@@ -149,15 +157,11 @@ DEBUG=True
 CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
-### 4.2 次のセッションで必要な作業
+### 4.2 設定状況
 
-1. **`backend/.env`作成**
-   - `.env.example`をコピー
-   - 実際の値を設定（特に`OPENAI_API_KEY`, `SECRET_KEY`）
-
-2. **`frontend/.env.example`作成**（ステップ5）
-   - `VITE_API_BASE_URL=http://localhost:8000`
-   - `VITE_APP_NAME=やどぺら`
+- ✅ `backend/.env`作成済み（実際の値設定済み）
+- ✅ `frontend/.env.example`作成済み
+- ✅ OpenAI API キー設定済み（ステップ9）
 
 ---
 
@@ -166,7 +170,7 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 ### 5.1 docker-compose.yml構成
 
 - **postgres**: PostgreSQL 15（pgvector拡張）
-  - ポート: 5432
+  - ポート: 5433（ホスト）→ 5432（コンテナ）
   - ユーザー: `yadopera_user`
   - パスワード: `yadopera_password`
   - データベース: `yadopera`
@@ -186,7 +190,7 @@ CORS_ORIGINS=http://localhost:5173,http://localhost:3000
 
 ```bash
 # 全サービス起動
-docker-compose up
+docker-compose up -d
 
 # バックグラウンド起動
 docker-compose up -d
@@ -201,89 +205,40 @@ docker-compose down
 docker-compose down -v
 ```
 
+### 5.3 動作確認済み
+
+- ✅ PostgreSQL接続確認（PostgreSQL 15.15）
+- ✅ pgvector拡張有効化確認（vector 0.8.1）
+- ✅ Redis接続確認（Redis 7.2.12）
+- ✅ Backend動作確認（http://localhost:8000）
+- ✅ Frontend動作確認（http://localhost:5173）
+- ✅ Swagger UI表示確認（http://localhost:8000/docs）
+
 ---
 
 ## 6. 次のセッションで実施するステップ
 
-### 6.1 ステップ5: Frontend初期設定（優先度: 高）
+### 6.1 ステップ10: 簡易ランディングページ作成（優先度: 低）
 
 **タスク**:
-1. `frontend/package.json`作成
-   - Vue.js 3.4+
-   - TypeScript 5.3+
-   - Vite 5.0+
-   - Tailwind CSS 3.4+
-   - Pinia 2.1+
-   - Axios 1.6+
-   - Vite PWA Plugin 0.19+
+1. LP構成決定
+2. 技術スタック決定（静的HTML/CSS/JavaScript または Vite + Vue.js 3）
+3. LP実装（ヒーロー、課題提起、解決策、仕組み、料金、FAQ、CTA）
+4. フォーム実装（PoC応募フォーム、説明会予約フォーム）
+5. レスポンシブデザイン対応
+6. デプロイ（静的ホスティングサービス）
 
-2. `frontend/.env.example`作成
+**所要時間**: 4-6時間
 
-3. Vite + Vue 3プロジェクト初期化
-   ```bash
-   cd frontend
-   npm install
-   ```
-
-4. `vite.config.ts`作成
-
-5. `tsconfig.json`作成
-
-6. `src/main.ts`作成
-
-7. `src/App.vue`作成
-
-**所要時間**: 1.5時間
-
----
-
-### 6.2 ステップ6: データベース・Redis環境構築確認（優先度: 高）
+### 6.2 ステップ11: やどびと多言語優先度アンケート実施（優先度: 低）
 
 **タスク**:
-1. Docker ComposeでPostgreSQL + Redis起動
-   ```bash
-   docker-compose up -d postgres redis
-   ```
+1. アンケート設計
+2. 配信準備
+3. アンケート配信
+4. 結果集計（回答期限後）
 
-2. PostgreSQL接続確認
-   ```bash
-   docker-compose exec postgres psql -U yadopera_user -d yadopera
-   ```
-
-3. pgvector拡張有効化確認
-   ```sql
-   CREATE EXTENSION IF NOT EXISTS vector;
-   \dx  -- 拡張一覧確認
-   ```
-
-4. Redis接続確認
-   ```bash
-   docker-compose exec redis redis-cli ping
-   # 応答: PONG
-   ```
-
-5. `backend/.env`作成（`.env.example`をコピーして実際の値を設定）
-
-**所要時間**: 30分
-
----
-
-### 6.3 ステップ7: 全サービス起動確認（優先度: 高）
-
-**タスク**:
-1. `docker-compose up`実行
-
-2. Backend動作確認
-   - `http://localhost:8000/`にアクセス
-   - `http://localhost:8000/docs`でSwagger UI表示確認
-   - `http://localhost:8000/health`でヘルスチェック確認
-
-3. Frontend動作確認
-   - `http://localhost:5173`でVite開発サーバー起動確認
-
-4. ログ確認（エラーがないことを確認）
-
-**所要時間**: 30分
+**所要時間**: 2時間（配信まで）
 
 ---
 
@@ -310,7 +265,7 @@ docker-compose down -v
 ### 7.4 依存関係
 
 - Backend: `requirements.txt`に記載済み
-- Frontend: ステップ5で`package.json`作成予定
+- Frontend: `package.json`に記載済み
 
 ---
 
@@ -330,65 +285,137 @@ docker-compose down -v
 - **解決策**: `DATABASE_URL`が正しく設定されているか確認
 - pgvector拡張が有効化されているか確認
 
+**問題**: Frontendが表示されない
+- **解決策**: Frontendコンテナが起動していることを確認
+- ログを確認（`docker-compose logs frontend`）
+
 ---
 
-## 9. 参考資料
+## 9. ブランチ戦略とデプロイ戦略
 
-### 9.1 ドキュメント
+### 9.1 現在のブランチ戦略
+
+**計画されているブランチ**:
+- `main`: 本番環境用ブランチ
+- `develop`: 開発用ブランチ
+- `feature/*`: 機能開発用ブランチ
+
+**現在の状況**:
+- 初期ブランチ: `main`
+- `develop`ブランチは未作成
+
+### 9.2 デプロイ戦略（現状）
+
+**現在の設計**（アーキテクチャ設計書v0.3より）:
+- デプロイフロー: `git push origin main` → Render.com（自動デプロイ）
+- ステージング環境の計画: **明記されていない**
+
+**懸念事項**:
+- テストケースをデプロイする場合、直接`main`にデプロイする必要がある
+- ステージング環境がないため、本番環境へのリスクが高い
+
+### 9.3 推奨される改善案
+
+**オプション1: ステージング環境の追加**
+
+```
+ブランチ構成:
+- `main`: 本番環境（https://tabipera.com）
+- `develop`: ステージング環境（https://staging.tabipera.com）
+- `feature/*`: 機能開発用
+
+デプロイフロー:
+1. feature/* → develop（マージ）
+2. develop → Render.com ステージング環境（自動デプロイ）
+3. テスト完了後、develop → main（マージ）
+4. main → Render.com 本番環境（自動デプロイ）
+```
+
+**オプション2: サブドメインでのテストURL作成**
+
+```
+環境構成:
+- 本番: https://tabipera.com
+- ステージング: https://staging.tabipera.com
+- 開発: https://dev.tabipera.com（オプション）
+
+ブランチ構成:
+- `main`: 本番環境
+- `develop`: ステージング環境
+- `feature/*`: 機能開発用
+
+Render.com設定:
+- 本番サービス: mainブランチ → tabipera.com
+- ステージングサービス: developブランチ → staging.tabipera.com
+```
+
+**推奨**: オプション2（サブドメインでのテストURL作成）を推奨します。
+
+**理由**:
+1. リスク分散: 本番環境への影響を最小化
+2. テスト環境の独立性: ステージング環境で十分なテストが可能
+3. Render.comの機能: 複数のサービスを作成可能
+4. コスト: Render.comの無料枠または低コストプランで対応可能
+
+**実装時期**: Phase 1（MVP開発）開始前に決定・実装推奨
+
+---
+
+## 10. 参考資料
+
+### 10.1 ドキュメント
 
 - **Phase 0ステップ計画**: `docs/Phase0_ステップ計画.md`
-- **実装整合性分析レポート**: `docs/Phase0_実装整合性分析レポート.md`
+- **Phase 0進捗状況**: `docs/Phase0_進捗状況.md`
+- **Phase 0実装整合性分析レポート**: `docs/Phase0_実装整合性分析レポート.md`
+- **Phase 0外部サービス準備状況**: `docs/Phase0_外部サービス準備状況.md`
 - **要約定義書**: `docs/yadopera-v03-summary.md`
 - **アーキテクチャ設計書**: `docs/やどぺら_v0.3_アーキテクチャ設計書.md`
 
-### 9.2 外部リンク
+### 10.2 外部リンク
 
 - GitHubリポジトリ: https://github.com/kurinobu/yadopera.git
 - Render.com: アカウント準備済み（Render Pro）
 
 ---
 
-## 10. 次のセッション開始時のチェックリスト
+## 11. 次のセッション開始時のチェックリスト
 
-### 10.1 環境確認
+### 11.1 環境確認
 
 - [ ] Gitリポジトリの状態確認（`git status`）
 - [ ] 最新のコミット確認（`git log --oneline -5`）
 - [ ] Dockerが起動しているか確認（`docker ps`）
 
-### 10.2 ステップ5開始前の準備
+### 11.2 サービス起動確認
 
-- [ ] Node.jsがインストールされているか確認（`node --version`）
-- [ ] npmがインストールされているか確認（`npm --version`）
-- [ ] `frontend/`ディレクトリが存在するか確認
-
-### 10.3 ステップ6開始前の準備
-
-- [ ] `backend/.env`が作成されているか確認
-- [ ] `OPENAI_API_KEY`が設定されているか確認（ステップ9で取得予定）
-- [ ] `SECRET_KEY`が設定されているか確認
+- [ ] `docker-compose up -d`で全サービス起動
+- [ ] Backend動作確認（http://localhost:8000）
+- [ ] Frontend動作確認（http://localhost:5173）
 
 ---
 
-## 11. コミット履歴
+## 12. コミット履歴
 
-### 11.1 主要コミット
+### 12.1 主要コミット
 
 ```
-9781b7c Initial commit: Add .gitignore
-c5386db Add project directory structure
+41dfac0 Add Phase 0 step 9: External services preparation
+1e237a6 Add README.md: Project documentation and setup guide
+640a0f6 Add Phase 0 steps 5-7: Frontend setup, DB/Redis verification, and full service startup
 6769dca Add Docker environment setup (docker-compose.yml, Dockerfiles)
-[最新]  Add backend initial setup (requirements.txt, main.py, config.py, Alembic)
+c5386db Add project directory structure
+9781b7c Initial commit: Add .gitignore
 ```
 
-### 11.2 ブランチ
+### 12.2 ブランチ
 
 - **main**: 現在のブランチ（本番環境用）
-- ブランチ戦略: `main`, `develop`, `feature/*`
+- ブランチ戦略: `main`, `develop`, `feature/*`（計画）
 
 ---
 
-## 12. 連絡先・問い合わせ
+## 13. 連絡先・問い合わせ
 
 - **開発者**: Air
 - **ブログ**: https://air-edison.com
@@ -396,9 +423,7 @@ c5386db Add project directory structure
 
 ---
 
-**Document Version**: v1.0  
+**Document Version**: v2.0  
 **Author**: Air  
 **Last Updated**: 2025-11-25  
-**Status**: 引き継ぎ準備完了
-
-
+**Status**: Phase 0 進行中（81.8%完了）
