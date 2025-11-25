@@ -8109,7 +8109,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
 - [ ] Service Worker登録確認（v0.2追加）
 - [ ] ダークモード動作確認（v0.2追加）
 
-### 14.9 環境設定（v0.3改訂）
+### 14.8 環境設定（v0.3改訂）
 
 #### 本番環境設定（Render.com）
 
