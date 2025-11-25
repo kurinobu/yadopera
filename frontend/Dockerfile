@@ -15,3 +15,4 @@ EXPOSE 5173
 # デフォルトコマンド（docker-compose.ymlで上書き可能）
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
+
