@@ -292,9 +292,23 @@ docker-compose down -v
 
 ### ブランチ戦略
 
+**採用戦略**: オプション2（サブドメインでのテストURL作成）
+
 - `main`: 本番環境用ブランチ
-- `develop`: 開発用ブランチ
+  - URL: `https://tabipera.com`
+  - データベース: Render.com PostgreSQL（Managed）
+  - Redis: Redis Cloud（External）
+- `develop`: ステージング環境用ブランチ
+  - URL: `https://staging.tabipera.com`
+  - データベース: Railway Hobby PostgreSQL（契約済み）
+  - Redis: Railway Hobby Redis（契約済み）
 - `feature/*`: 機能開発用ブランチ
+
+**デプロイフロー**:
+1. `feature/*` → `develop`（マージ）
+2. `develop` → Render.com ステージング環境（自動デプロイ）
+3. テスト完了後、`develop` → `main`（マージ）
+4. `main` → Render.com 本番環境（自動デプロイ）
 
 ### コミットメッセージ
 
@@ -307,6 +321,20 @@ docker-compose down -v
 - **Frontend**: ESLint、Prettierを使用
 
 詳細は各ディレクトリの設定ファイルを参照してください。
+
+### デプロイ環境
+
+**ステージング環境**:
+- 実装フェーズ: Phase 1 Week 4
+- 目的: 開発・テスト用
+- データベース: Railway Hobby PostgreSQL（契約済み）
+
+**本番環境**:
+- 実装フェーズ: Phase 4（本格展開準備）
+- 目的: 本番運用
+- データベース: Render.com PostgreSQL（Managed）
+
+詳細は [`docs/やどぺら_v0.3_アーキテクチャ設計書.md`](docs/やどぺら_v0.3_アーキテクチャ設計書.md) の「14. デプロイメント」セクションを参照してください。
 
 ## 関連ドキュメント
 
