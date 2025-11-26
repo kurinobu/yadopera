@@ -67,7 +67,7 @@
 
 ### 3.1 ゲスト側機能
 
-**アクセスURL**: `https://tabipera.com/f/{facility_id}?location={location}`
+**アクセスURL**: `https://yadopera.com/f/{facility_id}?location={location}`
 
 **画面フロー**
 1. 言語選択画面（英語のみ、MVP）
@@ -393,7 +393,7 @@ updated_at TIMESTAMP
 id SERIAL PRIMARY KEY
 facility_id INTEGER REFERENCES facilities(id)
 location VARCHAR(100)  -- 'reception', 'room', 'common_area'
-url TEXT  -- https://tabipera.com/f/{facility_id}?location={location}
+url TEXT  -- https://yadopera.com/f/{facility_id}?location={location}
 file_path VARCHAR(255)  -- S3保存先
 scan_count INTEGER DEFAULT 0
 last_scanned_at TIMESTAMP
@@ -684,8 +684,8 @@ Q2-Q4（M4-M12）: 成長期
 ・週次レポート自動送信
 ・専用サポートSlackチャンネル
 
-デモ動画（1分）: https://tabipera.com/demo
-応募フォーム: https://tabipera.com/poc-apply
+デモ動画（1分）: https://yadopera.com/demo
+応募フォーム: https://yadopera.com/poc-apply
 
 やどびと運営チーム
 ━━━━━━━━━━━━━━━━━━━━━

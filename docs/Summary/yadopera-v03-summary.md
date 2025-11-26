@@ -106,7 +106,7 @@
 
 ### 3.1 ゲスト側機能
 
-**アクセスURL**: `https://tabipera.com/f/{facility_id}?location={location}&token={session_token}`
+**アクセスURL**: `https://yadopera.com/f/{facility_id}?location={location}&token={session_token}`
 
 **画面フロー**
 1. 言語選択画面（英語のみ、MVP）
@@ -119,7 +119,7 @@
 - **セッション統合トークン**: 4桁英数字（例: `AB12`）
   - 初回アクセス時に発行、画面上部に常時表示
   - 別デバイスでQRスキャン時、トークン入力で会話履歴統合
-  - `https://tabipera.com/f/{facility_id}?token=AB12`
+  - `https://yadopera.com/f/{facility_id}?token=AB12`
 - 有効期限: 無動作24時間で自動終了
 - 複数デバイス: トークンによる統合可能
 
@@ -314,7 +314,7 @@ error_type: OpenAI_API_timeout / rate_limit / server_error
 - **セキュリティ・プライバシー**: データ保持期間、GDPR対応、暗号化
 
 *提供形式*:
-- Webページ（`https://tabipera.com/help`）
+- Webページ（`https://yadopera.com/help`）
 - PDF版マニュアル（ダウンロード可能）
 - 動画チュートリアル（5分×5本、Phase 2）
 
@@ -602,7 +602,7 @@ updated_at TIMESTAMP
   - 本番環境設定（環境変数、データベース接続）
   - Render.com PostgreSQL（Managed）作成
   - Redis Cloud設定
-  - カスタムドメイン設定（tabipera.com）
+  - カスタムドメイン設定（yadopera.com）
   - SSL証明書設定
   - 本番環境デプロイ確認
 - 決済機能実装（Stripe連携）

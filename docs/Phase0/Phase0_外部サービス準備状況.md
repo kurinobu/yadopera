@@ -55,11 +55,30 @@ Phase 1（MVP開発）Week 1-2で実装予定
 
 ## 3. その他外部サービス
 
-### 分析ツール（Phase 2以降）
+### 分析ツール
 
-**Google Analytics**
+**Google Analytics 4（ランディングページ用）**
+- ステータス: ⚠️ **実装済み・測定ID未設定（Vercelデプロイ後に設定）**
+- 用途: ランディングページのアクセス解析、コンバージョン追跡
+- 実装状況:
+  - ✅ HTMLにGoogle Analytics 4のgtag.js実装済み
+  - ✅ イベントトラッキング実装済み（10種類のイベント）
+  - ⏳ 測定ID（G-XXXXXXXXXX）未設定
+  - ⏳ Google Analytics 4プロパティ未作成
+- 実装時期: Phase 0 ステップ10（2025-11-25）
+- **設定時期**: **Vercelデプロイ後**（Phase 0完了後、Phase 1開始前）
+- **重要**: 
+  - ランディングページは**Vercel**にデプロイ（Render.comではない）
+  - Google Analytics設定には実際のURL（https://yadopera.com）が必要
+  - Vercelデプロイ後にGoogle Analytics 4プロパティを作成し、測定IDを設定
+- 注意事項:
+  - 現在は測定IDがプレースホルダー（G-XXXXXXXXXX）のため、データは記録されない
+  - デプロイ前でも一時的にlocalhostでプロパティ作成可能（後でURL更新）
+  - 詳細は `landing/analytics-setup.md` および `docs/Phase0/Phase0_Render_GoogleAnalytics_設定時期.md` を参照
+
+**Google Analytics（本番アプリ用）**
 - ステータス: 未準備
-- 用途: ユーザー行動分析、コンバージョン追跡
+- 用途: 本番アプリのユーザー行動分析、コンバージョン追跡
 - 実装予定: Phase 2以降
 
 ### エラートラッキング（Phase 2以降）

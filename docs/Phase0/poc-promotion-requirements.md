@@ -580,7 +580,7 @@ FAQ作成代行: ¥30,000（30件まで）
 
 **ホスティング:**
 - Vercel（無料枠で十分）
-- カスタムドメイン: `tabipera.com`
+- カスタムドメイン: `yadopera.com`
 
 **分析:**
 - Google Analytics 4

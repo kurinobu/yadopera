@@ -1,10 +1,10 @@
 # Phase 0 引き継ぎ書
 
 **作成日**: 2025年11月25日  
-**最終更新日**: 2025年11月26日  
-**バージョン**: v2.4  
+**最終更新日**: 2025年11月25日  
+**バージョン**: v2.0  
 **対象**: やどぺら Phase 0（準備期間）引き継ぎ  
-**進捗**: ステップ10-2、10-3、11完了（12/16ステップ、75.0%）
+**進捗**: ステップ1-10完了（10/11ステップ、90.9%）
 
 ---
 
@@ -54,20 +54,15 @@
 | ステップ7: 全サービス起動確認 | 2025-11-25 | Backend/Frontend動作確認完了 | `640a0f6` |
 | ステップ8: README.md作成 | 2025-11-25 | プロジェクトドキュメント作成 | `1e237a6` |
 | ステップ9: 外部サービス準備 | 2025-11-25 | OpenAI API キー設定、準備状況ドキュメント化 | `41dfac0` |
-| ステップ10-1: ランディングページ実装・改善 | 2025-11-26 | LP実装、PoC説明追加、カラーリング変更、Formspree実装、オンライン説明会セクションコメントアウト | `aa211da` |
-| ステップ10-2: Vercelデプロイ | 2025-11-26 | Vercelプロジェクト作成、デプロイ完了 | - |
-| ステップ10-3: カスタムドメイン設定 | 2025-11-26 | `yadopera.com`追加、DNS設定実施済み（反映待ち） | - |
-| ステップ11: やどびと多言語優先度アンケート実施 | 2025-11-26 | アンケート作成・送信完了（回答期限: 2025-12-05） | - |
+| ステップ10: 簡易ランディングページ作成 | 2025-11-25 | LP実装（12セクション、フォーム含む）、ブラウザテスト完了 | 未コミット |
 
-### 2.2 未完了のステップ（DNS反映待ち）
+### 2.2 未完了のステップ
 
-| ステップ | ステータス | 優先度 | 予定工数 | 備考 |
-|---------|----------|--------|---------|------|
-| ステップ10-4: Google Analytics設定 | ⏳ DNS反映待ち | 高 | 30分 | `https://yadopera.com`が利用可能になってから実施 |
-| ステップ10-5: HTMLに測定ID設定 | ⏳ ステップ10-4待ち | 高 | 10分 | ステップ10-4完了後 |
-| ステップ10-6: 動作確認 | ⏳ ステップ10-5待ち | 高 | 10分 | ステップ10-5完了後 |
+| ステップ | ステータス | 優先度 | 予定工数 |
+|---------|----------|--------|---------|
+| ステップ11: やどびと多言語優先度アンケート実施 | ⏳ 未着手 | 低 | 2時間 |
 
-**進捗率**: 75.0%（ステップ10-2、10-3、11完了、ステップ10-4〜10-6はDNS反映待ち）
+**進捗率**: 90.9%（10/11ステップ完了）
 
 ---
 
@@ -132,24 +127,6 @@ frontend/
     ├── vite-env.d.ts             ✅ 作成済み（ステップ5）
     └── components/               ✅ ディレクトリ作成済み
 ```
-
-### 3.4 Landing Page
-
-```
-landing/
-├── index.html                    ✅ 作成済み（ステップ10-1）
-├── vercel.json                   ✅ 作成済み（ステップ10-1）
-├── README.md                     ✅ 作成済み（ステップ10-1）
-├── analytics-setup.md            ✅ 作成済み（ステップ10-1）
-├── BROWSER_TEST.md               ✅ 作成済み（ステップ10-1）
-└── index.html.backup_*           ✅ バックアップファイル（複数）
-```
-
-**ステップ10-1の改善内容**:
-- PoC説明追加（「PoCとは」サブセクション）
-- カラーリング変更（#38b7ee、#0c4a6e）
-- Formspree実装（フォームID: meowddgp）
-- オンライン説明会セクションコメントアウト
 
 ---
 
@@ -241,100 +218,91 @@ docker-compose down -v
 
 ## 6. 次のセッションで実施するステップ
 
-### 6.1 ステップ10-1: ランディングページ実装・改善 ✅ 完了
+### 6.1 ステップ10: 簡易ランディングページ作成 ⚠️ 部分完了（優先度見直し完了）
 
-**完了日**: 2025-11-26
+**完了日**: 2025-11-25
 
 **成果物**:
-- `landing/index.html`: 12セクション構成のLP（ヒーロー、課題提起、コンセプト、3つの価値、仕組み、導入効果、PoC募集、選ばれる理由、料金、FAQ、運営者情報、最終CTA）
+- `landing/index.html`: 12セクション構成のLP（ヒーロー、課題提起、コンセプト、3つの価値、仕組み、導入効果、PoC募集、説明会予約、選ばれる理由、料金、FAQ、運営者情報、最終CTA）
 - `landing/vercel.json`: Vercelデプロイ設定
 - `landing/README.md`: デプロイ手順とカスタマイズ方法
-- `landing/analytics-setup.md`: Google Analytics設定ガイド
 - `landing/BROWSER_TEST.md`: ブラウザテストガイド
-- **PoC説明追加**: PoCセクションに「PoCとは」サブセクションを追加（契約内容、関係性、期待される協力内容）
-- **カラーリング変更**: ヒーローセクション `#38b7ee`、フッター `#0c4a6e`、`#38bdf8` → `#38b7ee` にすべて置き換え
-- **Formspree実装**: フォームID `meowddgp`、action属性設定、method属性 `POST`、JavaScript修正完了
-- **オンライン説明会セクション**: コメントアウト（説明会予約リンクが未設定のため）
+- `landing/analytics-setup.md`: Google Analytics設定ガイド
+- PoC応募フォーム実装（プレースホルダー、実際のサービスに接続必要）
+- 説明会予約セクション追加（Googleカレンダー/Calendlyリンク接続必要）
 - レスポンシブデザイン対応（Tailwind CSS CDN使用）
-- Google Analytics 4実装（測定ID未設定、Vercelデプロイ後に設定）
+- Google Analytics 4実装（測定ID未設定、後回し）
 
-**ブラウザテスト結果（2025-11-26）**:
+**ブラウザテスト結果（2025-11-25）**:
 - ✅ テストURL: http://localhost:8001
 - ✅ ページ表示: 正常
-- ✅ セクション表示: 11セクション表示（オンライン説明会セクションはコメントアウト）
+- ✅ セクション表示: 12セクションすべて表示
 - ✅ レスポンシブデザイン: 動作確認済み
 - ✅ ナビゲーション: 動作確認済み
-- ✅ カラーリング: 正常（#38b7ee、#0c4a6e）
-- ✅ フォーム送信テスト: Formspree連携確認済み
-- ✅ 構文チェック: 正常
+- ⚠️ コンソール警告:
+  - Tailwind CSS CDNの本番環境使用警告（開発環境のため問題なし）
+  - favicon.ico 404エラー（機能に影響なし）
+- ⏳ 未確認項目:
+  - フォームの正常動作（プレースホルダー実装のため）
+  - デザイン・カラーリングの最終確認
+  - 文言・誤植チェック
 
-**完了した改善**:
-1. ✅ **PoC説明追加**: PoCセクションに「PoCとは」サブセクションを追加
-2. ✅ **カラーリング変更**: 指定色（#38b7ee、#0c4a6e）に変更
-3. ✅ **Formspree実装**: フォーム送信機能をFormspreeに接続（フォームID: meowddgp）
-4. ✅ **オンライン説明会セクション**: コメントアウト（404エラー回避）
+**発見された問題**:
+1. **PoCの説明不足（重要）**
+   - 現状: PoCが何か、どういう契約・関係性なのかの説明がない
+   - 影響: 訪問者が「PoCって何？」と疑問に思う可能性
+   - 対応: PoCセクションに説明を追加する必要がある
+   - 優先度: 高
 
-### 6.2 ステップ10-2: Vercelデプロイ ✅ 完了
+2. **Google Analytics未設定**
+   - 現状: 実装済みだが測定ID（G-XXXXXXXXXX）が未設定
+   - **重要**: ランディングページは**Vercel**にデプロイ（Render.comではない）
+   - **設定時期**: Vercelデプロイ後（Phase 0完了後、Phase 1開始前）
+   - 対応: Vercelデプロイ → カスタムドメイン設定 → Google Analytics 4プロパティ作成 → 測定ID設定
+   - 優先度: 中（Vercelデプロイ後に設定）
+   - 詳細: `docs/Phase0_Render_GoogleAnalytics_設定時期.md` を参照
 
-**完了日**: 2025-11-26
+**優先度設定の見直し**:
+- ❌ **元の優先度**: 低（誤り）
+- ✅ **見直し後の優先度**: **高**（正しい）
+- **理由**: 
+  - Google Analytics設定にはVercelデプロイが必要
+  - ランディングページ公開にはGoogle Analytics設定が実用的に必要
+  - PoC募集開始には公開URLが必要
+  - 早期にデータ収集を開始すべき
+- **詳細**: `docs/Phase0_優先度設定ミス_反省と対応.md` を参照
 
-**成果物**:
-- Vercelプロジェクト作成（`yadopera-landing`）
-- GitHubリポジトリ連携完了
-- デプロイ完了（VercelのデフォルトURL: `yadopera-landing.vercel.app`）
-- `landing`ディレクトリをGitHubにプッシュ（コミット: `aa211da`）
+**次のアクション（優先度順）**:
 
-### 6.3 ステップ10-3: カスタムドメイン設定 ✅ 完了（DNS反映待ち）
+**優先度: 高（即座に実施）**:
+- [ ] **Vercelにランディングページをデプロイ**（30分）
+- [ ] **カスタムドメイン設定**（tabipera.com）（10分）
+- [ ] **Google Analytics 4プロパティ作成**（実際のURLで）（30分）
+- [ ] **Google Analytics測定IDをHTMLに設定**（10分）
+- **合計: 約1時間で完了可能**
 
-**完了日**: 2025-11-26
+**優先度: 高（PoC説明追加）**:
+- [ ] PoCセクションに説明を追加（PoCとは何か、契約内容、関係性）
 
-**成果物**:
-- Vercelで`yadopera.com`を追加
-- ムームードメインでDNS設定実施（Aレコード: `@` → `216.198.79.1`）
-- DNS設定反映待ち（最大48時間、明日午前中に確認予定）
+**優先度: 中**:
+- [ ] フォーム送信機能を実際のサービス（Google Forms、Formspree等）に接続
+- [ ] 説明会予約リンクを実際のカレンダーサービスに接続
+- [ ] デザイン・カラーリングの最終確認
+- [ ] 文言・誤植チェック
 
-**注意事項**:
-- 現在`https://yadopera.com`はアクセス不可（DNS反映待ち）
-- DNS設定が反映されたら、VercelのDomains画面で「Valid Configuration」に変わる
-- 反映確認後、ステップ10-4に進む
+**優先度: 低**:
+- [ ] favicon.ico追加（オプション）
+- [ ] Tailwind CSS本番環境対応
 
-### 6.4 ステップ10-4〜10-6: Google Analytics設定 ⏳ DNS反映待ち
+### 6.2 ステップ11: やどびと多言語優先度アンケート実施（優先度: 低）
 
-**優先度**: 高  
-**合計所要時間**: 約50分  
-**前提条件**: `https://yadopera.com`が利用可能になること
+**タスク**:
+1. アンケート設計
+2. 配信準備
+3. アンケート配信
+4. 結果集計（回答期限後）
 
-**ステップ10-4: Google Analytics 4プロパティ作成**（30分）
-- プロパティ作成（ウェブサイトURL: `https://yadopera.com`）
-- 測定ID取得（`G-XXXXXXXXXX`）
-
-**ステップ10-5: HTMLに測定ID設定**（10分）
-- `landing/index.html`の`G-XXXXXXXXXX`を実際の測定IDに置き換え
-- コミット・プッシュ
-- Vercel自動再デプロイ
-
-**ステップ10-6: 動作確認**（10分）
-- `https://yadopera.com` でアクセス確認
-- Google Analyticsのリアルタイムレポートで確認
-
-**詳細**: `docs/Phase0/Phase0_ステップ10_正しい実施順序.md` を参照
-
-### 6.5 ステップ11: やどびと多言語優先度アンケート実施 ✅ 完了
-
-**完了日**: 2025-11-26
-
-**成果物**:
-- アンケート設計完了
-- Google Formsでフォーム作成完了
-- 配信準備完了（やどびとユーザーリスト、メール文面）
-- アンケート配信完了
-- 回答期限: 2025-12-05（自動終了設定なし）
-
-**次のアクション**:
-- 結果集計は回答期限後（Phase 1開発中）に実施
-- Phase 2の言語優先順位決定に使用
-
-**目的**: Phase 2の言語優先順位決定
+**所要時間**: 2時間（配信まで）
 
 ---
 
@@ -416,8 +384,8 @@ docker-compose down -v
 
 ```
 ブランチ構成:
-- `main`: 本番環境（https://yadopera.com）
-- `develop`: ステージング環境（https://staging.yadopera.com）
+- `main`: 本番環境（https://tabipera.com）
+- `develop`: ステージング環境（https://staging.tabipera.com）
 - `feature/*`: 機能開発用
 
 デプロイフロー:
@@ -431,9 +399,9 @@ docker-compose down -v
 
 ```
 環境構成:
-- 本番: https://yadopera.com
-- ステージング: https://staging.yadopera.com
-- 開発: https://dev.yadopera.com（オプション）
+- 本番: https://tabipera.com
+- ステージング: https://staging.tabipera.com
+- 開発: https://dev.tabipera.com（オプション）
 
 ブランチ構成:
 - `main`: 本番環境
@@ -441,8 +409,8 @@ docker-compose down -v
 - `feature/*`: 機能開発用
 
 Render.com設定:
-- 本番サービス: mainブランチ → yadopera.com
-- ステージングサービス: developブランチ → staging.yadopera.com
+- 本番サービス: mainブランチ → tabipera.com
+- ステージングサービス: developブランチ → staging.tabipera.com
 ```
 
 **推奨**: オプション2（サブドメインでのテストURL作成）を推奨します。
@@ -461,15 +429,12 @@ Render.com設定:
 
 ### 10.1 ドキュメント
 
-- **Phase 0ステップ計画**: `docs/Phase0/Phase0_ステップ計画.md`
-- **Phase 0進捗状況**: `docs/Phase0/Phase0_進捗状況.md`
-- **Phase 0実装整合性分析レポート**: `docs/Phase0/Phase0_実装整合性分析レポート.md`
-- **Phase 0外部サービス準備状況**: `docs/Phase0/Phase0_外部サービス準備状況.md`
-- **Phase 0ステップ10正しい実施順序**: `docs/Phase0/Phase0_ステップ10_正しい実施順序.md`
-- **Phase 0次のステップ推奨案**: `docs/Phase0/Phase0_次のステップ_推奨案.md`
-- **Phase 0フォーム送信方法調査分析**: `docs/Phase0/Phase0_フォーム送信方法_調査分析レポート.md`
-- **要約定義書**: `docs/Summary/yadopera-v03-summary.md`
-- **アーキテクチャ設計書**: `docs/Architecture/やどぺら_v0.3_アーキテクチャ設計書.md`
+- **Phase 0ステップ計画**: `docs/Phase0_ステップ計画.md`
+- **Phase 0進捗状況**: `docs/Phase0_進捗状況.md`
+- **Phase 0実装整合性分析レポート**: `docs/Phase0_実装整合性分析レポート.md`
+- **Phase 0外部サービス準備状況**: `docs/Phase0_外部サービス準備状況.md`
+- **要約定義書**: `docs/yadopera-v03-summary.md`
+- **アーキテクチャ設計書**: `docs/やどぺら_v0.3_アーキテクチャ設計書.md`
 
 ### 10.2 外部リンク
 
@@ -499,16 +464,12 @@ Render.com設定:
 ### 12.1 主要コミット
 
 ```
-aa211da Add landing page: Phase 0 step 10-1 implementation
-cc37c63 Add Phase 0 implementation consistency report v2.0: Steps 1-9 analysis
-b065786 Update summary document: Add v0.3.1 change history
-1c9b74c Update README.md: Add branch strategy and deployment environment info
-48113fd Update architecture and summary docs: Add branch strategy and deployment plan
-90408e8 Update Phase 0 handover and progress documents (v2.0)
 41dfac0 Add Phase 0 step 9: External services preparation
 1e237a6 Add README.md: Project documentation and setup guide
 640a0f6 Add Phase 0 steps 5-7: Frontend setup, DB/Redis verification, and full service startup
 6769dca Add Docker environment setup (docker-compose.yml, Dockerfiles)
+c5386db Add project directory structure
+9781b7c Initial commit: Add .gitignore
 ```
 
 ### 12.2 ブランチ
@@ -526,7 +487,7 @@ b065786 Update summary document: Add v0.3.1 change history
 
 ---
 
-**Document Version**: v2.4  
+**Document Version**: v2.2  
 **Author**: Air  
-**Last Updated**: 2025-11-26  
-**Status**: Phase 0 進行中（ステップ10-2、10-3、11完了、ステップ10-4〜10-6はDNS反映待ち）
+**Last Updated**: 2025-11-25  
+**Status**: Phase 0 進行中（90.9%完了、ステップ10ブラウザテスト完了）

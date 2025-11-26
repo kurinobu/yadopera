@@ -153,11 +153,11 @@
 - **ステータス**: ✅ **完了**（DNS反映待ち）
 - **優先度**: 高
 - **成果物**:
-  - Vercelで`tabipera.com`を追加
+  - Vercelで`yadopera.com`を追加
   - ムームードメインでDNS設定実施（Aレコード: `@` → `216.198.79.1`）
   - DNS設定反映待ち（最大48時間、明日午前中に確認予定）
 - **注意事項**:
-  - 現在`https://tabipera.com`はアクセス不可（DNS反映待ち）
+  - 現在`https://yadopera.com`はアクセス不可（DNS反映待ち）
   - DNS設定が反映されたら、VercelのDomains画面で「Valid Configuration」に変わる
 
 #### ステップ11: やどびと多言語優先度アンケート実施
@@ -179,7 +179,7 @@
 - **ステータス**: ⏳ **DNS反映待ち**
 - **優先度**: 高
 - **合計所要時間**: 約50分
-- **前提条件**: `https://tabipera.com`が利用可能になること
+- **前提条件**: `https://yadopera.com`が利用可能になること
 - **詳細**: `docs/Phase0/Phase0_ステップ10_正しい実施順序.md` を参照
 
 ---
@@ -189,12 +189,12 @@
 ### 優先度: 高（DNS反映確認後、即座に実施）
 
 1. **DNS設定の反映確認**（5分）
-   - `https://tabipera.com` にアクセスして確認
+   - `https://yadopera.com` にアクセスして確認
    - VercelのDomains画面で「Valid Configuration」になっているか確認
    - 反映されていない場合は、最大48時間待つ
 
 2. **ステップ10-4: Google Analytics 4プロパティ作成**（30分）
-   - プロパティ作成（ウェブサイトURL: `https://tabipera.com`）
+   - プロパティ作成（ウェブサイトURL: `https://yadopera.com`）
    - 測定ID取得（`G-XXXXXXXXXX`）
 
 3. **ステップ10-5: HTMLに測定ID設定**（10分）
@@ -202,7 +202,7 @@
    - コミット・プッシュ
 
 4. **ステップ10-6: 動作確認**（10分）
-   - `https://tabipera.com` でアクセス確認
+   - `https://yadopera.com` でアクセス確認
    - Google Analyticsのリアルタイムレポートで確認
 
 **合計: 約55分**（DNS反映確認後）

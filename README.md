@@ -295,11 +295,11 @@ docker-compose down -v
 **採用戦略**: オプション2（サブドメインでのテストURL作成）
 
 - `main`: 本番環境用ブランチ
-  - URL: `https://tabipera.com`
+  - URL: `https://yadopera.com`
   - データベース: Render.com PostgreSQL（Managed）
   - Redis: Redis Cloud（External）
 - `develop`: ステージング環境用ブランチ
-  - URL: `https://staging.tabipera.com`
+  - URL: `https://staging.yadopera.com`
   - データベース: Railway Hobby PostgreSQL（契約済み）
   - Redis: Railway Hobby Redis（契約済み）
 - `feature/*`: 機能開発用ブランチ
