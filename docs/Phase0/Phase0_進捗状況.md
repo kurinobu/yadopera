@@ -1,8 +1,8 @@
 # Phase 0 進捗状況
 
-**最終更新日**: 2025年11月26日  
-**バージョン**: v2.3  
-**進捗率**: 75.0%（ステップ10-2、10-3、11完了、ステップ10-4〜10-6はDNS反映待ち）
+**最終更新日**: 2025年11月27日  
+**バージョン**: v3.0  
+**進捗率**: 100%（Phase 0完了、16/16ステップ完了）※Google Analyticsデータ収集確認は48時間待ち
 
 ---
 
@@ -10,17 +10,17 @@
 
 | カテゴリ | 完了 | 未完了 | 進捗率 |
 |---------|------|--------|--------|
-| 全体 | 12 | 4 | 75.0% |
+| 全体 | 16 | 0 | 100% |
 | 環境構築 | 7 | 0 | 100% |
 | 外部サービス | 1 | 0 | 100% |
-| ランディングページ | 3 | 3 | 50.0% |
-| その他 | 1 | 1 | 50.0% |
+| ランディングページ | 7 | 0 | 100% |
+| その他 | 1 | 0 | 100% |
 
 ---
 
 ## ステップ別進捗状況
 
-### ✅ 完了済み（12ステップ）
+### ✅ 完了済み（16ステップ）
 
 #### ステップ1: GitHub リポジトリ作成・初期設定
 - **完了日**: 2025-11-25
@@ -150,15 +150,36 @@
 
 #### ステップ10-3: カスタムドメイン設定
 - **完了日**: 2025-11-26
-- **ステータス**: ✅ **完了**（DNS反映待ち）
+- **ステータス**: ✅ **完了**
 - **優先度**: 高
 - **成果物**:
   - Vercelで`yadopera.com`を追加
   - ムームードメインでDNS設定実施（Aレコード: `@` → `216.198.79.1`）
-  - DNS設定反映待ち（最大48時間、明日午前中に確認予定）
+  - DNS設定反映完了（2025-11-27確認）
 - **注意事項**:
-  - 現在`https://yadopera.com`はアクセス不可（DNS反映待ち）
-  - DNS設定が反映されたら、VercelのDomains画面で「Valid Configuration」に変わる
+  - GitHub Pages移行時、DNS設定を変更する必要がある（CNAMEレコードに変更）
+
+#### ステップ10-4: Google Analytics設定
+- **完了日**: 2025-11-27
+- **ステータス**: ✅ **完了**
+- **優先度**: 高
+- **成果物**:
+  - Google Analytics 4プロパティ作成完了
+  - プロパティ名: 「やどぺら LP」
+  - ウェブサイトURL: `https://yadopera.com`
+  - 測定ID取得: `G-BE9HZ0XGH4`
+
+#### ステップ10-5: HTMLに測定ID設定
+- **完了日**: 2025-11-27
+- **ステータス**: ✅ **完了**
+- **優先度**: 高
+- **成果物**:
+  - `landing/index.html`に測定ID設定（`G-BE9HZ0XGH4`）
+  - バックアップ作成: `landing/index.html.backup_20251127_090808`
+  - コミット・プッシュ完了（コミット: `4eddb00`）
+- **注意事項**:
+  - Vercelの自動デプロイが機能しないため、本番環境に反映されていない
+  - GitHub Pages移行後、自動デプロイで反映される予定
 
 #### ステップ11: やどびと多言語優先度アンケート実施
 - **完了日**: 2025-11-26
@@ -173,46 +194,78 @@
 - **次のアクション**:
   - 結果集計は回答期限後（Phase 1開発中）に実施
 
-### ⏳ 未完了（DNS反映待ち）
-
-#### ステップ10-4〜10-6: Google Analytics設定
-- **ステータス**: ⏳ **DNS反映待ち**
+#### ステップ10-6: 動作確認
+- **完了日**: 2025-11-27
+- **ステータス**: ✅ **完了**
 - **優先度**: 高
-- **合計所要時間**: 約50分
-- **前提条件**: `https://yadopera.com`が利用可能になること
-- **詳細**: `docs/Phase0/Phase0_ステップ10_正しい実施順序.md` を参照
+- **確認結果**:
+  - ✅ `https://yadopera.com` でアクセス確認完了（ページ正常表示）
+  - ✅ フォーム送信確認完了（Formspree連携正常）
+  - ✅ Google Analyticsリクエスト確認完了（200 OK、測定ID `G-BE9HZ0XGH4`）
+  - ⚠️ Google Analytics管理画面の警告: 実装直後（48時間未満）の正常な表示
+
+#### ステップ10-7: GitHub Pages移行
+- **完了日**: 2025-11-27
+- **ステータス**: ✅ **完了**
+- **優先度**: 高
+- **成果物**:
+  - GitHub Actionsワークフロー作成（`.github/workflows/pages.yml`）
+  - GitHub Pages設定完了（Source: GitHub Actions）
+  - カスタムドメイン設定完了（`yadopera.com`）
+  - DNS設定変更完了（Aレコード4つ: GitHub PagesのIPアドレス）
+  - デプロイ成功確認
+  - CSPエラー修正完了（Content-Security-Policyメタタグ追加）
+- **コミット**: `ad03ac0`, `c88f837`, `31c46af`
+- **詳細**: 
+  - `docs/Phase0/Phase0_ステップ10-7_GitHubPages移行_実行手順.md`
+  - `docs/Phase0/Phase0_ステップ10-7_GitHubPages移行_GitHubActions設定手順.md`
+  - `docs/Phase0/Phase0_ステップ10-7_Vercel後処理手順.md`
 
 ---
 
-## 次のセッション推奨アクション
+## Phase 0完了サマリー
 
-### 優先度: 高（DNS反映確認後、即座に実施）
+### ✅ Phase 0完了
 
-1. **DNS設定の反映確認**（5分）
-   - `https://yadopera.com` にアクセスして確認
-   - VercelのDomains画面で「Valid Configuration」になっているか確認
-   - 反映されていない場合は、最大48時間待つ
-
-2. **ステップ10-4: Google Analytics 4プロパティ作成**（30分）
-   - プロパティ作成（ウェブサイトURL: `https://yadopera.com`）
-   - 測定ID取得（`G-XXXXXXXXXX`）
-
-3. **ステップ10-5: HTMLに測定ID設定**（10分）
-   - `landing/index.html`の`G-XXXXXXXXXX`を実際の測定IDに置き換え
-   - コミット・プッシュ
-
-4. **ステップ10-6: 動作確認**（10分）
-   - `https://yadopera.com` でアクセス確認
-   - Google Analyticsのリアルタイムレポートで確認
-
-**合計: 約55分**（DNS反映確認後）
-
-**詳細**: `docs/Phase0/Phase0_ステップ10_正しい実施順序.md` および `docs/Phase0/Phase0_次のステップ_推奨案.md` を参照
+**完了日**: 2025年11月27日  
+**完了ステップ**: 16/16（100%）
 
 ### 注意事項
 
-- **DNS設定の反映**: 最大48時間かかる場合があります。明日午前中に確認予定。
-- **アンケート結果集計**: 回答期限（2025-12-05）後、Phase 1開発中に実施。
+- **Google Analyticsデータ収集確認**: 実装から48時間経過後に管理画面の警告が解消される予定（データ収集は正常に動作）
+- **Vercel後処理**: Vercelプロジェクトの削除を推奨（`docs/Phase0/Phase0_ステップ10-7_Vercel後処理手順.md`参照）
+- **アンケート結果集計**: 回答期限（2025-12-05）後、Phase 1開発中に実施
+
+---
+
+## Phase 1開始準備
+
+### Phase 1概要
+
+**期間**: 4週間  
+**目的**: MVP開発
+
+**Week 1**: バックエンド基盤  
+**Week 2**: AI対話エンジン  
+**Week 3**: フロントエンド  
+**Week 4**: 統合・テスト・ステージング環境構築
+
+### Phase 1開始前の準備事項
+
+- [x] ランディングページ公開完了
+- [x] やどびと多言語優先度アンケート配信完了（結果集計はPhase 1中）
+- [ ] `develop`ブランチ作成（Phase 1 Week 4でステージング環境構築のため）
+
+### 次のアクション
+
+1. **`develop`ブランチ作成**（約5分）
+   ```bash
+   git checkout -b develop
+   git push -u origin develop
+   ```
+
+2. **Phase 1 Week 1開始**
+   - バックエンド基盤の実装を開始
 
 ---
 
@@ -235,11 +288,15 @@
 - [x] README.md作成完了
 - [x] `docker-compose up`で全サービス起動確認完了
 - [x] 外部サービスアカウント準備完了（OpenAI API）
-- [x] LPデプロイ完了（ステップ10-2、10-3、DNS反映待ち）
+- [x] LPデプロイ完了（ステップ10-2、10-3、10-7完了、GitHub Pages移行完了）
+- [x] Google Analytics設定完了（ステップ10-4、10-5完了、動作確認完了）
 - [x] やどびと多言語優先度アンケート実施完了（ステップ11）
-- [ ] Google Analytics設定完了（ステップ10-4〜10-6、DNS反映待ち）
+- [x] GitHub Pages移行完了（ステップ10-7完了）
+- [x] 動作確認完了（ステップ10-6完了）
 
-**完了率**: 16/18項目（88.9%）
+**完了率**: 19/19項目（100%）
+
+**注意**: Google Analyticsのデータ収集確認は実装から48時間経過後に管理画面の警告が解消される予定（データ収集は正常に動作）
 
 ---
 
@@ -318,6 +375,13 @@
 ## コミット履歴
 
 ```
+31c46af Fix CSP error: Add Content-Security-Policy meta tag for font loading
+c88f837 Trigger GitHub Pages deployment: Add workflow_dispatch and update landing folder
+ad03ac0 Add GitHub Actions workflow for Pages deployment from /landing folder
+46a7aba Trigger Vercel deployment for Google Analytics update
+4eddb00 Add Google Analytics measurement ID (G-BE9HZ0XGH4) - Phase 0 step 10-5
+557c8e3 Fix domain name: Replace tabipera.com with yadopera.com in all documents
+306d978 Update Phase 0 handover and progress: Steps 10-2, 10-3, 11 completed
 aa211da Add landing page: Phase 0 step 10-1 implementation
 cc37c63 Add Phase 0 implementation consistency report v2.0: Steps 1-9 analysis
 b065786 Update summary document: Add v0.3.1 change history
@@ -343,7 +407,93 @@ b065786 Update summary document: Add v0.3.1 change history
 
 ---
 
-**Document Version**: v2.3  
+## 重要な変更履歴
+
+### v2.4 → v2.5（2025-11-27）: Railway Hobby採用決定
+
+**背景**:
+- 外部サービス評価分析レポート作成
+- Render.comのコスト（¥18,000/月）が高コストと判明
+- Vercelの失敗を踏まえ、本サービスにとって最適な選択を検討
+
+**決定**:
+- **Phase 1-3**: Railway Hobby（無料）で開始
+- **Phase 4**: 利用量増加を確認してからRender.comに移行
+
+**効果**:
+- コスト削減: ¥18,000/月（¥216,000/年）
+- BEP減少: 37施設 → 31施設（6施設減少）
+- 早期黒字化可能
+
+**詳細**: 
+- `docs/Phase0/Phase0_外部サービス評価分析レポート.md`
+- `docs/Phase0/Phase0_BEP損益分岐点説明とRailway移行効果.md`
+- `docs/Phase0/Phase0_収益計画詳細分析レポート.md`
+
+### v2.3 → v2.4（2025-11-27）: GitHub Pages移行決定
+
+**背景**:
+- Vercelの自動デプロイが機能しない
+- CLIログインが複雑で時間を浪費
+- Google Analytics設定だけで数時間を費やした
+
+**実施内容**:
+- Google Analytics 4プロパティ作成完了（測定ID: `G-BE9HZ0XGH4`）
+- HTMLに測定ID設定完了（コミット: `4eddb00`）
+- GitHub Pages移行を決定（実施予定）
+
+**詳細**: 
+- `docs/Phase0/Phase0_Vercel代替案検討.md`
+- `docs/Phase0/Phase0_ホスティングサービス選択_反省と分析.md`
+
+---
+
+---
+
+## Phase 0完了報告
+
+### 完了日: 2025年11月27日
+
+**Phase 0は完了しました。**
+
+- ✅ 全16ステップ完了（100%）
+- ✅ ランディングページ公開完了（`https://yadopera.com`）
+- ✅ Google Analytics設定完了（測定ID: `G-BE9HZ0XGH4`）
+- ✅ GitHub Pages自動デプロイ設定完了
+- ✅ やどびと多言語優先度アンケート配信完了
+
+**注意事項**:
+- Google Analyticsのデータ収集確認は実装から48時間経過後に管理画面の警告が解消される予定（データ収集は正常に動作）
+- Vercelプロジェクトの削除を推奨（`docs/Phase0/Phase0_ステップ10-7_Vercel後処理手順.md`参照）
+
+---
+
+## Phase 1開始準備
+
+### Phase 1概要
+
+**期間**: 4週間  
+**目的**: MVP開発
+
+**Week 1**: バックエンド基盤  
+**Week 2**: AI対話エンジン  
+**Week 3**: フロントエンド  
+**Week 4**: 統合・テスト・ステージング環境構築
+
+### Phase 1開始前の準備事項
+
+- [x] ランディングページ公開完了
+- [x] やどびと多言語優先度アンケート配信完了（結果集計はPhase 1中）
+- [ ] `develop`ブランチ作成（Phase 1 Week 4でステージング環境構築のため）
+
+### 次のアクション
+
+1. **`develop`ブランチ作成**（約5分）
+2. **Phase 1 Week 1開始**: バックエンド基盤の実装を開始
+
+---
+
+**Document Version**: v3.0  
 **Author**: Air  
-**Last Updated**: 2025-11-26  
-**Status**: 進行中（ステップ10-2、10-3、11完了、ステップ10-4〜10-6はDNS反映待ち）
+**Last Updated**: 2025-11-27  
+**Status**: Phase 0完了（16/16ステップ、100%）
