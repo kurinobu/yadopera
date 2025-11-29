@@ -1,9 +1,29 @@
 # Phase 1 Week 4 ステップ計画
 
 **作成日**: 2025年11月27日  
+**最終更新**: 2025年11月29日  
 **フェーズ**: Phase 1 Week 4（統合・テスト・ステージング環境構築）  
 **期間**: 1週間  
 **目的**: MVP開発の最終段階 - API連携、統合テスト、ステージング環境構築
+
+---
+
+## ⚠️ 重要: デプロイ失敗の記録
+
+**現在の状態**: ❌ **Render.comデプロイ失敗中**
+
+**失敗の完全記録**: `/docs/Phase1/Phase1_Week4_デプロイ失敗_完全記録.md`を参照
+
+**現在のエラー**: `ImportError: email-validator is not installed`
+
+**次のアクション**: `requirements.txt`に`email-validator`を追加する必要がある
+
+**詳細**: 以下の失敗が連鎖的に発生している：
+1. ❌ `ModuleNotFoundError: No module named 'app.api.v1'` → 解決済み（コミット: `e34b9a9`）
+2. ❌ `ModuleNotFoundError: No module named 'app.database'` → 解決済み（コミット: `a63564a`）
+3. ❌ `ImportError: email-validator is not installed` → **未解決（現在の状態）**
+
+---
 
 ---
 
@@ -280,10 +300,16 @@ Phase 1 Week 4では、以下の目標を達成する：
    - API連携実装（モックから実APIへ）
 
 **確認項目**:
-- [ ] QRコード生成APIが正常に動作する
-   - [ ] セッション統合トークン埋め込みオプションが正常に動作する
-   - [ ] PDF/PNG/SVG形式生成が正常に動作する
-   - [ ] フロントエンドからAPI連携が正常に動作する
+- [x] QRコード生成APIが正常に動作する（2025-11-28完了）
+   - [x] セッション統合トークン埋め込みオプションが正常に動作する
+   - [ ] PDF/PNG/SVG形式生成が正常に動作する（依存関係パッケージ追加が必要）
+   - [x] フロントエンドからAPI連携が正常に動作する
+
+**注意**: 
+- ⚠️ **依存関係パッケージの追加が必要**: `qrcode[pil]>=7.4.2`, `reportlab>=4.0.0`, `Pillow>=10.0.0`を`requirements.txt`に追加する必要がある
+- 現在はtry-exceptで処理されているため、アプリケーション起動には影響なし
+- 警告メッセージが表示されている（`qrcode library not available`, `reportlab/PIL not available`）
+- **推奨**: 即座に`requirements.txt`に追加（ステップ6は既に完了しているため）
 
 **参考**: 要約定義書 3.2 宿側機能（QRコード発行）
 
@@ -748,8 +774,77 @@ Week 4完了後、Phase 2（PoC準備）に進む：
 
 ---
 
-**Document Version**: v1.2  
+## デプロイ失敗の連鎖記録（2025-11-29）
+
+### 失敗の連鎖（最新）
+
+**実施内容**: Render.comデプロイの修正作業
+
+**結果**: ❌ **連鎖的な失敗が発生**
+
+**失敗の連鎖**:
+1. ❌ **失敗1**: `ModuleNotFoundError: No module named 'app.api.v1'`
+   - **原因**: `backend/app/api/v1/`ディレクトリがGitリポジトリに追加されていない
+   - **対応**: `backend/app/api/v1/`ディレクトリをGitリポジトリに追加（コミット: `e34b9a9`）
+   - **結果**: ❌ 次のエラーが発生
+
+2. ❌ **失敗2**: `ModuleNotFoundError: No module named 'app.database'`
+   - **原因**: Phase 1 Week 1-3で実装されたファイルの大部分がGitリポジトリに追加されていない
+   - **対応**: 不足している52ファイルをGitリポジトリに追加（コミット: `a63564a`）
+     - `database.py`, `redis_client.py`, `api/deps.py`
+     - `models/` (13ファイル), `schemas/` (11ファイル), `services/` (10ファイル)
+     - `core/` (5ファイル), `ai/` (9ファイル)
+   - **結果**: ❌ 次のエラーが発生
+
+3. ❌ **失敗3**: `ImportError: email-validator is not installed` ← **現在の状態**
+   - **原因**: `requirements.txt`に`email-validator`が含まれていない
+   - **エラー発生箇所**: `backend/app/schemas/auth.py`で`EmailStr`を使用しているが、`email-validator`がインストールされていない
+   - **対応**: **未対応（次のセッションで対応が必要）**
+
+### 現在の状態
+
+**デプロイステータス**: ❌ **失敗中**
+
+**現在のエラー**: `ImportError: email-validator is not installed`
+
+**次のアクション**: `requirements.txt`に`email-validator`を追加する必要がある
+
+**詳細**: `/docs/Phase1/Phase1_Week4_デプロイ失敗_完全記録.md`を参照
+
+### 追加されたファイル
+
+**合計**: 52ファイルが追加された（コミット: `a63564a`）
+
+**内訳**:
+- `backend/app/api/v1/`: 13ファイル
+- `backend/app/database.py`: 1ファイル
+- `backend/app/redis_client.py`: 1ファイル
+- `backend/app/api/deps.py`: 1ファイル
+- `backend/app/models/`: 13ファイル
+- `backend/app/schemas/`: 11ファイル
+- `backend/app/services/`: 10ファイル
+- `backend/app/core/`: 5ファイル
+- `backend/app/ai/`: 9ファイル
+
+### 次のセッションでの対応
+
+**最優先作業**: `requirements.txt`に`email-validator`を追加
+
+**手順**:
+1. `backend/requirements.txt`を編集
+2. `email-validator==2.1.0`を追加（または`pydantic[email]==2.5.3`を使用）
+3. 変更をコミット・プッシュ
+4. Render.comで自動再デプロイが実行されるのを待つ
+
+**確認項目**:
+- [ ] `requirements.txt`に`email-validator`が追加されているか
+- [ ] デプロイが成功しているか
+- [ ] `/api/v1/health`エンドポイントが正常に動作するか
+
+---
+
+**Document Version**: v1.3  
 **Author**: AI Assistant  
-**Last Updated**: 2025-11-28  
-**Status**: Phase 1 Week 4 ステップ計画進行中（ステップ9失敗、デプロイエラー未解決）
+**Last Updated**: 2025-11-29  
+**Status**: Phase 1 Week 4 ステップ計画進行中（デプロイ失敗連鎖中、`email-validator`不足が原因）
 
