@@ -59,6 +59,7 @@ else:
     )
 
 # テスト用セッション作成
+# Event loopエラーを防ぐため、適切な設定を使用
 TestSessionLocal = async_sessionmaker(
     test_engine,
     class_=AsyncSession,
@@ -67,48 +68,74 @@ TestSessionLocal = async_sessionmaker(
     autoflush=False,
 )
 
+# テスト終了時のクリーンアップ
+@pytest.fixture(scope="session", autouse=True)
+async def cleanup_test_engine():
+    """
+    テスト終了時にエンジンをクリーンアップ
+    Event loopエラーを防ぐため、適切なタイミングでエンジンをクローズ
+    """
+    yield
+    # すべてのテストが終了した後にエンジンをクローズ
+    try:
+        await test_engine.dispose()
+    except Exception:
+        pass  # エンジンのクローズエラーは無視
+
 
 @pytest.fixture(scope="function")
 async def db_session():
     """
     テスト用データベースセッション
     各テスト関数ごとに新しいセッションを作成
+    Event loopエラーを防ぐため、接続の管理を改善
     """
     # セットアップ: テーブル作成
     # ステージング環境（TEST_DATABASE_URLが設定されている場合）ではテーブル作成をスキップ
     # ローカル環境（TEST_DATABASE_URLが未設定）ではテーブルを作成
     if USE_POSTGRES_TEST:
         # PostgreSQL環境: pgvector拡張有効化 + テーブル作成
-        async with test_engine.begin() as conn:
-            # pgvector拡張有効化
-            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            # テーブル作成（ステージング環境では既に存在する可能性があるため、エラーを無視）
-            try:
-                await conn.run_sync(Base.metadata.create_all)
-            except Exception:
-                # テーブルが既に存在する場合は無視（ステージング環境）
-                pass
+        try:
+            async with test_engine.begin() as conn:
+                # pgvector拡張有効化
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                # テーブル作成（ステージング環境では既に存在する可能性があるため、エラーを無視）
+                try:
+                    await conn.run_sync(Base.metadata.create_all)
+                except Exception:
+                    # テーブルが既に存在する場合は無視（ステージング環境）
+                    pass
+        except Exception:
+            # 接続エラーを無視（既にテーブルが存在する場合など）
+            pass
     else:
         # SQLite環境: テーブル作成のみ
-        async with test_engine.begin() as conn:
-            await conn.run_sync(Base.metadata.create_all)
+        try:
+            async with test_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.create_all)
+        except Exception:
+            # 接続エラーを無視
+            pass
     
     # セッション作成とクリーンアップ
-    session = TestSessionLocal()
+    session = None
     try:
+        session = TestSessionLocal()
         yield session
     finally:
         # セッションの明示的なクローズとロールバック
-        try:
-            # 未コミットのトランザクションをロールバック
-            await session.rollback()
-        except Exception:
-            pass  # ロールバックエラーは無視（既にコミット済みまたはロールバック済みの場合）
-        finally:
+        # イベントループが閉じられる前にクローズする
+        if session:
             try:
-                await session.close()
-            except Exception:
-                pass  # クローズエラーは無視
+                # 未コミットのトランザクションをロールバック
+                await session.rollback()
+            except (Exception, RuntimeError):
+                pass  # ロールバックエラーは無視（既にコミット済みまたはロールバック済みの場合、またはイベントループが閉じられている場合）
+            finally:
+                try:
+                    await session.close()
+                except (Exception, RuntimeError):
+                    pass  # クローズエラーは無視（イベントループが閉じられている場合など）
     
     # テスト後のクリーンアップ: テーブル削除
     # ステージング環境（TEST_DATABASE_URLが設定されている場合）ではテーブル削除をスキップ
@@ -118,14 +145,15 @@ async def db_session():
         try:
             if USE_POSTGRES_TEST:
                 # PostgreSQL環境: テーブル削除（データベースは保持）
-                async with test_engine.begin() as conn:
-                    await conn.run_sync(Base.metadata.drop_all)
+                async with test_engine.begin() as cleanup_conn:
+                    await cleanup_conn.run_sync(Base.metadata.drop_all)
             else:
                 # SQLite環境: テーブル削除
-                async with test_engine.begin() as conn:
-                    await conn.run_sync(Base.metadata.drop_all)
-        except Exception:
-            pass  # クリーンアップエラーは無視（テーブルが存在しない場合など）
+                async with test_engine.begin() as cleanup_conn:
+                    await cleanup_conn.run_sync(Base.metadata.drop_all)
+        except (Exception, RuntimeError):
+            # クリーンアップエラーは無視（テーブルが存在しない場合やイベントループが閉じられている場合など）
+            pass
 
 
 @pytest.fixture(scope="function")
