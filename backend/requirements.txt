@@ -37,4 +37,8 @@ email-validator==2.2.0  # Pydantic EmailStr サポート（yanked version回避�
 # Timezone
 pytz==2024.2  # タイムゾーン処理
 
+# QR Code Generation (Phase 1 Week 4 Step 6)
+qrcode[pil]>=7.4.2  # QRコード生成
+reportlab>=4.0.0  # PDF生成
+Pillow>=10.0.0  # 画像処理
 
