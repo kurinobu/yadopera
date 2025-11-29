@@ -123,7 +123,6 @@ class TestVectorSearch:
             pattern_embedding=mock_embedding,
             total_count=10,
             resolved_count=8,
-            is_active=True,
         )
         db_session.add(pattern)
         await db_session.commit()

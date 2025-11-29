@@ -96,8 +96,15 @@ class TestLogin:
         
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         data = response.json()
-        assert "error" in data
-        assert data["error"]["code"] == "VALIDATION_ERROR"
+        # FastAPIのバリデーションエラーは "detail" キーを使用
+        assert "detail" in data
+        assert isinstance(data["detail"], list)
+        assert len(data["detail"]) > 0
+        # エラーの詳細を確認
+        error_detail = data["detail"][0]
+        assert "loc" in error_detail
+        assert "msg" in error_detail
+        assert "type" in error_detail
 
 
 class TestLogout:

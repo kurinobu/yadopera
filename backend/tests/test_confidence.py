@@ -45,8 +45,8 @@ class TestConfidence:
         return faq
     
     @pytest.mark.asyncio
-    @patch('app.ai.confidence.search_similar_patterns')
-    @patch('app.ai.confidence.generate_embedding')
+    @patch('app.ai.vector_search.search_similar_patterns')
+    @patch('app.ai.embeddings.generate_embedding')
     async def test_base_confidence(self, mock_generate_embedding, mock_search_patterns, db_session, mock_faq):
         """基本信頼度スコアテスト"""
         # モック設定
@@ -65,8 +65,8 @@ class TestConfidence:
         assert confidence == Decimal("0.7")
     
     @pytest.mark.asyncio
-    @patch('app.ai.confidence.search_similar_patterns')
-    @patch('app.ai.confidence.generate_embedding')
+    @patch('app.ai.vector_search.search_similar_patterns')
+    @patch('app.ai.embeddings.generate_embedding')
     async def test_short_response_penalty(self, mock_generate_embedding, mock_search_patterns, db_session, mock_faq):
         """短い回答のペナルティテスト"""
         # モック設定
@@ -85,8 +85,8 @@ class TestConfidence:
         assert confidence == Decimal("0.5")
     
     @pytest.mark.asyncio
-    @patch('app.ai.confidence.search_similar_patterns')
-    @patch('app.ai.confidence.generate_embedding')
+    @patch('app.ai.vector_search.search_similar_patterns')
+    @patch('app.ai.embeddings.generate_embedding')
     async def test_uncertain_phrase_penalty(self, mock_generate_embedding, mock_search_patterns, db_session, mock_faq):
         """不確実性ワード検出ペナルティテスト"""
         # モック設定
@@ -105,8 +105,8 @@ class TestConfidence:
         assert confidence == Decimal("0.55")
     
     @pytest.mark.asyncio
-    @patch('app.ai.confidence.search_similar_patterns')
-    @patch('app.ai.confidence.generate_embedding')
+    @patch('app.ai.vector_search.search_similar_patterns')
+    @patch('app.ai.embeddings.generate_embedding')
     async def test_proper_noun_bonus(self, mock_generate_embedding, mock_search_patterns, db_session, mock_faq):
         """固有名詞ボーナステスト"""
         # モック設定
@@ -125,8 +125,8 @@ class TestConfidence:
         assert confidence == Decimal("0.8")
     
     @pytest.mark.asyncio
-    @patch('app.ai.confidence.search_similar_patterns')
-    @patch('app.ai.confidence.generate_embedding')
+    @patch('app.ai.vector_search.search_similar_patterns')
+    @patch('app.ai.embeddings.generate_embedding')
     async def test_number_bonus(self, mock_generate_embedding, mock_search_patterns, db_session, mock_faq):
         """数値ボーナステスト"""
         # モック設定
@@ -145,8 +145,8 @@ class TestConfidence:
         assert confidence == Decimal("0.8")
     
     @pytest.mark.asyncio
-    @patch('app.ai.confidence.search_similar_patterns')
-    @patch('app.ai.confidence.generate_embedding')
+    @patch('app.ai.vector_search.search_similar_patterns')
+    @patch('app.ai.embeddings.generate_embedding')
     async def test_custom_faq_bonus(self, mock_generate_embedding, mock_search_patterns, db_session, mock_custom_faq):
         """カスタムFAQボーナステスト"""
         # モック設定
@@ -165,8 +165,8 @@ class TestConfidence:
         assert confidence == Decimal("1.0")
     
     @pytest.mark.asyncio
-    @patch('app.ai.confidence.search_similar_patterns')
-    @patch('app.ai.confidence.generate_embedding')
+    @patch('app.ai.vector_search.search_similar_patterns')
+    @patch('app.ai.embeddings.generate_embedding')
     async def test_confidence_clipping(self, mock_generate_embedding, mock_search_patterns, db_session, mock_faq):
         """信頼度スコアのクリッピングテスト（0.0-1.0）"""
         # モック設定
@@ -188,8 +188,8 @@ class TestConfidence:
         assert confidence <= Decimal("1.0")
     
     @pytest.mark.asyncio
-    @patch('app.ai.confidence.search_similar_patterns')
-    @patch('app.ai.confidence.generate_embedding')
+    @patch('app.ai.vector_search.search_similar_patterns')
+    @patch('app.ai.embeddings.generate_embedding')
     async def test_multiple_penalties(self, mock_generate_embedding, mock_search_patterns, db_session, mock_faq):
         """複数のペナルティが適用されるテスト"""
         # モック設定

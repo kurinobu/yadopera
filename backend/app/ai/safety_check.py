@@ -11,7 +11,7 @@ MEDICAL_KEYWORDS = [
 
 # 安全・避難関連キーワード
 SAFETY_KEYWORDS = [
-    'fire', 'earthquake', 'evacuation', 'escape', 'escape route',
+    'fire', 'earthquake', 'evacuation', 'evacuate', 'escape', 'escape route',
     'emergency exit', 'tsunami', 'typhoon',
     '火災', '火事', '地震', '避難', '非常口', '津波', '台風'
 ]
