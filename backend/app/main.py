@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
+from app.api.v1.router import api_router
 
 app = FastAPI(
     title="やどぺら API",
@@ -29,4 +30,8 @@ def read_root():
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+# APIルーター登録
+app.include_router(api_router, prefix="/api/v1")
 
