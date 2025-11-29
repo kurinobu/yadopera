@@ -1,0 +1,166 @@
+"""
+pytest設定ファイル
+テスト用のフィクスチャを定義
+"""
+
+import os
+import pytest
+import asyncio
+from fastapi.testclient import TestClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
+
+from app.main import app
+from app.database import Base, get_db
+from app.core.security import hash_password
+
+
+# 環境変数でPostgreSQLテスト環境を有効化
+USE_POSTGRES_TEST = os.getenv("USE_POSTGRES_TEST", "false").lower() == "true"
+
+# テスト用データベースURL
+if USE_POSTGRES_TEST:
+    # PostgreSQL + pgvectorテスト環境
+    TEST_DATABASE_URL = "postgresql+asyncpg://yadopera_user:yadopera_password@localhost:5433/yadopera_test"
+else:
+    # SQLiteテスト環境（デフォルト）
+    TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+# テスト用エンジン作成
+if USE_POSTGRES_TEST:
+    # PostgreSQL用エンジン設定
+    test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        pool_size=5,
+        max_overflow=0,
+        pool_pre_ping=True,
+        echo=False,
+    )
+else:
+    # SQLite用エンジン設定
+    test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False,
+    )
+
+# テスト用セッション作成
+TestSessionLocal = async_sessionmaker(
+    test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+
+@pytest.fixture(scope="function")
+async def db_session():
+    """
+    テスト用データベースセッション
+    各テスト関数ごとに新しいセッションを作成
+    """
+    # セットアップ: テーブル作成
+    if USE_POSTGRES_TEST:
+        # PostgreSQL環境: pgvector拡張有効化 + テーブル作成
+        async with test_engine.begin() as conn:
+            # pgvector拡張有効化
+            await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            # テーブル作成
+            await conn.run_sync(Base.metadata.create_all)
+    else:
+        # SQLite環境: テーブル作成のみ
+        async with test_engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    
+    # セッション作成とクリーンアップ
+    session = TestSessionLocal()
+    try:
+        yield session
+    finally:
+        # セッションの明示的なクローズとロールバック
+        try:
+            # 未コミットのトランザクションをロールバック
+            await session.rollback()
+        except Exception:
+            pass  # ロールバックエラーは無視（既にコミット済みまたはロールバック済みの場合）
+        finally:
+            try:
+                await session.close()
+            except Exception:
+                pass  # クローズエラーは無視
+    
+    # テスト後のクリーンアップ: テーブル削除
+    try:
+        if USE_POSTGRES_TEST:
+            # PostgreSQL環境: テーブル削除（データベースは保持）
+            async with test_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+        else:
+            # SQLite環境: テーブル削除
+            async with test_engine.begin() as conn:
+                await conn.run_sync(Base.metadata.drop_all)
+    except Exception:
+        pass  # クリーンアップエラーは無視（テーブルが存在しない場合など）
+
+
+@pytest.fixture(scope="function")
+async def client(db_session):
+    """
+    テスト用FastAPIクライアント
+    """
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    with TestClient(app) as test_client:
+        yield test_client
+    
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def test_facility(db_session: AsyncSession):
+    """
+    テスト用施設データ
+    """
+    from app.models.facility import Facility
+    
+    facility = Facility(
+        name="Test Hotel",
+        slug="test-hotel",
+        email="test@example.com",
+        phone="090-1234-5678",
+        address="Test Address",
+        is_active=True,
+    )
+    db_session.add(facility)
+    await db_session.commit()
+    await db_session.refresh(facility)
+    return facility
+
+
+@pytest.fixture
+async def test_user(db_session: AsyncSession, test_facility):
+    """
+    テスト用ユーザーデータ
+    """
+    from app.models.user import User
+    
+    user = User(
+        facility_id=test_facility.id,
+        email="test@example.com",
+        password_hash=hash_password("testpassword123"),
+        full_name="Test User",
+        role="staff",
+        is_active=True,
+    )
+    db_session.add(user)
+    await db_session.commit()
+    await db_session.refresh(user)
+    return user
+
