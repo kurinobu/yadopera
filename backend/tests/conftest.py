@@ -176,8 +176,26 @@ async def client(db_session):
 async def test_facility(db_session: AsyncSession):
     """
     テスト用施設データ
+    トランザクション内で作成し、テスト終了時にロールバックで削除
+    
+    ステージング環境では既存のテストデータを削除してから作成
     """
     from app.models.facility import Facility
+    from sqlalchemy import select, delete
+    
+    # ステージング環境（TEST_DATABASE_URLが設定されている場合）では既存データを削除
+    if os.getenv("TEST_DATABASE_URL"):
+        # 既存のテストデータを検索して削除
+        result = await db_session.execute(
+            select(Facility).where(
+                (Facility.slug == "test-hotel") | (Facility.email == "test@example.com")
+            )
+        )
+        existing_facilities = result.scalars().all()
+        for existing_facility in existing_facilities:
+            await db_session.delete(existing_facility)
+        # 削除をコミット（既存データの削除は永続化、新しいトランザクションを開始）
+        await db_session.commit()
     
     facility = Facility(
         name="Test Hotel",
@@ -188,7 +206,9 @@ async def test_facility(db_session: AsyncSession):
         is_active=True,
     )
     db_session.add(facility)
-    await db_session.commit()
+    # commit()を削除: トランザクション内でデータを作成し、テスト終了時にrollback()で削除
+    # flush()でIDを取得（外部キー制約で必要）
+    await db_session.flush()
     await db_session.refresh(facility)
     return facility
 
@@ -197,8 +217,24 @@ async def test_facility(db_session: AsyncSession):
 async def test_user(db_session: AsyncSession, test_facility):
     """
     テスト用ユーザーデータ
+    トランザクション内で作成し、テスト終了時にロールバックで削除
+    
+    ステージング環境では既存のテストデータを削除してから作成
     """
     from app.models.user import User
+    from sqlalchemy import select
+    
+    # ステージング環境（TEST_DATABASE_URLが設定されている場合）では既存データを削除
+    if os.getenv("TEST_DATABASE_URL"):
+        # 既存のテストデータを検索して削除
+        result = await db_session.execute(
+            select(User).where(User.email == "test@example.com")
+        )
+        existing_users = result.scalars().all()
+        for existing_user in existing_users:
+            await db_session.delete(existing_user)
+        # 削除をコミット（既存データの削除は永続化、新しいトランザクションを開始）
+        await db_session.commit()
     
     user = User(
         facility_id=test_facility.id,
@@ -209,7 +245,9 @@ async def test_user(db_session: AsyncSession, test_facility):
         is_active=True,
     )
     db_session.add(user)
-    await db_session.commit()
+    # commit()を削除: トランザクション内でデータを作成し、テスト終了時にrollback()で削除
+    # flush()でIDを取得（外部キー制約で必要）
+    await db_session.flush()
     await db_session.refresh(user)
     return user
 
