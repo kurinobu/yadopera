@@ -11,9 +11,10 @@ from app.core.security import hash_password
 class TestLogin:
     """ログインAPIテスト"""
     
-    def test_login_success(self, client, test_user):
+    @pytest.mark.asyncio
+    async def test_login_success(self, client, test_user):
         """正常なログイン"""
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/login",
             json={
                 "email": "test@example.com",
@@ -29,9 +30,10 @@ class TestLogin:
         assert "user" in data
         assert data["user"]["email"] == "test@example.com"
     
-    def test_login_invalid_email(self, client, test_user):
+    @pytest.mark.asyncio
+    async def test_login_invalid_email(self, client, test_user):
         """存在しないメールアドレスでのログイン"""
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/login",
             json={
                 "email": "invalid@example.com",
@@ -44,9 +46,10 @@ class TestLogin:
         assert "error" in data
         assert data["error"]["code"] == "UNAUTHORIZED"
     
-    def test_login_invalid_password(self, client, test_user):
+    @pytest.mark.asyncio
+    async def test_login_invalid_password(self, client, test_user):
         """間違ったパスワードでのログイン"""
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/login",
             json={
                 "email": "test@example.com",
@@ -75,7 +78,7 @@ class TestLogin:
         db_session.add(inactive_user)
         await db_session.commit()
         
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/login",
             json={
                 "email": "inactive@example.com",
@@ -85,9 +88,10 @@ class TestLogin:
         
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
     
-    def test_login_validation_error(self, client):
+    @pytest.mark.asyncio
+    async def test_login_validation_error(self, client):
         """バリデーションエラー（メールアドレスなし）"""
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/login",
             json={
                 "password": "testpassword123"
@@ -110,10 +114,11 @@ class TestLogin:
 class TestLogout:
     """ログアウトAPIテスト"""
     
-    def test_logout_success(self, client, test_user):
+    @pytest.mark.asyncio
+    async def test_logout_success(self, client, test_user):
         """正常なログアウト"""
         # まずログイン
-        login_response = client.post(
+        login_response = await client.post(
             "/api/v1/auth/login",
             json={
                 "email": "test@example.com",
@@ -124,7 +129,7 @@ class TestLogout:
         token = login_response.json()["access_token"]
         
         # ログアウト
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/logout",
             headers={"Authorization": f"Bearer {token}"}
         )
@@ -133,15 +138,17 @@ class TestLogout:
         data = response.json()
         assert data["message"] == "Logged out successfully"
     
-    def test_logout_without_token(self, client):
+    @pytest.mark.asyncio
+    async def test_logout_without_token(self, client):
         """トークンなしでのログアウト"""
-        response = client.post("/api/v1/auth/logout")
+        response = await client.post("/api/v1/auth/logout")
         
         assert response.status_code == status.HTTP_403_FORBIDDEN
     
-    def test_logout_invalid_token(self, client):
+    @pytest.mark.asyncio
+    async def test_logout_invalid_token(self, client):
         """無効なトークンでのログアウト"""
-        response = client.post(
+        response = await client.post(
             "/api/v1/auth/logout",
             headers={"Authorization": "Bearer invalid_token"}
         )

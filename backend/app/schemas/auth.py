@@ -46,3 +46,19 @@ class LogoutResponse(BaseModel):
     """
     message: str = Field(default="Logged out successfully", description="ログアウトメッセージ")
 
+
+class PasswordChangeRequest(BaseModel):
+    """
+    パスワード変更リクエスト
+    """
+    current_password: str = Field(..., min_length=1, description="現在のパスワード")
+    new_password: str = Field(..., min_length=8, description="新しいパスワード（最小8文字）")
+    confirm_password: str = Field(..., min_length=8, description="新しいパスワード（確認）")
+
+
+class PasswordChangeResponse(BaseModel):
+    """
+    パスワード変更レスポンス
+    """
+    message: str = Field(default="Password changed successfully", description="パスワード変更メッセージ")
+

@@ -150,9 +150,8 @@ const handleEdit = (faq: FAQ) => {
 }
 
 const handleDelete = (faq: FAQ) => {
-  if (confirm(`「${faq.question}」を削除しますか？`)) {
-    emit('delete', faq)
-  }
+  // 確認は親コンポーネント（FaqManagement.vue）で行う
+  emit('delete', faq)
 }
 </script>
 

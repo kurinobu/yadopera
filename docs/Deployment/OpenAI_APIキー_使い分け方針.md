@@ -65,3 +65,4 @@
 2. Render.comの`OPENAI_API_KEY`環境変数に設定
 3. 本番環境用キーはPhase 4で作成
 
+

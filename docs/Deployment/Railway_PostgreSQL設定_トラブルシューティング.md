@@ -64,3 +64,4 @@ CREATE EXTENSION IF NOT EXISTS vector;
 
 pgvector拡張の有効化が完了したら、次はRedisサービスの追加に進みます。
 
+

@@ -31,10 +31,10 @@
             QRコードについて
           </h3>
           <ul class="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
-            <li>設置場所別にQRコードを生成できます</li>
-            <li>セッション統合トークンを埋め込むことで、デバイス間で会話履歴を統合できます（v0.3新規）</li>
-            <li>PDF/PNG/SVG形式でダウンロード可能（A4印刷用サイズ）</li>
-            <li>推奨サイズ: 10cm × 10cm以上</li>
+            <li><strong>使い方</strong>: 設置場所を選択すると、QRコードのプレビューが自動表示されます</li>
+            <li>プレビュー下のボタンから、PDF/PNG/SVG形式でダウンロードできます</li>
+            <li>「生成済みQRコード一覧に追加」ボタンで、生成済みQRコード一覧に保存できます</li>
+            <li>推奨サイズ: 10cm × 10cm以上（A4印刷用サイズ）</li>
           </ul>
         </div>
       </div>
@@ -61,10 +61,10 @@
     <div v-if="generatedQRCodes.length > 0" class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700">
       <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-          生成済みQRコード
+          生成済みQRコード一覧
         </h2>
         <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-          過去に生成したQRコード
+          このセッションで生成したQRコード。各形式でダウンロードできます。
         </p>
       </div>
       <div class="p-6">
@@ -74,21 +74,13 @@
             :key="qrCode.id"
             class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
           >
-            <div class="flex items-center justify-between mb-3">
-              <div>
-                <p class="text-sm font-medium text-gray-900 dark:text-white">
-                  {{ getLocationLabel(qrCode.location) }}
-                </p>
-                <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  {{ formatDateTime(qrCode.created_at) }}
-                </p>
-              </div>
-              <span
-                v-if="qrCode.include_session_token"
-                class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded"
-              >
-                トークン有り
-              </span>
+            <div class="mb-3">
+              <p class="text-sm font-medium text-gray-900 dark:text-white">
+                {{ getLocationLabel(qrCode.location, qrCode.custom_location_name) }}
+              </p>
+              <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                {{ formatDateTime(qrCode.created_at) }}
+              </p>
             </div>
             <div class="flex items-center justify-center mb-3">
               <img
@@ -97,24 +89,32 @@
                 class="w-32 h-32 border border-gray-300 dark:border-gray-600 rounded-lg"
               />
             </div>
-            <div class="flex items-center justify-center space-x-2">
+            <div class="space-y-2">
+              <div class="flex items-center justify-center space-x-2">
+                <button
+                  @click="handleDownloadExisting(qrCode, 'pdf')"
+                  class="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 rounded transition-colors"
+                >
+                  PDF
+                </button>
+                <button
+                  @click="handleDownloadExisting(qrCode, 'png')"
+                  class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 rounded transition-colors"
+                >
+                  PNG
+                </button>
+                <button
+                  @click="handleDownloadExisting(qrCode, 'svg')"
+                  class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded transition-colors"
+                >
+                  SVG
+                </button>
+              </div>
               <button
-                @click="handleDownloadExisting(qrCode, 'pdf')"
-                class="px-3 py-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 rounded transition-colors"
+                @click="handleRemoveFromList(qrCode.id)"
+                class="w-full px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded transition-colors"
               >
-                PDF
-              </button>
-              <button
-                @click="handleDownloadExisting(qrCode, 'png')"
-                class="px-3 py-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 rounded transition-colors"
-              >
-                PNG
-              </button>
-              <button
-                @click="handleDownloadExisting(qrCode, 'svg')"
-                class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded transition-colors"
-              >
-                SVG
+                一覧から削除
               </button>
             </div>
           </div>
@@ -143,7 +143,6 @@ interface GeneratedQRCode {
   id: number
   location: QRCodeLocation
   custom_location_name?: string
-  include_session_token: boolean
   qr_code_url: string
   qr_code_data: string
   created_at: string
@@ -166,12 +165,27 @@ const fetchFacilityInfo = async () => {
   }
 }
 
-// コンポーネントマウント時に施設情報取得
-onMounted(() => {
-  fetchFacilityInfo()
+// 生成済みQRコード一覧を取得
+const fetchGeneratedQRCodes = async () => {
+  try {
+    const response = await qrcodeApi.listQRCodes()
+    generatedQRCodes.value = response.qr_codes
+  } catch (err: any) {
+    console.error('Failed to fetch QR codes:', err)
+    // エラーは表示しない（初回アクセス時は空の一覧で問題ない）
+  }
+}
+
+// コンポーネントマウント時に施設情報取得と生成済みQRコード一覧取得
+onMounted(async () => {
+  await fetchFacilityInfo()
+  await fetchGeneratedQRCodes()
 })
 
-const getLocationLabel = (location: QRCodeLocation): string => {
+const getLocationLabel = (location: QRCodeLocation, customLocationName?: string): string => {
+  if (location === 'custom' && customLocationName) {
+    return customLocationName
+  }
   const labels: Record<QRCodeLocation, string> = {
     entrance: '入口',
     room: '客室',
@@ -185,9 +199,7 @@ const getLocationLabel = (location: QRCodeLocation): string => {
 const handleGenerate = async (data: {
   location: QRCodeLocation
   custom_location_name?: string
-  include_session_token: boolean
   format: 'pdf' | 'png' | 'svg'
-  primary_session_id?: string
 }) => {
   if (loading.value || !facilityId.value) return
   
@@ -195,16 +207,17 @@ const handleGenerate = async (data: {
     loading.value = true
     error.value = null
     
-    const qrCode = await qrcodeApi.generateQRCode({
+    // データベースに保存するAPIを呼び出し
+    await qrcodeApi.generateQRCode({
       location: data.location,
       custom_location_name: data.custom_location_name,
-      include_session_token: data.include_session_token,
-      format: data.format,
-      primary_session_id: data.primary_session_id
+      include_session_token: false,
+      format: data.format
     })
     
-    generatedQRCodes.value.unshift(qrCode)
-    alert('QRコードを生成しました。')
+    // データベースから最新の一覧を取得（重複を防ぐため）
+    await fetchGeneratedQRCodes()
+    // 成功メッセージは表示しない（生成済みQRコード一覧に追加されることが明確）
   } catch (err: any) {
     console.error('Generate QR code error:', err)
     error.value = err.response?.data?.detail || 'QRコードの生成に失敗しました'
@@ -218,28 +231,98 @@ const handleCancel = () => {
   // フォームをリセット（QRCodeFormコンポーネント内で処理）
 }
 
+/**
+ * Data URLをBlobに変換してダウンロードする
+ */
+const downloadDataUrl = (dataUrl: string, filename: string) => {
+  // Data URL形式を解析
+  const matches = dataUrl.match(/^data:([^;]+);base64,(.+)$/)
+  if (!matches) {
+    // Data URL形式でない場合は直接ダウンロードを試みる
+    const link = document.createElement('a')
+    link.href = dataUrl
+    link.download = filename
+    link.target = '_blank'
+    link.click()
+    return
+  }
+
+  const mimeType = matches[1]
+  const base64Data = matches[2]
+
+  // Base64データをバイナリに変換
+  const byteCharacters = atob(base64Data)
+  const byteNumbers = new Array(byteCharacters.length)
+  for (let i = 0; i < byteCharacters.length; i++) {
+    byteNumbers[i] = byteCharacters.charCodeAt(i)
+  }
+  const byteArray = new Uint8Array(byteNumbers)
+
+  // Blobを作成
+  const blob = new Blob([byteArray], { type: mimeType })
+  const blobUrl = URL.createObjectURL(blob)
+
+  // ダウンロードリンクを作成
+  const link = document.createElement('a')
+  link.href = blobUrl
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+
+  // Blob URLを解放（メモリリーク防止）
+  setTimeout(() => {
+    URL.revokeObjectURL(blobUrl)
+  }, 100)
+}
+
+const handleRemoveFromList = async (id: number) => {
+  try {
+    await qrcodeApi.deleteQRCode(id)
+    // 一覧から削除
+    const index = generatedQRCodes.value.findIndex(qr => qr.id === id)
+    if (index !== -1) {
+      generatedQRCodes.value.splice(index, 1)
+    }
+  } catch (err: any) {
+    console.error('Failed to delete QR code:', err)
+    alert(err.response?.data?.detail || 'QRコードの削除に失敗しました')
+  }
+}
+
 const handleDownloadExisting = async (qrCode: QRCodeResponse, format: 'pdf' | 'png' | 'svg') => {
   try {
+    let qrCodeUrl: string
+    let filename: string
+
     // 指定された形式でQRコードを再生成（または既存のURLを使用）
     if (qrCode.format === format) {
       // 同じ形式の場合は既存のURLを使用
-      const link = document.createElement('a')
-      link.href = qrCode.qr_code_url
-      link.download = `qrcode-${qrCode.location}-${qrCode.id}.${format}`
-      link.click()
+      qrCodeUrl = qrCode.qr_code_url
+      filename = `qrcode-${qrCode.location}-${qrCode.id}.${format}`
     } else {
       // 異なる形式の場合は再生成
       const newQRCode = await qrcodeApi.generateQRCode({
         location: qrCode.location,
         custom_location_name: qrCode.custom_location_name,
-        include_session_token: qrCode.include_session_token,
         format: format
       })
-      
+      qrCodeUrl = newQRCode.qr_code_url
+      filename = `qrcode-${newQRCode.location}-${newQRCode.id}.${format}`
+    }
+
+    // Data URL形式の場合はBlobに変換してダウンロード
+    if (qrCodeUrl.startsWith('data:')) {
+      downloadDataUrl(qrCodeUrl, filename)
+    } else {
+      // 外部URLの場合は直接ダウンロードを試みる
       const link = document.createElement('a')
-      link.href = newQRCode.qr_code_url
-      link.download = `qrcode-${newQRCode.location}-${newQRCode.id}.${format}`
+      link.href = qrCodeUrl
+      link.download = filename
+      link.target = '_blank'
+      document.body.appendChild(link)
       link.click()
+      document.body.removeChild(link)
     }
   } catch (err: any) {
     console.error('Download QR code error:', err)

@@ -4,6 +4,7 @@
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { authApi } from '@/api/auth'
 import type { User } from '@/types/auth'
 
 export const useAuthStore = defineStore('auth', () => {
@@ -36,11 +37,19 @@ export const useAuthStore = defineStore('auth', () => {
     setToken(null)
   }
 
-  function initAuth() {
+  async function initAuth() {
     const storedToken = localStorage.getItem('auth_token')
     if (storedToken) {
       token.value = storedToken
-      // TODO: トークンからユーザー情報を取得（Week 4で実装）
+      try {
+        // トークンからユーザー情報を取得
+        const userData = await authApi.getCurrentUser()
+        setUser(userData)
+      } catch (error) {
+        // トークンが無効な場合、ログアウト
+        console.error('Failed to get current user:', error)
+        logout()
+      }
     }
   }
 

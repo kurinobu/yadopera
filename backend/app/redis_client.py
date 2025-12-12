@@ -47,3 +47,4 @@ async def close_redis():
     await pool.disconnect()
     logger.info("Redis connection closed")
 
+

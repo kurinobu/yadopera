@@ -22,6 +22,23 @@
         </button>
       </div>
 
+      <!-- ユーザー情報 -->
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center space-x-3">
+          <div class="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold flex-shrink-0">
+            {{ userInitial }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+              {{ user?.full_name || 'User' }}
+            </p>
+            <p class="text-xs text-gray-500 dark:text-gray-400 truncate">
+              {{ user?.email }}
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- ナビゲーションメニュー -->
       <nav class="flex-1 px-4 py-4 space-y-2 overflow-y-auto">
         <NavItem
@@ -32,6 +49,19 @@
           :icon="item.icon"
         />
       </nav>
+
+      <!-- ログアウトボタン -->
+      <div class="px-4 py-4 border-t border-gray-200 dark:border-gray-700">
+        <button
+          @click="handleLogout"
+          class="w-full flex items-center space-x-3 px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+        >
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+          </svg>
+          <span>ログアウト / Logout</span>
+        </button>
+      </div>
     </div>
   </aside>
 
@@ -44,8 +74,9 @@
 </template>
 
 <script setup lang="ts">
-import { h } from 'vue'
+import { computed, h } from 'vue'
 import NavItem from './NavItem.vue'
+import { useAuth } from '@/composables/useAuth'
 
 interface Props {
   isMobileMenuOpen: boolean
@@ -56,6 +87,19 @@ defineProps<Props>()
 defineEmits<{
   'close-mobile-menu': []
 }>()
+
+const { user, logout } = useAuth()
+
+const userInitial = computed(() => {
+  if (!user.value?.full_name) {
+    return 'U'
+  }
+  return user.value.full_name.charAt(0).toUpperCase()
+})
+
+const handleLogout = async () => {
+  await logout()
+}
 
 // ナビゲーションアイテム定義
 const navItems = [
@@ -75,9 +119,16 @@ const navItems = [
   },
   {
     to: '/admin/overnight-queue',
-    label: '夜間対応キュー',
+    label: 'スタッフ不在時間帯対応キュー',
     icon: () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
       h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' })
+    ])
+  },
+  {
+    to: '/admin/facility/settings',
+    label: '施設設定',
+    icon: () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6' })
     ])
   },
   {

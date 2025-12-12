@@ -13,6 +13,7 @@ pgvector==0.2.4
 # Authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
+bcrypt==4.1.2  # bcrypt 5.0.0とpasslib 1.7.4の互換性問題を回避
 python-dotenv==1.0.0
 
 # OpenAI
@@ -41,4 +42,7 @@ pytz==2024.2  # タイムゾーン処理
 qrcode[pil]>=7.4.2  # QRコード生成
 reportlab>=4.0.0  # PDF生成
 Pillow>=10.0.0  # 画像処理
+
+# Retry Logic
+tenacity==8.2.3
 

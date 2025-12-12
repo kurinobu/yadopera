@@ -71,3 +71,4 @@ jobs:
           working-directory: ./frontend
           scope: ${{ secrets.VERCEL_ORG_ID }}
 
+

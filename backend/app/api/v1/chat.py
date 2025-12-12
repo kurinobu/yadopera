@@ -4,9 +4,16 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from app.database import get_db
-from app.schemas.chat import ChatRequest, ChatResponse, ChatHistoryResponse, FeedbackRequest, FeedbackResponse
+from app.schemas.chat import (
+    ChatRequest, ChatResponse, ChatHistoryResponse, 
+    FeedbackRequest, FeedbackResponse,
+    EscalationRequest, EscalationResponse
+)
 from app.services.chat_service import ChatService
+from app.services.escalation_service import EscalationService
+from app.models.conversation import Conversation
 from typing import Optional
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -28,7 +35,7 @@ async def send_chat_message(
     - **session_id**: 既存セッションID（オプション、指定時は既存会話に追加）
     
     RAG統合型でAI応答を生成し、エスカレーション判定を行います。
-    夜間時間帯（22:00-8:00）の場合は夜間対応キューに追加されます。
+    スタッフ不在時間帯の場合はスタッフ不在時間帯対応キューに追加されます。
     """
     try:
         # リクエストヘッダーから情報を取得
@@ -132,5 +139,69 @@ async def send_feedback(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error saving feedback: {str(e)}"
+        )
+
+
+@router.post("/escalate", response_model=EscalationResponse)
+async def escalate_to_staff(
+    request: EscalationRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    スタッフへのエスカレーション（ゲスト側、v0.3新規）
+    
+    - **facility_id**: 施設ID（必須）
+    - **session_id**: セッションID（必須）
+    
+    ゲストが「スタッフに連絡」ボタンをタップした際に呼び出されます。
+    エスカレーションを作成し、管理画面の未解決質問リストに表示されます。
+    """
+    try:
+        # セッションIDから会話を取得
+        result = await db.execute(
+            select(Conversation).where(
+                Conversation.facility_id == request.facility_id,
+                Conversation.session_id == request.session_id
+            )
+        )
+        conversation = result.scalar_one_or_none()
+        
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Conversation not found: session_id={request.session_id}, facility_id={request.facility_id}"
+            )
+        
+        # エスカレーションサービスでエスカレーションを作成
+        escalation_service = EscalationService()
+        escalation = await escalation_service.create_escalation(
+            facility_id=request.facility_id,
+            conversation_id=conversation.id,
+            trigger_type="staff_mode",  # 手動エスカレーション
+            ai_confidence=0.0,  # 手動エスカレーションのため信頼度は0.0
+            escalation_mode="normal",
+            notification_channels=["email"],
+            db=db
+        )
+        
+        return EscalationResponse(
+            success=True,
+            escalation_id=escalation.id,
+            message="エスカレーションが作成されました。スタッフが対応いたします。"
+        )
+    
+    except HTTPException:
+        raise
+    except ValueError as e:
+        # バリデーションエラー
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        # その他のエラー
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating escalation: {str(e)}"
         )
 

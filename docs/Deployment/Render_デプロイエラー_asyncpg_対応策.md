@@ -58,3 +58,4 @@ pgvector==0.2.4
 
 **次のステップ**: `requirements.txt`に`asyncpg`を追加して、再デプロイしてください。
 
+

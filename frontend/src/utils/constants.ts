@@ -39,3 +39,4 @@ export const QR_LOCATIONS = [
   { value: 'custom', label: 'カスタム' }
 ] as const
 
+

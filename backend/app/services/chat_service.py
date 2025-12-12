@@ -88,7 +88,7 @@ class ChatService:
         await self.db.flush()
         
         # RAG統合型AI対話エンジンでメッセージ処理
-        chat_response = await self.rag_engine.process_message(
+        rag_response = await self.rag_engine.process_message(
             message=request.message,
             facility_id=request.facility_id,
             session_id=conversation.session_id,
@@ -99,38 +99,60 @@ class ChatService:
         ai_message = Message(
             conversation_id=conversation.id,
             role=MessageRole.ASSISTANT.value,
-            content=chat_response.response,
-            ai_confidence=chat_response.ai_confidence,
-            matched_faq_ids=chat_response.matched_faq_ids,
-            response_time_ms=chat_response.response_time_ms
+            content=rag_response.response,
+            ai_confidence=rag_response.ai_confidence,
+            matched_faq_ids=rag_response.matched_faq_ids,
+            response_time_ms=rag_response.response_time_ms
         )
         self.db.add(ai_message)
         await self.db.flush()
         
         # エスカレーション処理
-        if chat_response.escalation.needed:
+        escalation_id = None
+        if rag_response.escalation.needed:
             # エスカレーション記録作成
             escalation = await self.escalation_service.create_escalation(
                 facility_id=request.facility_id,
                 conversation_id=conversation.id,
-                trigger_type=chat_response.escalation.trigger_type or "low_confidence",
-                ai_confidence=float(chat_response.ai_confidence or Decimal("0.0")),
-                escalation_mode=chat_response.escalation.mode or "normal",
+                trigger_type=rag_response.escalation.trigger_type or "low_confidence",
+                ai_confidence=float(rag_response.ai_confidence or Decimal("0.0")),
+                escalation_mode=rag_response.escalation.mode or "normal",
                 notification_channels=["email"],  # デフォルトはemail
                 db=self.db
             )
+            escalation_id = escalation.id
             
-            # 夜間対応キュー処理（22:00-8:00の場合）
+            # 夜間対応キュー処理（スタッフ不在時間帯の場合）
             facility = await self.db.get(Facility, request.facility_id)
             if facility:
                 timezone_str = facility.timezone or 'Asia/Tokyo'
                 utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
                 facility_tz = pytz.timezone(timezone_str)
                 local_now = utc_now.astimezone(facility_tz)
-                current_hour = local_now.hour
                 
-                # 夜間時間帯（22:00-8:00）の場合
-                if current_hour >= 22 or current_hour < 8:
+                # スタッフ不在時間帯を取得
+                staff_absence_periods = []
+                if facility.staff_absence_periods:
+                    try:
+                        import json
+                        if isinstance(facility.staff_absence_periods, str):
+                            staff_absence_periods = json.loads(facility.staff_absence_periods)
+                        else:
+                            staff_absence_periods = facility.staff_absence_periods
+                    except (json.JSONDecodeError, TypeError, ValueError):
+                        # パースエラーの場合は空リスト
+                        staff_absence_periods = []
+                
+                # 現在の曜日を取得
+                current_weekday = local_now.strftime("%a").lower()  # 'mon', 'tue', etc.
+                
+                # スタッフ不在時間帯の判定
+                from app.utils.staff_absence import is_in_staff_absence_period
+                if is_in_staff_absence_period(
+                    current_time=local_now,
+                    current_weekday=current_weekday,
+                    staff_absence_periods=staff_absence_periods
+                ):
                     # 夜間対応キューに追加
                     await self.overnight_queue_service.add_to_overnight_queue(
                         facility_id=request.facility_id,
@@ -153,8 +175,26 @@ class ChatService:
         await self.db.commit()
         await self.db.refresh(ai_message)
         
-        # レスポンスに実際のメッセージIDを設定
-        chat_response.message_id = ai_message.id
+        # MessageResponseオブジェクトを作成
+        message_response = MessageResponse(
+            id=ai_message.id,
+            role=ai_message.role,
+            content=ai_message.content,
+            ai_confidence=ai_message.ai_confidence,
+            matched_faq_ids=ai_message.matched_faq_ids,
+            response_time_ms=ai_message.response_time_ms,
+            created_at=ai_message.created_at
+        )
+        
+        # 新しいChatResponseオブジェクトを作成
+        new_chat_response = ChatResponse(
+            message=message_response,
+            session_id=conversation.session_id,
+            ai_confidence=rag_response.ai_confidence,
+            is_escalated=rag_response.escalation.needed,
+            escalation_id=escalation_id,
+            escalation=rag_response.escalation
+        )
         
         logger.info(
             f"Chat message processed: conversation_id={conversation.id}, message_id={ai_message.id}",
@@ -163,11 +203,11 @@ class ChatService:
                 "message_id": ai_message.id,
                 "facility_id": request.facility_id,
                 "session_id": conversation.session_id,
-                "escalation_needed": chat_response.escalation.needed
+                "escalation_needed": rag_response.escalation.needed
             }
         )
         
-        return chat_response
+        return new_chat_response
     
     async def _get_or_create_conversation(
         self,

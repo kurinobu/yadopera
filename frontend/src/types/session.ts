@@ -22,3 +22,16 @@ export interface SessionTokenVerifyResponse {
   expires_at?: string
 }
 
+export interface SessionTokenGenerateRequest {
+  facility_id: number
+  session_id: string
+}
+
+export interface SessionTokenResponse {
+  token: string
+  primary_session_id: string
+  linked_session_ids: string[]
+  expires_at: string
+  created_at: string
+}
+

@@ -203,3 +203,4 @@ async def reject_faq_suggestion(
             detail=f"Error rejecting FAQ suggestion: {str(e)}"
         )
 
+

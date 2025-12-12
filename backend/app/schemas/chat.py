@@ -46,17 +46,27 @@ class MessageResponse(BaseModel):
         from_attributes = True
 
 
+class RAGEngineResponse(BaseModel):
+    """
+    RAGエンジンのレスポンス（中間形式）
+    メッセージ保存前の情報を返す
+    """
+    response: str = Field(..., description="AI応答テキスト")
+    ai_confidence: Decimal = Field(..., description="AI信頼度（0.0-1.0）")
+    matched_faq_ids: List[int] = Field(default_factory=list, description="マッチしたFAQ IDリスト")
+    response_time_ms: int = Field(..., description="応答時間（ミリ秒）")
+    escalation: EscalationInfo = Field(..., description="エスカレーション情報")
+
+
 class ChatResponse(BaseModel):
     """
     チャットレスポンス
     """
-    message_id: int = Field(..., description="メッセージID")
+    message: MessageResponse = Field(..., description="AI応答メッセージ")
     session_id: str = Field(..., description="セッションID")
-    response: str = Field(..., description="AI応答")
     ai_confidence: Optional[Decimal] = Field(None, description="AI信頼度（0.0-1.0）")
-    source: str = Field(..., description="応答ソース（rag_generated/escalation_needed）")
-    matched_faq_ids: Optional[List[int]] = Field(None, description="使用したFAQ IDリスト")
-    response_time_ms: Optional[int] = Field(None, description="レスポンス時間（ミリ秒）")
+    is_escalated: bool = Field(..., description="エスカレーションが必要か")
+    escalation_id: Optional[int] = Field(None, description="エスカレーションID")
     escalation: EscalationInfo = Field(..., description="エスカレーション情報")
 
 
@@ -103,4 +113,29 @@ class FeedbackResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class EscalationRequest(BaseModel):
+    """
+    エスカレーションリクエスト（ゲスト側）
+    """
+    facility_id: int = Field(..., description="施設ID")
+    session_id: str = Field(..., description="セッションID")
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "facility_id": 1,
+                "session_id": "abc123-def456-ghi789"
+            }
+        }
+
+
+class EscalationResponse(BaseModel):
+    """
+    エスカレーションレスポンス（ゲスト側）
+    """
+    success: bool = Field(..., description="エスカレーション作成成功")
+    escalation_id: int = Field(..., description="エスカレーションID")
+    message: str = Field(..., description="メッセージ")
 

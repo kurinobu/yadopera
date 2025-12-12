@@ -138,3 +138,4 @@ class TestOvernightQueue:
         system_messages = [m for m in messages if m.role == "system"]
         assert len(system_messages) > 0
 
+

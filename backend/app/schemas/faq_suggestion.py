@@ -49,3 +49,4 @@ class FAQSuggestionListResponse(BaseModel):
     suggestions: list[FAQSuggestionResponse] = Field(default_factory=list, description="提案リスト")
     total: int = Field(..., description="総件数")
 
+

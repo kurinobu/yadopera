@@ -42,3 +42,4 @@ redis://default:QIpOCNjyhqyHYoaGBUWWaALyuWmVGYjd@shuttle.proxy.rlwy.net:28858
 1. Render.com Pro Web Service作成
 2. 環境変数設定（DATABASE_URL、REDIS_URL等）
 
+

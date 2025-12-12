@@ -97,3 +97,4 @@ class TestEmbeddings:
         # アサーション
         assert embedding == []
 
+

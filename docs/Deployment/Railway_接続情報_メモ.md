@@ -43,3 +43,4 @@ postgresql+asyncpg://postgres:yWKgjgfhAMJXUEQHmqNgLQxalXQsbZNh@hopper.proxy.rlwy
 2. Redisサービスの追加
 3. Render.comでの環境変数設定
 
+

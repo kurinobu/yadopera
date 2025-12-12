@@ -50,3 +50,4 @@ postgresql+asyncpg://postgres:q2qvotspe3muf84hanuy5lw6eascqt82@yamanote.proxy.rl
 1. Redisサービスの追加
 2. Render.comでの環境変数設定
 
+

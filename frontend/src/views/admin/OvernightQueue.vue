@@ -4,10 +4,10 @@
     <div class="flex items-center justify-between">
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-          夜間対応キュー
+          スタッフ不在時間帯対応キュー
         </h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          翌朝対応が必要な質問一覧
+          スタッフ不在時間帯にエスカレーションされた質問一覧
         </p>
       </div>
       <ProcessButton
@@ -37,11 +37,10 @@
         </svg>
         <div class="flex-1">
           <h3 class="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">
-            夜間対応キューについて
+            スタッフ不在時間帯対応キューについて
           </h3>
           <p class="text-sm text-blue-700 dark:text-blue-300">
-            夜間（22:00-8:00）にエスカレーションされた質問は、自動的に翌朝8:00にスタッフへ通知されます。
-            MVP期間中は「手動実行」ボタンで通知処理を実行できます。
+            {{ descriptionText }}
           </p>
         </div>
       </div>
@@ -152,6 +151,7 @@
     <OvernightQueueList
       v-else
       :queue="queue"
+      :show-resolve-button="true"
       @resolve="handleResolve"
     />
   </div>
@@ -163,12 +163,15 @@ import OvernightQueueList from '@/components/admin/OvernightQueueList.vue'
 import ProcessButton from '@/components/admin/ProcessButton.vue'
 import Loading from '@/components/common/Loading.vue'
 import { overnightQueueApi } from '@/api/overnightQueue'
+import { facilityApi } from '@/api/facility'
 import type { OvernightQueue } from '@/types/dashboard'
+import type { FacilitySettingsResponse } from '@/types/facility'
 
 // データ状態
 const loading = ref(true)
 const error = ref<string | null>(null)
 const queueData = ref<{ queues: OvernightQueue[]; total: number; pending_count: number; resolved_count: number } | null>(null)
+const facilitySettings = ref<FacilitySettingsResponse | null>(null)
 
 // データ取得
 const fetchOvernightQueue = async () => {
@@ -179,15 +182,52 @@ const fetchOvernightQueue = async () => {
     queueData.value = data
   } catch (err: any) {
     console.error('Failed to fetch overnight queue:', err)
-    error.value = err.response?.data?.detail || '夜間対応キューの取得に失敗しました'
+    error.value = err.response?.data?.detail || 'スタッフ不在時間帯対応キューの取得に失敗しました'
   } finally {
     loading.value = false
   }
 }
 
+// 施設設定取得
+const fetchFacilitySettings = async () => {
+  try {
+    const settings = await facilityApi.getFacilitySettings()
+    facilitySettings.value = settings
+  } catch (err: any) {
+    console.error('Failed to fetch facility settings:', err)
+    // エラー時はデフォルト値を使用
+  }
+}
+
+// 説明文を動的に生成
+const descriptionText = computed(() => {
+  if (!facilitySettings.value || !facilitySettings.value.staff_absence_periods || facilitySettings.value.staff_absence_periods.length === 0) {
+    // 未設定の場合
+    return 'スタッフ不在時間帯が設定されていないため、エスカレーションは直接スタッフへ通知されます。「手動実行」ボタンをクリックすると、通知予定時刻が来ている質問をスタッフへ通知します。'
+  }
+  
+  // スタッフ不在時間帯を取得
+  const periods = facilitySettings.value.staff_absence_periods
+  
+  // すべての時間帯を表示用の文字列に変換
+  const periodStrings = periods.map((period, index) => {
+    const startTime = period.start_time
+    const endTime = period.end_time
+    return `${startTime}-${endTime}`
+  })
+  
+  // すべての時間帯を「、」で区切って表示
+  const periodsDisplay = periodStrings.join('、')
+  
+  return `スタッフ不在時間帯（${periodsDisplay}）にエスカレーションされた質問は、その時間帯の終了時刻にスタッフへ通知されます。「手動実行」ボタンをクリックすると、通知予定時刻が来ている質問をスタッフへ通知します。`
+})
+
 // コンポーネントマウント時にデータ取得
-onMounted(() => {
-  fetchOvernightQueue()
+onMounted(async () => {
+  await Promise.all([
+    fetchOvernightQueue(),
+    fetchFacilitySettings()
+  ])
 })
 
 // 計算プロパティ
@@ -261,11 +301,15 @@ const handleProcess = async () => {
 }
 
 const handleResolve = async (item: OvernightQueue) => {
-  // TODO: 対応済みマークAPIはPhase 2で実装予定
-  // 現時点では手動で対応済みにする機能は未実装
-  if (confirm('この質問を対応済みにマークしますか？\n（現時点では手動対応機能は未実装です）')) {
-    console.log('Resolve queue item:', item)
-    // Phase 2で実装予定
+  try {
+    // 対応済みにするAPIを呼び出し
+    await overnightQueueApi.resolveQueueItem(item.id)
+    
+    // キュー一覧を再取得して表示を更新
+    await fetchOvernightQueue()
+  } catch (err: any) {
+    console.error('Failed to resolve queue item:', err)
+    error.value = err.response?.data?.detail || 'キューアイテムの対応済み処理に失敗しました'
   }
 }
 </script>

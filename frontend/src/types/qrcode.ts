@@ -23,3 +23,8 @@ export interface QRCodeResponse {
   created_at: string
 }
 
+export interface QRCodeListResponse {
+  qr_codes: QRCodeResponse[]
+  total: number
+}
+

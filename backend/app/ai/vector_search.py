@@ -5,7 +5,7 @@ pgvector検索実装
 import logging
 from typing import List
 from decimal import Decimal
-from sqlalchemy import select, func
+from sqlalchemy import select, func, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
 from pgvector.sqlalchemy import Vector
@@ -45,10 +45,10 @@ async def search_similar_faqs(
         return []
     
     try:
-        # ベクトルをPostgreSQL形式に変換
-        # pgvectorでは、Pythonのリストを直接使用できるが、
-        # SQLAlchemyのfunc.cosine_distanceを使用する場合は文字列形式が必要
-        embedding_vector = f"[{','.join(map(str, embedding))}]"
+        # ベクトルをvector型に変換
+        # pgvectorのcosine_distance関数は、2つのvector型の引数を必要とする
+        # Pythonのリストをcast関数でvector型に変換
+        embedding_vector = cast(embedding, Vector(1536))
         
         # コサイン類似度で検索（1 - コサイン距離 = 類似度）
         # pgvectorのcosine_distance関数を使用
@@ -143,8 +143,10 @@ async def search_similar_patterns(
         return []
     
     try:
-        # ベクトルをPostgreSQL形式に変換
-        embedding_vector = f"[{','.join(map(str, embedding))}]"
+        # ベクトルをvector型に変換
+        # pgvectorのcosine_distance関数は、2つのvector型の引数を必要とする
+        # Pythonのリストをcast関数でvector型に変換
+        embedding_vector = cast(embedding, Vector(1536))
         
         # コサイン類似度で検索（1 - コサイン距離 = 類似度）
         query = select(

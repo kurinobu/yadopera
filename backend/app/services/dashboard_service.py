@@ -28,6 +28,7 @@ from app.schemas.dashboard import (
     LowRatedAnswer
 )
 from app.core.cache import get_cache, set_cache, cache_key
+from app.services.feedback_service import FeedbackService
 import asyncio
 
 logger = logging.getLogger(__name__)
@@ -179,9 +180,53 @@ class DashboardService:
             if confidences:
                 average_confidence = Decimal(str(sum(confidences) / len(confidences)))
         
-        # カテゴリ別内訳（簡易実装、FAQカテゴリから推定）
+        # カテゴリ別内訳（matched_faq_idsからFAQカテゴリを集計）
         category_breakdown = CategoryBreakdown()
-        # TODO: メッセージ内容からカテゴリを推定する実装（Phase 2で改善）
+        
+        # 過去7日間のAI応答メッセージを取得（matched_faq_idsがNULLでないもの）
+        ai_messages_with_faqs_result = await self.db.execute(
+            select(Message)
+            .where(Message.conversation_id.in_(conversation_ids))
+            .where(Message.role == MessageRole.ASSISTANT.value)
+            .where(Message.matched_faq_ids.isnot(None))
+        )
+        ai_messages_with_faqs = ai_messages_with_faqs_result.scalars().all()
+        
+        # matched_faq_idsからFAQ IDを収集（重複を排除、空配列を除外）
+        faq_ids = set()
+        for msg in ai_messages_with_faqs:
+            if msg.matched_faq_ids and len(msg.matched_faq_ids) > 0:
+                faq_ids.update(msg.matched_faq_ids)
+        
+        # FAQを取得してカテゴリを集計
+        if faq_ids:
+            faqs_result = await self.db.execute(
+                select(FAQ)
+                .where(FAQ.id.in_(list(faq_ids)))
+                .where(FAQ.facility_id == facility_id)
+                .where(FAQ.is_active == True)
+            )
+            faqs = faqs_result.scalars().all()
+            
+            # カテゴリ別に集計（各メッセージの最初のマッチしたFAQのカテゴリをカウント）
+            category_counts = {"basic": 0, "facilities": 0, "location": 0, "trouble": 0}
+            faq_category_map = {faq.id: faq.category for faq in faqs}
+            
+            for msg in ai_messages_with_faqs:
+                if msg.matched_faq_ids and len(msg.matched_faq_ids) > 0:
+                    # 最初のマッチしたFAQのカテゴリをカウント
+                    first_faq_id = msg.matched_faq_ids[0]
+                    if first_faq_id in faq_category_map:
+                        category = faq_category_map[first_faq_id]
+                        if category in category_counts:
+                            category_counts[category] += 1
+            
+            category_breakdown = CategoryBreakdown(
+                basic=category_counts["basic"],
+                facilities=category_counts["facilities"],
+                location=category_counts["location"],
+                trouble=category_counts["trouble"]
+            )
         
         # TOP5質問（簡易実装）
         top_questions: List[TopQuestion] = []
@@ -313,37 +358,9 @@ class DashboardService:
             positive_rate = Decimal(str(positive_count / total_feedback))
         
         # 低評価回答（2回以上）を取得
-        # メッセージIDごとに低評価数を集計
-        message_negative_count: dict[int, int] = {}
-        for feedback in feedbacks:
-            if feedback.feedback_type == "negative":
-                message_negative_count[feedback.message_id] = message_negative_count.get(feedback.message_id, 0) + 1
-        
-        # 2回以上低評価がついたメッセージを取得
-        low_rated_message_ids = [msg_id for msg_id, count in message_negative_count.items() if count >= 2]
-        
-        low_rated_answers: List[LowRatedAnswer] = []
-        if low_rated_message_ids:
-            # メッセージを取得
-            messages_result = await self.db.execute(
-                select(Message)
-                .where(Message.id.in_(low_rated_message_ids))
-                .options(selectinload(Message.conversation))
-            )
-            messages = messages_result.scalars().all()
-            
-            for message in messages:
-                # 質問と回答を取得（簡易実装）
-                # 実際には会話履歴から質問と回答を抽出する必要がある
-                question = "Question"  # TODO: 会話履歴から質問を抽出
-                answer = message.content[:200]  # 回答は200文字まで
-                
-                low_rated_answers.append(LowRatedAnswer(
-                    message_id=message.id,
-                    question=question,
-                    answer=answer,
-                    negative_count=message_negative_count[message.id]
-                ))
+        # feedback_serviceを使用して重複を排除（統一 > 特殊・独自）
+        feedback_service = FeedbackService(self.db)
+        low_rated_answers = await feedback_service.get_negative_feedbacks(facility_id)
         
         return FeedbackStats(
             positive_count=positive_count,

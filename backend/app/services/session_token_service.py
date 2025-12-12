@@ -168,7 +168,10 @@ class SessionTokenService:
             token_obj.linked_session_ids = []
         
         if new_session_id not in token_obj.linked_session_ids:
-            token_obj.linked_session_ids.append(new_session_id)
+            # SQLAlchemyの変更追跡を確実にするため、新しいリストを代入
+            linked_ids = list(token_obj.linked_session_ids) if token_obj.linked_session_ids else []
+            linked_ids.append(new_session_id)
+            token_obj.linked_session_ids = linked_ids
             await db.commit()
             await db.refresh(token_obj)
         

@@ -83,3 +83,4 @@ class DashboardResponse(BaseModel):
     overnight_queue: List[OvernightQueueItem] = Field(default_factory=list, description="夜間対応キュー")
     feedback_stats: FeedbackStats = Field(..., description="ゲストフィードバック統計")
 
+

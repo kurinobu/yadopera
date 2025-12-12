@@ -9,6 +9,8 @@ from app.schemas.session import (
     SessionLinkRequest,
     SessionLinkResponse,
     SessionTokenVerifyResponse,
+    SessionTokenGenerateRequest,
+    SessionTokenResponse,
 )
 from app.services.session_token_service import SessionTokenService
 
@@ -82,5 +84,85 @@ async def verify_token(
         linked_session_ids=token_obj.linked_session_ids or [],
         expires_at=token_obj.expires_at,
         message="Token is valid"
+    )
+
+
+@router.post("/generate", response_model=SessionTokenResponse)
+async def generate_token(
+    request: SessionTokenGenerateRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    セッション統合トークン生成
+    
+    - **facility_id**: 施設ID
+    - **session_id**: セッションID
+    
+    セッション統合トークン（4桁英数字）を生成し、返却します
+    """
+    try:
+        token = await session_token_service.generate_token(
+            facility_id=request.facility_id,
+            primary_session_id=request.session_id,
+            db=db
+        )
+        
+        # トークン情報を取得
+        token_obj = await session_token_service.get_token_by_session_id(
+            session_id=request.session_id,
+            db=db
+        )
+        
+        if not token_obj:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to retrieve generated token"
+            )
+        
+        return SessionTokenResponse(
+            token=token_obj.token,
+            primary_session_id=token_obj.primary_session_id,
+            linked_session_ids=token_obj.linked_session_ids or [],
+            expires_at=token_obj.expires_at,
+            created_at=token_obj.created_at
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate token: {str(e)}"
+        )
+
+
+@router.get("/session/{session_id}/token", response_model=SessionTokenResponse)
+async def get_token_by_session(
+    session_id: str,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    セッションIDから既存のトークンを取得
+    
+    - **session_id**: セッションID
+    
+    セッションIDに関連する既存のトークンを返却します
+    """
+    token_obj = await session_token_service.get_token_by_session_id(
+        session_id=session_id,
+        db=db
+    )
+    
+    if not token_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Token not found for this session"
+        )
+    
+    return SessionTokenResponse(
+        token=token_obj.token,
+        primary_session_id=token_obj.primary_session_id,
+        linked_session_ids=token_obj.linked_session_ids or [],
+        expires_at=token_obj.expires_at,
+        created_at=token_obj.created_at
     )
 

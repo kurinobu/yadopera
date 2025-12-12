@@ -117,3 +117,19 @@ class EscalationScheduleResponse(BaseModel):
     class Config:
         from_attributes = True
 
+
+class UnresolvedQuestionResponse(BaseModel):
+    """
+    未解決質問レスポンス
+    """
+    id: int
+    message_id: int
+    facility_id: int
+    question: str
+    language: str
+    confidence_score: float
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+

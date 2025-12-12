@@ -65,7 +65,8 @@ const userInitial = computed(() => {
   return user.value.full_name.charAt(0).toUpperCase()
 })
 
-const handleLogout = async () => {
+const handleLogout = async (event: MouseEvent) => {
+  event.stopPropagation()  // イベントの伝播を止める
   isOpen.value = false
   await logout()
 }

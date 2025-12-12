@@ -42,12 +42,12 @@
 
     <!-- 未解決質問リスト -->
     <UnresolvedQuestionsList
-      :questions="mockUnresolvedQuestions"
+      :questions="unresolvedQuestions"
       @add-faq="handleAddFaqFromQuestion"
     />
 
     <!-- FAQ自動学習UI -->
-    <div v-if="selectedSuggestion" class="space-y-4">
+    <div v-if="selectedSuggestion" id="faq-suggestion" class="space-y-4">
       <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
         FAQ追加提案
       </h2>
@@ -55,12 +55,13 @@
         :suggestion="selectedSuggestion"
         @approve="handleApproveSuggestion"
         @reject="handleRejectSuggestion"
+        @cancel="handleCancelSuggestion"
       />
     </div>
 
     <!-- ゲストフィードバック連動 -->
     <FeedbackLinkedFaqs
-      :low-rated-faqs="mockLowRatedAnswers"
+      :low-rated-faqs="lowRatedAnswers"
       @improve="handleFeedbackImprove"
       @ignore="handleFeedbackIgnore"
     />
@@ -82,7 +83,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import FaqList from '@/components/admin/FaqList.vue'
 import FaqForm from '@/components/admin/FaqForm.vue'
 import UnresolvedQuestionsList from '@/components/admin/UnresolvedQuestionsList.vue'
@@ -92,12 +94,16 @@ import Modal from '@/components/common/Modal.vue'
 import Loading from '@/components/common/Loading.vue'
 import { faqApi } from '@/api/faq'
 import { faqSuggestionApi } from '@/api/faqSuggestion'
+import { unresolvedQuestionsApi } from '@/api/unresolvedQuestions'
+import { feedbackApi } from '@/api/feedback'
 import type { FAQ, FAQCreate, UnresolvedQuestion, FaqSuggestion, LowRatedAnswer, FAQCategory } from '@/types/faq'
 
 // データ状態
 const loading = ref(true)
 const error = ref<string | null>(null)
 const faqs = ref<FAQ[]>([])
+const unresolvedQuestions = ref<UnresolvedQuestion[]>([])
+const loadingUnresolved = ref(false)
 
 // モックデータ（Week 4でAPI連携に置き換え、一部は残す）
 const mockFaqs: FAQ[] = [
@@ -139,41 +145,9 @@ const mockFaqs: FAQ[] = [
   }
 ]
 
-const mockUnresolvedQuestions: UnresolvedQuestion[] = [
-  {
-    id: 1,
-    message_id: 101,
-    facility_id: 1,
-    question: 'Late checkout possible?',
-    language: 'en',
-    confidence_score: 0.65,
-    created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    id: 2,
-    message_id: 102,
-    facility_id: 1,
-    question: 'タオルはどこにありますか？',
-    language: 'ja',
-    confidence_score: 0.58,
-    created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString()
-  }
-]
 
-const mockLowRatedAnswers: LowRatedAnswer[] = [
-  {
-    message_id: 201,
-    question: 'WiFi password?',
-    answer: 'The password is guest2024.',
-    negative_count: 3
-  },
-  {
-    message_id: 202,
-    question: 'Check-in time?',
-    answer: 'Check-in is from 3pm to 10pm.',
-    negative_count: 2
-  }
-]
+// 低評価回答リスト
+const lowRatedAnswers = ref<LowRatedAnswer[]>([])
 
 // データ取得
 const fetchFaqs = async () => {
@@ -190,10 +164,108 @@ const fetchFaqs = async () => {
   }
 }
 
+// 未解決質問リスト取得
+const fetchUnresolvedQuestions = async () => {
+  try {
+    loadingUnresolved.value = true
+    const data = await unresolvedQuestionsApi.getUnresolvedQuestions()
+    unresolvedQuestions.value = data
+  } catch (err: any) {
+    console.error('Failed to fetch unresolved questions:', err)
+    // エラーは表示しない（未解決質問はオプション機能のため）
+    unresolvedQuestions.value = []
+  } finally {
+    loadingUnresolved.value = false
+  }
+}
+
+// 低評価回答リスト取得
+const fetchLowRatedAnswers = async () => {
+  try {
+    const data = await feedbackApi.getNegativeFeedbacks()
+    lowRatedAnswers.value = data
+  } catch (err: any) {
+    console.error('Failed to fetch low-rated answers:', err)
+    // エラーは表示しない（低評価回答はオプション機能のため）
+    lowRatedAnswers.value = []
+  }
+}
+
+const route = useRoute()
+
+// ハッシュフラグメントまたは要素IDに基づいてスクロール
+const scrollToSection = async (targetId?: string) => {
+  // 複数回nextTickを呼び出して、DOMの更新を確実に待つ
+  await nextTick()
+  await nextTick()
+  // データが読み込まれるまで少し待つ
+  await new Promise(resolve => setTimeout(resolve, 800))
+  
+  // ターゲットIDを決定（引数 > ハッシュフラグメントの順）
+  const hash = route.hash || window.location.hash
+  const id = targetId || (hash ? hash.replace('#', '') : null)
+  
+  if (!id) return
+  
+  // 対応するIDのリスト
+  const supportedIds = ['feedback-linked-faqs', 'faq-suggestion']
+  if (!supportedIds.includes(id)) return
+  
+  // getElementByIdで要素を取得
+  const element = document.getElementById(id)
+  if (element) {
+    // 少し上にオフセットを追加（ヘッダーなどのために）
+    const offset = 80
+    const elementPosition = element.getBoundingClientRect().top + window.pageYOffset
+    const offsetPosition = elementPosition - offset
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    })
+    console.log('[FaqManagement] Scrolled to section:', id, element)
+  } else {
+    console.warn('[FaqManagement] Element not found for id:', id)
+    // 要素が見つからない場合、もう一度試す（最大3回）
+    for (let i = 0; i < 3; i++) {
+      await new Promise(resolve => setTimeout(resolve, 500))
+      const retryElement = document.getElementById(id)
+      if (retryElement) {
+        const offset = 80
+        const elementPosition = retryElement.getBoundingClientRect().top + window.pageYOffset
+        const offsetPosition = elementPosition - offset
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: 'smooth'
+        })
+        console.log('[FaqManagement] Scrolled to section (retry):', id, retryElement)
+        break
+      }
+    }
+  }
+}
+
 // コンポーネントマウント時にデータ取得
-onMounted(() => {
-  fetchFaqs()
+onMounted(async () => {
+  await fetchFaqs()
+  await fetchUnresolvedQuestions()
+  await fetchLowRatedAnswers()
+  // ハッシュフラグメントに基づいてスクロール
+  await scrollToSection()
 })
+
+// ルートのハッシュが変更されたときにもスクロール
+watch(() => route.hash, async (newHash, oldHash) => {
+  if (newHash && newHash !== oldHash && (newHash === '#feedback-linked-faqs' || newHash === '#faq-suggestion')) {
+    await scrollToSection()
+  }
+}, { immediate: false })
+
+// window.location.hashの変更も監視（Vue Routerがハッシュを正しく処理しない場合のフォールバック）
+watch(() => window.location.hash, async (newHash, oldHash) => {
+  if (newHash && newHash !== oldHash && (newHash === '#feedback-linked-faqs' || newHash === '#faq-suggestion')) {
+    await scrollToSection()
+  }
+}, { immediate: false })
 
 // 状態管理
 const showAddForm = ref(false)
@@ -235,17 +307,56 @@ const handleDelete = async (faq: FAQ) => {
   
   try {
     await faqApi.deleteFaq(faq.id)
+    // キャッシュの更新を待つため、少し待ってから再取得
+    await new Promise(resolve => setTimeout(resolve, 100))
     // FAQ一覧を再取得
     await fetchFaqs()
+    // 成功メッセージ（オプション）
+    console.log(`FAQ「${faq.question}」を削除しました`)
   } catch (err: any) {
     console.error('Failed to delete FAQ:', err)
-    alert(err.response?.data?.detail || 'FAQの削除に失敗しました')
+    // エラーメッセージをユーザーフレンドリーに変換
+    let errorMessage = 'FAQの削除に失敗しました'
+    const detail = err.response?.data?.detail || err.message || ''
+    
+    if (detail.includes('FAQ not found')) {
+      errorMessage = '削除しようとしたFAQが見つかりませんでした。既に削除されている可能性があります。ページをリロードして最新の状態を確認してください。'
+    } else if (detail.includes('does not belong to facility')) {
+      errorMessage = 'このFAQは削除できません。権限がない可能性があります。'
+    } else if (detail) {
+      errorMessage = `削除に失敗しました: ${detail}`
+    }
+    
+    alert(errorMessage)
+    // エラーが発生しても、FAQ一覧を再取得（キャッシュの問題を回避）
+    await fetchFaqs()
   }
 }
 
-const handleAddFaqFromQuestion = (question: UnresolvedQuestion) => {
-  // 未解決質問からFAQ提案を生成
-  selectedSuggestion.value = generateSuggestion(question)
+const handleAddFaqFromQuestion = async (question: UnresolvedQuestion) => {
+  try {
+    // 未解決質問からFAQ提案を生成（API呼び出し）
+    const suggestion = await faqSuggestionApi.generateSuggestion(question.message_id)
+    selectedSuggestion.value = suggestion
+    
+    // FAQ提案カードまで自動スクロール
+    await scrollToSection('faq-suggestion')
+  } catch (err: any) {
+    console.error('Failed to generate FAQ suggestion:', err)
+    // エラーメッセージをユーザーフレンドリーに変換
+    let errorMessage = 'FAQ提案の生成に失敗しました'
+    const detail = err.response?.data?.detail || err.message || ''
+    
+    if (detail.includes('Message not found')) {
+      errorMessage = 'メッセージが見つかりませんでした。既に削除されている可能性があります。'
+    } else if (detail.includes('does not belong to facility')) {
+      errorMessage = 'この質問はFAQ提案を生成できません。権限がない可能性があります。'
+    } else if (detail) {
+      errorMessage = `FAQ提案の生成に失敗しました: ${detail}`
+    }
+    
+    alert(errorMessage)
+  }
 }
 
 const handleSubmitFaq = async (data: FAQCreate) => {
@@ -258,12 +369,30 @@ const handleSubmitFaq = async (data: FAQCreate) => {
       await faqApi.createFaq(data)
     }
     
+    // キャッシュの更新を待つため、少し待ってから再取得
+    await new Promise(resolve => setTimeout(resolve, 100))
     // FAQ一覧を再取得
     await fetchFaqs()
     handleCloseForm()
   } catch (err: any) {
     console.error('Failed to save FAQ:', err)
-    alert(err.response?.data?.detail || 'FAQの保存に失敗しました')
+    // エラーメッセージをユーザーフレンドリーに変換
+    let errorMessage = 'FAQの保存に失敗しました'
+    const detail = err.response?.data?.detail || err.message || ''
+    
+    if (detail.includes('FAQ not found')) {
+      errorMessage = '保存しようとしたFAQが見つかりませんでした。既に削除されている可能性があります。ページをリロードして最新の状態を確認してください。'
+    } else if (detail.includes('does not belong to facility')) {
+      errorMessage = 'このFAQは保存できません。権限がない可能性があります。'
+    } else if (detail.includes('Validation error') || detail.includes('validation')) {
+      errorMessage = `入力内容に問題があります: ${detail}`
+    } else if (detail) {
+      errorMessage = `保存に失敗しました: ${detail}`
+    }
+    
+    alert(errorMessage)
+    // エラーが発生しても、FAQ一覧を再取得（キャッシュの問題を回避）
+    await fetchFaqs()
   }
 }
 
@@ -274,9 +403,10 @@ const handleCloseForm = () => {
 
 const handleApproveSuggestion = async (suggestion: FaqSuggestion) => {
   // API連携はFaqSuggestionCard内で実装済み
-  // ここでは提案をクリアしてFAQ一覧を再取得
+  // ここでは提案をクリアしてFAQ一覧と未解決質問リストを再取得
   selectedSuggestion.value = null
   await fetchFaqs()
+  await fetchUnresolvedQuestions()
 }
 
 const handleRejectSuggestion = async (suggestion: FaqSuggestion) => {
@@ -292,13 +422,19 @@ const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
     selectedSuggestion.value = suggestion
   } catch (err: any) {
     console.error('Failed to generate FAQ suggestion:', err)
-    alert(err.response?.data?.detail || 'FAQ提案の生成に失敗しました')
+    const errorMessage = err.response?.data?.detail || err.message || 'FAQ提案の生成に失敗しました'
+    alert(errorMessage)
   }
 }
 
 const handleFeedbackIgnore = (answer: LowRatedAnswer) => {
   // TODO: Week 4でAPI連携を実装（ステップ4で実装予定）
   console.log('Feedback ignore:', answer)
+}
+
+const handleCancelSuggestion = (suggestion: FaqSuggestion) => {
+  // 提案をクリア（承認・却下せずに閉じる）
+  selectedSuggestion.value = null
 }
 </script>
 

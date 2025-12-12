@@ -45,8 +45,19 @@ async def get_current_user(
         )
     
     # ユーザーID取得
-    user_id: Optional[int] = payload.get("sub")
-    if user_id is None:
+    # JWT仕様（RFC 7519）に準拠: subフィールドは文字列として返される
+    sub_value = payload.get("sub")
+    if sub_value is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 文字列から整数に変換（JWT仕様に準拠）
+    try:
+        user_id = int(sub_value)
+    except (ValueError, TypeError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",

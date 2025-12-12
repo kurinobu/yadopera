@@ -16,6 +16,14 @@ class SessionLinkRequest(BaseModel):
     current_session_id: str = Field(..., description="現在のセッションID")
 
 
+class SessionTokenGenerateRequest(BaseModel):
+    """
+    セッション統合トークン生成リクエスト
+    """
+    facility_id: int = Field(..., description="施設ID")
+    session_id: str = Field(..., description="セッションID")
+
+
 class SessionLinkResponse(BaseModel):
     """
     セッション統合レスポンス

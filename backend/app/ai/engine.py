@@ -14,7 +14,7 @@ from app.ai.openai_client import OpenAIClient
 from app.ai.fallback import get_fallback_message
 from app.models.facility import Facility
 from app.models.faq import FAQ
-from app.schemas.chat import ChatResponse, EscalationInfo
+from app.schemas.chat import RAGEngineResponse, EscalationInfo
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class RAGChatEngine:
         facility_id: int,
         session_id: str,
         language: str = "en"
-    ) -> ChatResponse:
+    ) -> RAGEngineResponse:
         """
         RAG統合型でメッセージを処理（v0.3詳細化）
         
@@ -51,7 +51,7 @@ class RAGChatEngine:
             language: 言語コード（デフォルト: "en"）
         
         Returns:
-            ChatResponse: チャットレスポンス
+            RAGEngineResponse: RAGエンジンのレスポンス（中間形式）
         """
         start_time = time.time()
         
@@ -121,23 +121,10 @@ class RAGChatEngine:
             
             response_time_ms = int((time.time() - start_time) * 1000)
             
-            # メッセージ保存（後続ステップで実装）
-            # TODO: conversation_idを取得してメッセージ保存
-            # await self._save_message(
-            #     conversation_id=conversation_id,
-            #     role="assistant",
-            #     content=ai_response,
-            #     ai_confidence=confidence,
-            #     matched_faq_ids=[faq.id for faq in similar_faqs],
-            #     response_time_ms=response_time_ms
-            # )
-            
-            return ChatResponse(
-                message_id=0,  # TODO: 実際のメッセージIDを設定
-                session_id=session_id,
+            # RAGEngineResponseを返す（メッセージ保存はchat_service.pyで実施）
+            return RAGEngineResponse(
                 response=ai_response,
                 ai_confidence=confidence,
-                source="rag_generated" if not escalation_info.needed else "escalation_needed",
                 matched_faq_ids=[faq.id for faq in similar_faqs],
                 response_time_ms=response_time_ms,
                 escalation=escalation_info
@@ -154,12 +141,9 @@ class RAGChatEngine:
                 }
             )
             # エラー時はフォールバックレスポンスを返す
-            return ChatResponse(
-                message_id=0,
-                session_id=session_id,
+            return RAGEngineResponse(
                 response=get_fallback_message(language),
                 ai_confidence=Decimal("0.0"),
-                source="escalation_needed",
                 matched_faq_ids=[],
                 response_time_ms=int((time.time() - start_time) * 1000),
                 escalation=EscalationInfo(
@@ -218,8 +202,8 @@ Facility: {facility.name}
 Check-in: {facility.check_in_time}
 Check-out: {facility.check_out_time}
 WiFi SSID: {facility.wifi_ssid or "Not available"}
-House Rules: {(facility.house_rules or "")[:200]}
-Local Info: {(facility.local_info or "")[:200]}
+House Rules: {(facility.house_rules or "")[:500]}
+Local Info: {(facility.local_info or "")[:500]}
 """
         
         # システムプロンプト（約100トークン）

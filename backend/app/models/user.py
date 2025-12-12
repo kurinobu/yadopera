@@ -30,3 +30,4 @@ class User(Base):
     # リレーションシップ
     facility = relationship("Facility", back_populates="users")
 
+

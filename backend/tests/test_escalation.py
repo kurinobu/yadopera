@@ -207,3 +207,4 @@ class TestEscalation:
         assert escalation.trigger_type == "low_confidence"
         assert conversation.is_escalated is True
 
+

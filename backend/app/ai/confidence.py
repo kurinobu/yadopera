@@ -115,3 +115,4 @@ async def calculate_confidence(
     # 0.0-1.0の範囲にクリップ
     return max(Decimal("0.0"), min(Decimal("1.0"), base_confidence))
 
+

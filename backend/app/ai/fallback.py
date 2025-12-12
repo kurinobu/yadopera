@@ -36,3 +36,4 @@ def get_fallback_message(language: str = "en") -> str:
     """
     return FALLBACK_MESSAGES.get(language, FALLBACK_MESSAGES["en"])
 
+

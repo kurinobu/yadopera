@@ -156,3 +156,4 @@ INFO  [alembic.runtime.migration] Running upgrade  -> head, (マイグレーシ�
 
 **結論**: `requirements.txt`に`asyncpg==0.29.0`を追加するだけで、エラーは解決し、デプロイは成功します。
 
+

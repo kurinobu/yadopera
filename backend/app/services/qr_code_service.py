@@ -160,8 +160,39 @@ class QRCodeService:
                 qr_code_url = f"data:image/png;base64,{base64.b64encode(img_buffer.getvalue()).decode()}"
             
             elif format == "svg":
-                # SVG形式（簡易実装）
-                qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_code_data}&format=svg"
+                # SVG形式のQRコードを生成
+                try:
+                    from qrcode.image.svg import SvgImage
+                    
+                    # QRコードオブジェクトを作成（image_factoryを指定）
+                    qr_svg = qrcode.QRCode(
+                        version=1,
+                        error_correction=qrcode.constants.ERROR_CORRECT_L,
+                        box_size=10,
+                        border=4,
+                        image_factory=SvgImage
+                    )
+                    qr_svg.add_data(qr_code_data)
+                    qr_svg.make(fit=True)
+                    
+                    # SVG形式で画像を生成
+                    img_svg = qr_svg.make_image(fill_color="black", back_color="white")
+                    
+                    # SVGデータをBytesIOに保存
+                    svg_buffer = io.BytesIO()
+                    img_svg.save(svg_buffer)
+                    svg_buffer.seek(0)
+                    
+                    # Base64エンコードしてData URL形式で返す
+                    qr_code_url = f"data:image/svg+xml;base64,{base64.b64encode(svg_buffer.getvalue()).decode()}"
+                except ImportError as e:
+                    # SvgImageが利用できない場合のフォールバック
+                    logger.warning(f"SvgImage not available: {str(e)}. Falling back to external API.")
+                    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_code_data}&format=svg"
+                except Exception as e:
+                    # その他のエラーの場合のフォールバック
+                    logger.error(f"Error generating SVG QR code: {str(e)}. Falling back to external API.")
+                    qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_code_data}&format=svg"
             
             elif format == "pdf":
                 if PDF_AVAILABLE:
@@ -211,4 +242,5 @@ class QRCodeService:
             "qr_code_data": qr_code_data,
             "format": format
         }
+
 

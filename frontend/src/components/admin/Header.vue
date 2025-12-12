@@ -20,7 +20,6 @@
       <!-- 右側メニュー -->
       <div class="flex items-center space-x-3">
         <DarkModeToggle />
-        <UserMenu />
       </div>
     </div>
   </header>
@@ -30,7 +29,6 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import DarkModeToggle from '@/components/common/DarkModeToggle.vue'
-import UserMenu from './UserMenu.vue'
 
 defineEmits<{
   'open-mobile-menu': []
@@ -43,7 +41,7 @@ const title = computed(() => {
   const titles: Record<string, string> = {
     AdminDashboard: 'ダッシュボード',
     AdminFaqs: 'FAQ管理',
-    AdminOvernightQueue: '夜間対応キュー',
+    AdminOvernightQueue: 'スタッフ不在時間帯対応キュー',
     AdminQRCode: 'QRコード発行'
   }
   return titles[route.name as string] || '管理画面'

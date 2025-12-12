@@ -7,6 +7,7 @@ import os
 import pytest
 import asyncio
 from fastapi.testclient import TestClient
+from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -109,13 +110,25 @@ async def db_session():
             # 接続エラーを無視（既にテーブルが存在する場合など）
             pass
     else:
-        # SQLite環境: テーブル作成のみ
+        # SQLite環境: テーブル作成（ARRAY型エラーを適切に処理）
+        # 根本解決: SQLite環境ではPostgreSQL固有の型（ARRAY型）が使用できないため、
+        # テーブル作成時にエラーが発生する可能性がある
+        # エラーが発生した場合は、PostgreSQL環境を使用する必要があることを示す
         try:
             async with test_engine.begin() as conn:
+                # テーブル作成を確実に実行（SQLite環境では毎回テーブルを作成）
                 await conn.run_sync(Base.metadata.create_all)
-        except Exception:
-            # 接続エラーを無視
-            pass
+        except Exception as e:
+            # ARRAY型エラーの場合、PostgreSQL環境を使用する必要があることを示す
+            if "ARRAY" in str(e) or "UnsupportedCompilationError" in str(type(e).__name__):
+                pytest.skip(
+                    f"SQLite does not support ARRAY type. "
+                    f"Please use PostgreSQL test environment by setting USE_POSTGRES_TEST=true. "
+                    f"Error: {e}"
+                )
+            else:
+                # その他のエラーは再発生
+                raise
     
     # セッション作成とクリーンアップ
     session = None
@@ -159,7 +172,51 @@ async def db_session():
 @pytest.fixture(scope="function")
 async def client(db_session):
     """
-    テスト用FastAPIクライアント
+    テスト用FastAPIクライアント（非同期）
+    Event loopエラーを回避するため、AsyncClientを使用
+    
+    使用方法:
+        @pytest.mark.asyncio
+        async def test_something(client):
+            response = await client.post("/api/v1/endpoint", json={...})
+            assert response.status_code == 200
+    """
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    async with AsyncClient(app=app, base_url="http://test") as test_client:
+        yield test_client
+    
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def auth_headers(client, test_user):
+    """
+    認証済みヘッダー
+    すべてのテストで使用可能な認証トークンを提供
+    """
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "test@example.com",
+            "password": "testpassword123"
+        }
+    )
+    access_token = login_response.json()["access_token"]
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture(scope="function")
+def sync_client(db_session):
+    """
+    テスト用FastAPIクライアント（同期・非推奨）
+    後方互換性のため残すが、新規テストでは使用しない
+    
+    注意: このフィクスチャはEvent loopエラーが発生する可能性があります。
+    新規テストでは必ず`client`フィクスチャ（AsyncClient）を使用してください。
     """
     async def override_get_db():
         yield db_session

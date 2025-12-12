@@ -3,7 +3,12 @@
  */
 
 import apiClient from './axios'
-import type { FacilityPublicResponse } from '@/types/facility'
+import type {
+  FacilityPublicResponse,
+  FacilitySettingsResponse,
+  FacilitySettingsUpdateRequest,
+  PasswordChangeRequest
+} from '@/types/facility'
 
 export const facilityApi = {
   /**
@@ -13,6 +18,23 @@ export const facilityApi = {
     const params = location ? { location } : {}
     const response = await apiClient.get<FacilityPublicResponse>(`/facility/${slug}`, { params })
     return response.data
+  },
+
+  /**
+   * 施設設定取得（管理画面用）
+   */
+  async getFacilitySettings(): Promise<FacilitySettingsResponse> {
+    const response = await apiClient.get<FacilitySettingsResponse>('/admin/facility/settings')
+    return response.data
+  },
+
+  /**
+   * 施設設定更新（管理画面用）
+   */
+  async updateFacilitySettings(data: FacilitySettingsUpdateRequest): Promise<FacilitySettingsResponse> {
+    const response = await apiClient.put<FacilitySettingsResponse>('/admin/facility/settings', data)
+    return response.data
   }
 }
+
 

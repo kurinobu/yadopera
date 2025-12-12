@@ -49,3 +49,4 @@ const handleReload = () => {
 /* Component styles */
 </style>
 
+

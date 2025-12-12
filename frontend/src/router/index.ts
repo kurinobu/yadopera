@@ -36,8 +36,20 @@ const router = createRouter({
 })
 
 // 認証ガード
-router.beforeEach((to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
+router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
   const authStore = useAuthStore()
+  
+  // トークンが存在するが、ユーザー情報が取得されていない場合、取得を試みる
+  if (authStore.token && !authStore.user) {
+    try {
+      await authStore.initAuth()
+    } catch (error) {
+      console.error('Failed to initialize auth:', error)
+      // エラーが発生した場合、ログアウト
+      authStore.logout()
+    }
+  }
+  
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
 
   if (requiresAuth && !authStore.isAuthenticated) {

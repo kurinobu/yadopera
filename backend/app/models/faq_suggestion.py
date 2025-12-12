@@ -43,3 +43,4 @@ class FAQSuggestion(Base):
     reviewer = relationship("User", foreign_keys=[reviewed_by])
     created_faq = relationship("FAQ", foreign_keys=[created_faq_id])
 
+

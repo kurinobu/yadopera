@@ -3,7 +3,7 @@
  */
 
 import apiClient from './axios'
-import type { SessionLinkRequest, SessionLinkResponse, SessionTokenVerifyResponse } from '@/types/session'
+import type { SessionLinkRequest, SessionLinkResponse, SessionTokenVerifyResponse, SessionTokenGenerateRequest, SessionTokenResponse } from '@/types/session'
 
 export const sessionApi = {
   /**
@@ -19,6 +19,22 @@ export const sessionApi = {
    */
   async verifyToken(token: string): Promise<SessionTokenVerifyResponse> {
     const response = await apiClient.get<SessionTokenVerifyResponse>(`/session/token/${token}`)
+    return response.data
+  },
+
+  /**
+   * トークン生成
+   */
+  async generateToken(data: SessionTokenGenerateRequest): Promise<SessionTokenResponse> {
+    const response = await apiClient.post<SessionTokenResponse>('/session/generate', data)
+    return response.data
+  },
+
+  /**
+   * セッションIDから既存のトークンを取得
+   */
+  async getTokenBySessionId(sessionId: string): Promise<SessionTokenResponse> {
+    const response = await apiClient.get<SessionTokenResponse>(`/session/session/${sessionId}/token`)
     return response.data
   }
 }

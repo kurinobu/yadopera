@@ -28,3 +28,4 @@ services:
         value: INFO
     healthCheckPath: /api/v1/health
 
+

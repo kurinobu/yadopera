@@ -53,3 +53,4 @@
 
 **推奨**: 既存のPostgreSQLサービスにSQLでpgvector拡張を追加する方法を推奨します。
 
+

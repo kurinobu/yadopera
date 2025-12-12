@@ -55,8 +55,8 @@ def build_rag_prompt(
 - Check-in: {facility.check_in_time}
 - Check-out: {facility.check_out_time}
 - WiFi SSID: {facility.wifi_ssid or "Not available"}
-- House Rules: {(facility.house_rules or "")[:200]}
-- Local Info: {(facility.local_info or "")[:200]}
+- House Rules: {(facility.house_rules or "")[:500]}
+- Local Info: {(facility.local_info or "")[:500]}
 """
     
     # 関連FAQ Top 3（約300トークン）

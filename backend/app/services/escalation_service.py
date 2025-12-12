@@ -3,18 +3,20 @@
 """
 
 import logging
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime, time
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import joinedload
 import pytz
 from app.models.facility import Facility
 from app.models.conversation import Conversation
-from app.models.message import Message
+from app.models.message import Message, MessageRole
 from app.models.escalation import Escalation
 from app.models.escalation_schedule import EscalationSchedule
 from app.schemas.chat import EscalationInfo
+from app.schemas.escalation import UnresolvedQuestionResponse
 from app.ai.safety_check import check_safety_category
 
 logger = logging.getLogger(__name__)
@@ -322,4 +324,65 @@ class EscalationService:
         )
         
         return escalation
+    
+    async def get_unresolved_questions(
+        self,
+        facility_id: int,
+        db: AsyncSession
+    ) -> List[UnresolvedQuestionResponse]:
+        """
+        未解決質問リストを取得
+        
+        Args:
+            facility_id: 施設ID
+            db: データベースセッション
+        
+        Returns:
+            List[UnresolvedQuestionResponse]: 未解決質問リスト
+        """
+        # 未解決のエスカレーションを取得（conversationをeager load）
+        query = select(Escalation).options(
+            joinedload(Escalation.conversation)
+        ).where(
+            Escalation.facility_id == facility_id,
+            Escalation.resolved_at.is_(None)
+        ).order_by(Escalation.created_at.desc())
+        
+        result = await db.execute(query)
+        escalations = result.unique().scalars().all()
+        
+        # UnresolvedQuestion形式に変換
+        unresolved_questions = []
+        for escalation in escalations:
+            # Conversationを取得（既にeager loadされている）
+            conversation = escalation.conversation
+            if not conversation:
+                logger.warning(f"Conversation not found for escalation {escalation.id}")
+                continue
+            
+            # 最初のユーザーメッセージを取得
+            message_query = select(Message).where(
+                Message.conversation_id == conversation.id,
+                Message.role == MessageRole.USER.value
+            ).order_by(Message.created_at.asc()).limit(1)
+            
+            message_result = await db.execute(message_query)
+            message = message_result.scalar_one_or_none()
+            
+            if message:
+                unresolved_questions.append(
+                    UnresolvedQuestionResponse(
+                        id=escalation.id,
+                        message_id=message.id,
+                        facility_id=facility_id,
+                        question=message.content,
+                        language=conversation.guest_language or "en",
+                        confidence_score=float(escalation.ai_confidence) if escalation.ai_confidence else 0.0,
+                        created_at=escalation.created_at
+                    )
+                )
+            else:
+                logger.warning(f"No user message found for conversation {conversation.id}")
+        
+        return unresolved_questions
 

@@ -87,3 +87,4 @@ const handleLanguageSelect = (language: typeof SUPPORTED_LANGUAGES[number]) => {
 /* Component styles */
 </style>
 
+

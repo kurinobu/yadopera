@@ -32,3 +32,4 @@ export function isValidFacilityId(facilityId: string | number): boolean {
   return !isNaN(id) && id > 0
 }
 
+

@@ -1,22 +1,35 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-gray-900">
-    <div class="container mx-auto px-4 py-8">
-      <h1 class="text-4xl font-bold text-center text-gray-900 dark:text-white mb-4">
-        やどぺら
-      </h1>
-      <p class="text-center text-gray-600 dark:text-gray-400">
-        開発環境構築中
-      </p>
-    </div>
-  </div>
+  <component :is="layoutComponent">
+    <router-view />
+  </component>
 </template>
 
 <script setup lang="ts">
-// App component
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
+import GuestLayout from '@/layouts/GuestLayout.vue'
+import AdminLayout from '@/layouts/AdminLayout.vue'
+
+const route = useRoute()
+
+const layoutComponent = computed(() => {
+  const layout = route.meta.layout as string | undefined
+  
+  if (layout === 'guest') {
+    return GuestLayout
+  }
+  
+  if (layout === 'admin') {
+    return AdminLayout
+  }
+  
+  // デフォルト（レイアウトなし）
+  return 'div'
+})
 </script>
 
-<style scoped>
-/* Component styles */
+<style>
+/* Global styles */
 </style>
 
 

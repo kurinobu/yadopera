@@ -41,7 +41,12 @@ export interface ChatResponse {
 }
 
 export interface ChatHistoryResponse {
-  conversation: Conversation
+  session_id: string
+  facility_id: number
+  language: string
+  location?: string
+  started_at: string
+  last_activity_at: string
   messages: ChatMessage[]
 }
 
@@ -55,5 +60,16 @@ export interface FeedbackResponse {
   message_id: number
   feedback_type: 'positive' | 'negative'
   created_at: string
+}
+
+export interface EscalationRequest {
+  facility_id: number
+  session_id: string
+}
+
+export interface EscalationResponse {
+  success: boolean
+  escalation_id: number
+  message: string
 }
 

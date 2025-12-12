@@ -24,3 +24,4 @@ class GuestFeedback(Base):
     message = relationship("Message", back_populates="guest_feedbacks")
     facility = relationship("Facility", back_populates="guest_feedbacks")
 
+

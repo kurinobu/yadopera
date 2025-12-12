@@ -81,11 +81,11 @@ interface Props {
 const props = defineProps<Props>()
 
 const emit = defineEmits<{
-  addFaq: [question: UnresolvedQuestion]
+  'add-faq': [question: UnresolvedQuestion]
 }>()
 
 const handleAddFaq = (question: UnresolvedQuestion) => {
-  emit('addFaq', question)
+  emit('add-faq', question)
 }
 
 const getLanguageLabel = (lang: string): string => {

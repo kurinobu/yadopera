@@ -3,7 +3,11 @@
  */
 
 import apiClient from './axios'
-import type { ChatRequest, ChatResponse, ChatHistoryResponse, FeedbackRequest, FeedbackResponse } from '@/types/chat'
+import type { 
+  ChatRequest, ChatResponse, ChatHistoryResponse, 
+  FeedbackRequest, FeedbackResponse,
+  EscalationRequest, EscalationResponse
+} from '@/types/chat'
 
 export const chatApi = {
   /**
@@ -28,6 +32,14 @@ export const chatApi = {
    */
   async sendFeedback(data: FeedbackRequest): Promise<FeedbackResponse> {
     const response = await apiClient.post<FeedbackResponse>('/chat/feedback', data)
+    return response.data
+  },
+
+  /**
+   * スタッフへのエスカレーション（ゲスト側、v0.3新規）
+   */
+  async escalateToStaff(data: EscalationRequest): Promise<EscalationResponse> {
+    const response = await apiClient.post<EscalationResponse>('/chat/escalate', data)
     return response.data
   }
 }

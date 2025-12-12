@@ -72,3 +72,4 @@ class TestSafetyCheck:
         assert "病院" in MEDICAL_KEYWORDS
         assert "火災" in SAFETY_KEYWORDS
 
+

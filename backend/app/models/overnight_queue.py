@@ -29,3 +29,4 @@ class OvernightQueue(Base):
     escalation = relationship("Escalation", back_populates="overnight_queue")
     resolver = relationship("User")
 
+

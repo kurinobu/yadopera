@@ -271,3 +271,4 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
 **Last Updated**: 2025-11-29  
 **Status**: psql接続成功、次のステップ提示完了
 
+

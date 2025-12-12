@@ -13,6 +13,7 @@ class OvernightQueueResponse(BaseModel):
     facility_id: int = Field(..., description="施設ID")
     escalation_id: int = Field(..., description="エスカレーションID")
     guest_message: str = Field(..., description="ゲストメッセージ")
+    language: str = Field(..., description="言語")
     scheduled_notify_at: datetime = Field(..., description="通知予定時刻（翌朝8:00）")
     notified_at: Optional[datetime] = Field(None, description="通知日時")
     resolved_at: Optional[datetime] = Field(None, description="解決日時")

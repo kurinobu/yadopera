@@ -58,16 +58,10 @@
             </div>
             <div class="flex items-center space-x-2 mt-3">
               <button
-                @click="handleImprove(answer)"
+                @click="handleRespond(answer)"
                 class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
               >
-                FAQ改善提案
-              </button>
-              <button
-                @click="handleIgnore(answer)"
-                class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
-              >
-                無視
+                対応する
               </button>
             </div>
           </div>
@@ -87,6 +81,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import type { FeedbackStats } from '@/types/dashboard'
 
 interface Props {
@@ -95,21 +90,21 @@ interface Props {
 
 const props = defineProps<Props>()
 
+const router = useRouter()
+
 const emit = defineEmits<{
-  improve: [answer: FeedbackStats['low_rated_answers'][0]]
-  ignore: [answer: FeedbackStats['low_rated_answers'][0]]
+  respond: [answer: FeedbackStats['low_rated_answers'][0]]
 }>()
 
 const formatPercentage = (value: number): string => {
   return `${Math.round(value * 100)}%`
 }
 
-const handleImprove = (answer: FeedbackStats['low_rated_answers'][0]) => {
-  emit('improve', answer)
-}
-
-const handleIgnore = (answer: FeedbackStats['low_rated_answers'][0]) => {
-  emit('ignore', answer)
+const handleRespond = async (answer: FeedbackStats['low_rated_answers'][0]) => {
+  // FAQ管理ページにジャンプ（ハッシュフラグメントを含む）
+  await router.push('/admin/faqs#feedback-linked-faqs')
+  // 親コンポーネントに通知（必要に応じて）
+  emit('respond', answer)
 }
 </script>
 

@@ -317,3 +317,4 @@ USE_POSTGRES_TEST=true pytest --tb=no -q
 **Last Updated**: 2025-11-28  
 **Status**: ✅ 改善完了（部分的に成功）
 
+

@@ -7,6 +7,13 @@ import asyncio
 from typing import List, Optional
 from datetime import datetime
 from openai import OpenAI, OpenAIError, APITimeoutError, RateLimitError, APIError
+from tenacity import (
+    retry,
+    stop_after_attempt,
+    wait_random_exponential,
+    retry_if_exception_type,
+    before_sleep_log
+)
 from app.core.config import settings
 from app.ai.fallback import get_fallback_message
 
@@ -23,7 +30,7 @@ class OpenAIClient:
     """
     
     # タイムアウト設定（秒）
-    TIMEOUT = 5.0
+    TIMEOUT = 10.0
     
     def __init__(self):
         """
@@ -33,6 +40,13 @@ class OpenAIClient:
         self.model_chat = "gpt-4o-mini-2024-07-18"
         self.model_embedding = "text-embedding-3-small"
     
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_random_exponential(min=1, max=120),
+        retry=retry_if_exception_type(RateLimitError),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True
+    )
     async def generate_response(
         self,
         prompt: str,
@@ -41,10 +55,11 @@ class OpenAIClient:
         language: str = "en"
     ) -> str:
         """
-        AI応答生成（フォールバック付き、v0.3詳細化）
+        AI応答生成（リトライロジック付き、v0.3詳細化）
         - GPT-4o miniを使用
+        - レート制限エラー時に自動リトライ（最大5回）
+        - 指数バックオフアルゴリズムを使用（1秒～120秒、ランダム要素付き）
         - ゲストの選択言語に応じたフォールバックメッセージ返却
-        - 自動再試行なし（ゲストに再送信を促す）
         
         Args:
             prompt: プロンプト
@@ -95,9 +110,9 @@ class OpenAIClient:
             return get_fallback_message(language)
         
         except RateLimitError as e:
-            # レート制限エラー
+            # レート制限エラー（リトライ後も失敗した場合）
             logger.error(
-                "OpenAI API rate limit",
+                "OpenAI API rate limit (max retries reached)",
                 extra={
                     "error_type": "OpenAI_API_rate_limit",
                     "error_message": str(e),
@@ -110,9 +125,12 @@ class OpenAIClient:
             # APIエラー（サーバーエラー等）
             logger.error(
                 "OpenAI API error",
+                exc_info=True,
                 extra={
                     "error_type": "OpenAI_API_server_error",
                     "error_message": str(e),
+                    "error_code": getattr(e, 'code', None),
+                    "error_status": getattr(e, 'status_code', None),
                     "timestamp": datetime.utcnow().isoformat()
                 }
             )
@@ -122,9 +140,12 @@ class OpenAIClient:
             # その他のOpenAIエラー
             logger.error(
                 "OpenAI API error",
+                exc_info=True,
                 extra={
                     "error_type": type(e).__name__,
                     "error_message": str(e),
+                    "error_code": getattr(e, 'code', None),
+                    "error_status": getattr(e, 'status_code', None),
                     "timestamp": datetime.utcnow().isoformat()
                 }
             )
@@ -143,13 +164,22 @@ class OpenAIClient:
             )
             return get_fallback_message(language)
     
+    @retry(
+        stop=stop_after_attempt(5),
+        wait=wait_random_exponential(min=1, max=120),
+        retry=retry_if_exception_type(RateLimitError),
+        before_sleep=before_sleep_log(logger, logging.WARNING),
+        reraise=True
+    )
     async def generate_embedding(
         self,
         text: str
     ) -> List[float]:
         """
-        埋め込みベクトル生成（フォールバック付き、v0.3詳細化）
+        埋め込みベクトル生成（リトライロジック付き、v0.3詳細化）
         - text-embedding-3-smallを使用
+        - レート制限エラー時に自動リトライ（最大5回）
+        - 指数バックオフアルゴリズムを使用（1秒～120秒、ランダム要素付き）
         - 出力: 1536次元ベクトル
         
         Args:
@@ -196,9 +226,9 @@ class OpenAIClient:
             return []
         
         except RateLimitError as e:
-            # レート制限エラー
+            # レート制限エラー（リトライ後も失敗した場合）
             logger.error(
-                "OpenAI Embeddings API rate limit",
+                "OpenAI Embeddings API rate limit (max retries reached)",
                 extra={
                     "error_type": "OpenAI_Embeddings_API_rate_limit",
                     "error_message": str(e),
@@ -211,9 +241,12 @@ class OpenAIClient:
             # APIエラー（サーバーエラー等）
             logger.error(
                 "OpenAI Embeddings API error",
+                exc_info=True,
                 extra={
                     "error_type": "OpenAI_Embeddings_API_server_error",
                     "error_message": str(e),
+                    "error_code": getattr(e, 'code', None),
+                    "error_status": getattr(e, 'status_code', None),
                     "timestamp": datetime.utcnow().isoformat()
                 }
             )
@@ -223,9 +256,12 @@ class OpenAIClient:
             # その他のOpenAIエラー
             logger.error(
                 "OpenAI Embeddings API error",
+                exc_info=True,
                 extra={
                     "error_type": type(e).__name__,
                     "error_message": str(e),
+                    "error_code": getattr(e, 'code', None),
+                    "error_status": getattr(e, 'status_code', None),
                     "timestamp": datetime.utcnow().isoformat()
                 }
             )

@@ -10,8 +10,6 @@
       </p>
     </div>
 
-    <!-- 週次サマリー統計カード -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
     <!-- ローディング表示 -->
     <Loading v-if="loading" />
 
@@ -71,15 +69,14 @@
         />
         <OvernightQueueList
           :queue="overnightQueue"
-          @resolve="handleQueueResolve"
+          @view-all="() => {}"
         />
       </div>
 
       <!-- ゲストフィードバック集計 -->
       <FeedbackStats
         :stats="feedbackStats"
-        @improve="handleFeedbackImprove"
-        @ignore="handleFeedbackIgnore"
+        @respond="handleFeedbackRespond"
       />
     </template>
   </div>
@@ -87,6 +84,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, h } from 'vue'
+import { useRouter } from 'vue-router'
 import StatsCard from '@/components/admin/StatsCard.vue'
 import CategoryChart from '@/components/admin/CategoryChart.vue'
 import ChatHistoryList from '@/components/admin/ChatHistoryList.vue'
@@ -96,6 +94,8 @@ import Loading from '@/components/common/Loading.vue'
 import { formatPercentage } from '@/utils/formatters'
 import { dashboardApi } from '@/api/dashboard'
 import type { DashboardData, ChatHistory, OvernightQueue, FeedbackStats as FeedbackStatsType, WeeklySummary } from '@/types/dashboard'
+
+const router = useRouter()
 
 // データ状態
 const loading = ref(true)
@@ -162,23 +162,21 @@ const unresolvedIcon = () => h('svg', { class: 'w-6 h-6', fill: 'none', stroke: 
 
 // イベントハンドラー
 const handleConversationClick = (conversation: ChatHistory) => {
-  // TODO: Week 4で会話詳細画面への遷移を実装
-  console.log('Conversation clicked:', conversation)
+  router.push({
+    name: 'ConversationDetail',
+    params: { session_id: conversation.session_id }
+  })
 }
 
-const handleQueueResolve = (item: OvernightQueue) => {
-  // TODO: Week 4でAPI連携を実装
-  console.log('Queue item resolved:', item)
+const handleQueueViewAll = () => {
+  // 夜間対応キュー専用ページへの遷移はOvernightQueueListコンポーネント内で処理
+  // この関数は必要に応じて追加の処理を行う（現時点では不要）
 }
 
-const handleFeedbackImprove = (answer: FeedbackStatsType['low_rated_answers'][0]) => {
-  // TODO: Week 4でAPI連携を実装
-  console.log('Feedback improve:', answer)
-}
-
-const handleFeedbackIgnore = (answer: FeedbackStatsType['low_rated_answers'][0]) => {
-  // TODO: Week 4でAPI連携を実装
-  console.log('Feedback ignore:', answer)
+const handleFeedbackRespond = (answer: FeedbackStatsType['low_rated_answers'][0]) => {
+  // FAQ管理ページにジャンプ（FeedbackStatsコンポーネント内で既に処理されている）
+  // 必要に応じて、追加の処理をここに記述
+  console.log('Navigate to FAQ management page for:', answer)
 }
 </script>
 

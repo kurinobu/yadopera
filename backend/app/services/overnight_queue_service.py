@@ -3,16 +3,18 @@
 """
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime, time, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import pytz
+import json
 from app.models.facility import Facility
 from app.models.overnight_queue import OvernightQueue
 from app.models.escalation import Escalation
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.utils.staff_absence import is_in_staff_absence_period, get_next_notification_time
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +22,8 @@ logger = logging.getLogger(__name__)
 class OvernightQueueService:
     """
     夜間対応キュー管理サービス（v0.3新規）
+    スタッフ不在時間帯に対応（v0.3改善）
     """
-    
-    NIGHT_START = time(22, 0)  # 22:00
-    NIGHT_END = time(8, 0)     # 8:00
     
     async def add_to_overnight_queue(
         self,
@@ -33,8 +33,8 @@ class OvernightQueueService:
         db: AsyncSession
     ) -> OvernightQueue:
         """
-        夜間対応キューに追加（v0.3新規）
-        施設のタイムゾーン基準で翌朝8:00を計算
+        夜間対応キューに追加（v0.3新規、v0.3改善: スタッフ不在時間帯に対応）
+        施設のタイムゾーン基準でスタッフ不在時間帯の終了時刻を計算
         
         Args:
             facility_id: 施設ID
@@ -45,7 +45,7 @@ class OvernightQueueService:
         Returns:
             OvernightQueue: 作成された夜間対応キュー
         """
-        # 施設のタイムゾーンを取得
+        # 施設情報を取得
         facility = await db.get(Facility, facility_id)
         if not facility:
             raise ValueError(f"Facility not found: {facility_id}")
@@ -57,18 +57,27 @@ class OvernightQueueService:
         facility_tz = pytz.timezone(timezone_str)
         local_now = utc_now.astimezone(facility_tz)
         
-        # 翌朝8:00を計算（施設のタイムゾーン基準）
-        if local_now.hour >= 22 or local_now.hour < 8:
-            # 夜間時間帯
-            if local_now.hour < 8:
-                # 0:00-8:00 → 当日8:00
-                scheduled_time_local = local_now.replace(hour=8, minute=0, second=0, microsecond=0)
-            else:
-                # 22:00-23:59 → 翌日8:00
-                scheduled_time_local = (local_now + timedelta(days=1)).replace(hour=8, minute=0, second=0, microsecond=0)
-        else:
-            # 日中時間帯（通常は呼ばないが念のため）
-            scheduled_time_local = local_now.replace(hour=8, minute=0, second=0, microsecond=0)
+        # スタッフ不在時間帯を取得
+        staff_absence_periods: List[Dict] = []
+        if facility.staff_absence_periods:
+            try:
+                if isinstance(facility.staff_absence_periods, str):
+                    staff_absence_periods = json.loads(facility.staff_absence_periods)
+                else:
+                    staff_absence_periods = facility.staff_absence_periods
+            except (json.JSONDecodeError, TypeError, ValueError):
+                # パースエラーの場合は空リスト
+                staff_absence_periods = []
+        
+        # 現在の曜日を取得
+        current_weekday = local_now.strftime("%a").lower()  # 'mon', 'tue', etc.
+        
+        # 次の通知時刻を計算（スタッフ不在時間帯の終了時刻）
+        scheduled_time_local = get_next_notification_time(
+            current_time=local_now,
+            current_weekday=current_weekday,
+            staff_absence_periods=staff_absence_periods
+        )
         
         # UTCに変換して保存
         scheduled_time = scheduled_time_local.astimezone(pytz.UTC).replace(tzinfo=None)
@@ -152,7 +161,7 @@ class OvernightQueueService:
         facility_id: Optional[int] = None
     ) -> List[OvernightQueue]:
         """
-        翌朝8:00の一括通知処理（v0.3新規）
+        通知予定時刻の一括通知処理（v0.3新規、v0.3改善: スタッフ不在時間帯に対応）
         MVP期間中: 手動実行ボタンまたは外部cron対応
         
         Args:
@@ -164,10 +173,14 @@ class OvernightQueueService:
         """
         now = datetime.utcnow()
         
-        # 8:00-8:30の範囲で未通知のキューを取得
+        # 通知予定時刻が現在時刻の30分前から30分後までの範囲で未通知のキューを取得
+        # これにより、スタッフ不在時間帯の終了時刻が異なる場合にも対応できる
+        time_window_start = now - timedelta(minutes=30)
+        time_window_end = now + timedelta(minutes=30)
+        
         query = select(OvernightQueue).where(
-            OvernightQueue.scheduled_notify_at >= now.replace(hour=8, minute=0, second=0, microsecond=0),
-            OvernightQueue.scheduled_notify_at < now.replace(hour=8, minute=30, second=0, microsecond=0),
+            OvernightQueue.scheduled_notify_at >= time_window_start,
+            OvernightQueue.scheduled_notify_at <= time_window_end,
             OvernightQueue.notified_at.is_(None)
         )
         
@@ -252,4 +265,66 @@ class OvernightQueueService:
         queues = result.scalars().all()
         
         return queues
+    
+    async def resolve_queue_item(
+        self,
+        queue_id: int,
+        user_id: int,
+        facility_id: int,
+        db: AsyncSession
+    ) -> OvernightQueue:
+        """
+        夜間対応キューアイテムを対応済みにする
+        
+        Args:
+            queue_id: キューID
+            user_id: 解決者ID
+            facility_id: 施設ID
+            db: データベースセッション
+        
+        Returns:
+            OvernightQueue: 更新された夜間対応キュー
+        
+        Raises:
+            ValueError: キューが見つからない、または施設IDが一致しない場合
+        """
+        # キューを取得
+        queue = await db.get(OvernightQueue, queue_id)
+        if not queue:
+            raise ValueError(f"Overnight queue not found: {queue_id}")
+        
+        # 施設IDの確認
+        if queue.facility_id != facility_id:
+            raise ValueError(f"Overnight queue does not belong to facility: {facility_id}")
+        
+        # 既に解決済みの場合は何もしない
+        if queue.resolved_at is not None:
+            logger.warning(
+                f"Overnight queue already resolved: queue_id={queue_id}",
+                extra={
+                    "overnight_queue_id": queue_id,
+                    "facility_id": facility_id,
+                    "resolved_at": queue.resolved_at.isoformat() if queue.resolved_at else None
+                }
+            )
+            return queue
+        
+        # 解決済みとしてマーク
+        queue.resolved_at = datetime.utcnow()
+        queue.resolved_by = user_id
+        
+        await db.commit()
+        await db.refresh(queue)
+        
+        logger.info(
+            f"Resolved overnight queue: queue_id={queue_id}",
+            extra={
+                "overnight_queue_id": queue_id,
+                "facility_id": facility_id,
+                "resolved_by": user_id,
+                "resolved_at": queue.resolved_at.isoformat() if queue.resolved_at else None
+            }
+        )
+        
+        return queue
 

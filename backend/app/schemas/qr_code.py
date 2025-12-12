@@ -3,7 +3,7 @@ QRコード関連スキーマ
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -27,7 +27,7 @@ class QRCodeRequest(BaseModel):
 
 class QRCodeResponse(BaseModel):
     """QRコード生成レスポンス"""
-    id: int = Field(..., description="QRコードID（生成時刻ベース）")
+    id: int = Field(..., description="QRコードID")
     facility_id: int = Field(..., description="施設ID")
     location: str = Field(..., description="設置場所")
     custom_location_name: Optional[str] = Field(None, description="カスタム設置場所名")
@@ -36,4 +36,16 @@ class QRCodeResponse(BaseModel):
     qr_code_data: str = Field(..., description="QRコードに埋め込まれたURL")
     format: str = Field(..., description="出力形式")
     created_at: datetime = Field(..., description="作成日時")
+
+    class Config:
+        from_attributes = True
+
+
+class QRCodeListResponse(BaseModel):
+    """生成済みQRコード一覧レスポンス"""
+    qr_codes: List[QRCodeResponse] = Field(..., description="生成済みQRコード一覧")
+    total: int = Field(..., description="総数")
+
+    class Config:
+        from_attributes = True
 

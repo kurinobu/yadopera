@@ -48,3 +48,4 @@ OpenAI Platformでキーを作成する際の名前:
 2. キーをコピー（`sk-`で始まる文字列）
 3. Render.comの`OPENAI_API_KEY`環境変数に設定
 
+

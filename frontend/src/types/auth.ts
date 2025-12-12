@@ -5,8 +5,10 @@
 export interface User {
   id: number
   email: string
-  full_name: string
+  full_name: string | null
   role: 'owner' | 'staff' | 'admin'
+  facility_id: number
+  is_active: boolean
 }
 
 export interface LoginRequest {

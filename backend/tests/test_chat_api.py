@@ -51,7 +51,7 @@ class TestChatAPI:
         await db_session.commit()
         
         # API呼び出し
-        response = client.get(f"/api/v1/chat/history/test-api-session")
+        response = await client.get(f"/api/v1/chat/history/test-api-session")
         
         # アサーション
         assert response.status_code == status.HTTP_200_OK
@@ -63,7 +63,7 @@ class TestChatAPI:
     async def test_get_chat_history_not_found(self, client):
         """会話履歴が見つからない場合のテスト"""
         # API呼び出し
-        response = client.get("/api/v1/chat/history/non-existent-session")
+        response = await client.get("/api/v1/chat/history/non-existent-session")
         
         # アサーション
         assert response.status_code == status.HTTP_404_NOT_FOUND

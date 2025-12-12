@@ -51,3 +51,4 @@ RailwayのPostgreSQLサービスにpgvectorが含まれていない場合、以�
 2. 利用可能な拡張を確認
 3. 必要に応じて、pgvector付きのPostgreSQLサービスを作成
 
+

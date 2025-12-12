@@ -13,7 +13,7 @@
     </div>
 
     <!-- メッセージリスト -->
-    <ChatMessage
+    <ChatMessageComponent
       v-for="message in messages"
       :key="message.id"
       :message="message"
@@ -26,7 +26,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted } from 'vue'
 import type { ChatMessage } from '@/types/chat'
-import ChatMessage from './ChatMessage.vue'
+import ChatMessageComponent from './ChatMessage.vue'
 
 interface Props {
   messages: ChatMessage[]
@@ -34,7 +34,7 @@ interface Props {
   containerClasses?: string
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   showFeedback: true,
   containerClasses: ''
 })
@@ -55,11 +55,30 @@ const scrollToBottom = () => {
 }
 
 // メッセージが追加されたら自動スクロール
-watch(() => props.messages.length, () => {
+watch(() => props.messages.length, (newLength, oldLength) => {
+  console.log('[ChatMessageList] messages.length 変更', {
+    oldLength,
+    newLength,
+    messages: props.messages
+  })
   scrollToBottom()
 })
 
+// messagesプロップの変更を監視
+watch(() => props.messages, (newMessages, oldMessages) => {
+  console.log('[ChatMessageList] messages 変更', {
+    oldMessagesCount: oldMessages?.length || 0,
+    newMessagesCount: newMessages?.length || 0,
+    oldMessages,
+    newMessages
+  })
+}, { deep: true })
+
 onMounted(() => {
+  console.log('[ChatMessageList] onMounted', {
+    messagesCount: props.messages.length,
+    messages: props.messages
+  })
   scrollToBottom()
 })
 

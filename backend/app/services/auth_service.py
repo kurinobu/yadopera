@@ -88,8 +88,9 @@ class AuthService:
         await db.refresh(user)
         
         # JWTトークン生成
+        # JWT仕様（RFC 7519）に準拠: subフィールドは文字列であるべき
         access_token = create_access_token(
-            data={"sub": user.id, "email": user.email}
+            data={"sub": str(user.id), "email": user.email}
         )
         
         # レスポンス作成

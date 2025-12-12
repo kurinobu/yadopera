@@ -4,18 +4,27 @@
       <div class="flex items-center justify-between">
         <div>
           <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-            夜間対応キュー
+            スタッフ不在時間帯対応キュー
           </h3>
           <p class="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            翌朝対応が必要な質問
+            スタッフ不在時間帯にエスカレーションされた質問
           </p>
         </div>
-        <span
-          v-if="queue.length > 0"
-          class="px-3 py-1 text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full"
-        >
-          {{ queue.length }}件
-        </span>
+        <div class="flex items-center space-x-2">
+          <span
+            v-if="queue.length > 0"
+            class="px-3 py-1 text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 rounded-full"
+          >
+            {{ queue.length }}件
+          </span>
+          <button
+            v-if="queue.length > 0"
+            @click="handleViewAll"
+            class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+          >
+            対応する
+          </button>
+        </div>
       </div>
     </div>
 
@@ -61,7 +70,7 @@
           </div>
           <div class="ml-4 flex-shrink-0">
             <button
-              v-if="!item.resolved_at"
+              v-if="!item.resolved_at && showResolveButton"
               @click="handleResolve(item)"
               class="px-3 py-1.5 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
             >
@@ -76,7 +85,7 @@
         class="px-6 py-12 text-center"
       >
         <p class="text-sm text-gray-500 dark:text-gray-400">
-          夜間対応キューはありません
+          スタッフ不在時間帯対応キューはありません
         </p>
       </div>
     </div>
@@ -84,24 +93,39 @@
 </template>
 
 <script setup lang="ts">
+import { useRouter } from 'vue-router'
 import { formatRelativeTime, formatDateTime } from '@/utils/formatters'
 import type { OvernightQueue } from '@/types/dashboard'
 
 interface Props {
   queue: OvernightQueue[]
+  showResolveButton?: boolean  // 対応済みボタンを表示するか（専用ページ用）
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  showResolveButton: false
+})
+
+const router = useRouter()
 
 const emit = defineEmits<{
+  viewAll: []
   resolve: [item: OvernightQueue]
 }>()
+
+const handleViewAll = () => {
+  // 夜間対応キュー専用ページに遷移（ゲストフィードバック集計の「対応する」ボタンと同じパターン）
+  router.push('/admin/overnight-queue')
+  emit('viewAll')
+}
 
 const handleResolve = (item: OvernightQueue) => {
   emit('resolve', item)
 }
 
-const getLanguageLabel = (lang: string): string => {
+const getLanguageLabel = (lang: string | undefined): string => {
+  if (!lang) return '不明'  // undefinedの場合のデフォルト値
+  
   const labels: Record<string, string> = {
     en: '英語',
     ja: '日本語',
@@ -113,7 +137,9 @@ const getLanguageLabel = (lang: string): string => {
   return labels[lang] || lang.toUpperCase()
 }
 
-const getLanguageBadgeClass = (lang: string): string => {
+const getLanguageBadgeClass = (lang: string | undefined): string => {
+  if (!lang) return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'  // undefinedの場合のデフォルト値
+  
   const classes: Record<string, string> = {
     en: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
     ja: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',

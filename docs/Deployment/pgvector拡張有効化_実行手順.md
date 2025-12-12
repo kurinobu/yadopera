@@ -74,3 +74,4 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
 
 **次のステップ**: pgvector拡張の有効化が完了したら、Redisサービスの追加に進みます。
 
+

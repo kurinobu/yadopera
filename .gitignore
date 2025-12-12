@@ -108,4 +108,10 @@ alembic.ini.bak
 sw.js
 workbox-*.js
 
+# Backup files
+*.backup*
+.env.backup*
+*_backup_*
+*backup_*
+
 

@@ -1,8 +1,11 @@
 <template>
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
-    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+    <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-1">
       カテゴリ別内訳
     </h3>
+    <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+      過去7日間のメッセージで使用されたFAQのカテゴリ集計
+    </p>
     
     <!-- 円グラフ -->
     <div class="flex items-center justify-center mb-6">
@@ -113,18 +116,20 @@ const total = computed(() => {
 
 const segments = computed(() => {
   let currentOffset = 0
-  const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444']
   
-  return chartData.value.map((item, index) => {
+  // 値が0より大きいカテゴリのみをフィルタ
+  const validItems = chartData.value.filter((item) => item.value > 0)
+  
+  return validItems.map((item) => {
     const percentage = total.value > 0 ? item.value / total.value : 0
     const dashLength = circumference * percentage
-    const offset = currentOffset
+    const offset = currentOffset  // 現在のオフセット位置から開始
     
-    currentOffset += dashLength
+    currentOffset += dashLength  // 次のセグメントの開始位置を更新
     
     return {
-      color: colors[index],
-      offset: circumference - offset
+      color: item.color,
+      offset: offset
     }
   })
 })

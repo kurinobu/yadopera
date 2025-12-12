@@ -14,6 +14,7 @@ from app.models.escalation_schedule import EscalationSchedule
 from app.models.overnight_queue import OvernightQueue
 from app.models.question_pattern import QuestionPattern
 from app.models.guest_feedback import GuestFeedback
+from app.models.qr_code import QRCode
 
 __all__ = [
     "Base",
@@ -28,5 +29,6 @@ __all__ = [
     "OvernightQueue",
     "QuestionPattern",
     "GuestFeedback",
+    "QRCode",
 ]
 

@@ -35,6 +35,14 @@ export const overnightQueueApi = {
   async processNotifications(): Promise<ProcessNotificationsResponse> {
     const response = await apiClient.post<ProcessNotificationsResponse>('/admin/overnight-queue/process')
     return response.data
+  },
+
+  /**
+   * 夜間対応キューアイテムを対応済みにする
+   */
+  async resolveQueueItem(queueId: number): Promise<OvernightQueue> {
+    const response = await apiClient.put<OvernightQueue>(`/admin/overnight-queue/${queueId}/resolve`)
+    return response.data
   }
 }
 

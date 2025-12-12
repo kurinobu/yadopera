@@ -43,3 +43,4 @@ class FAQ(Base):
     facility = relationship("Facility", back_populates="faqs")
     creator = relationship("User")
 
+

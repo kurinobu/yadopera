@@ -46,3 +46,4 @@ export function hasCookie(name: string): boolean {
   return cookies.get(name) !== undefined
 }
 
+

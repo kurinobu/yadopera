@@ -70,6 +70,13 @@
 
     <div class="flex items-center justify-end space-x-3 mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
       <button
+        @click="handleCancel"
+        :disabled="loading"
+        class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        キャンセル
+      </button>
+      <button
         @click="handleReject"
         :disabled="loading || suggestion.status !== 'pending'"
         class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -103,6 +110,7 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   approve: [suggestion: FaqSuggestion]
   reject: [suggestion: FaqSuggestion]
+  cancel: [suggestion: FaqSuggestion]
 }>()
 
 const loading = ref(false)
@@ -172,6 +180,11 @@ const handleReject = async () => {
   } finally {
     loading.value = false
   }
+}
+
+const handleCancel = () => {
+  if (loading.value) return
+  emit('cancel', props.suggestion)
 }
 </script>
 

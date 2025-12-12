@@ -128,6 +128,19 @@ class FAQService:
         if request.category not in [cat.value for cat in FAQCategory]:
             raise ValueError(f"Invalid category: {request.category}")
         
+        # priorityがNoneの場合はデフォルト値1を使用（念のため）
+        priority = request.priority if request.priority is not None else 1
+        
+        logger.info(
+            f"Creating FAQ: facility_id={facility_id}, category={request.category}, priority={priority}",
+            extra={
+                "facility_id": facility_id,
+                "category": request.category,
+                "priority": priority,
+                "request_priority": request.priority
+            }
+        )
+        
         # FAQ作成
         faq = FAQ(
             facility_id=facility_id,
@@ -135,7 +148,7 @@ class FAQService:
             language=request.language,
             question=request.question,
             answer=request.answer,
-            priority=request.priority,
+            priority=priority,
             is_active=request.is_active if request.is_active is not None else True,
             created_by=user_id
         )
@@ -145,22 +158,33 @@ class FAQService:
         
         # 埋め込みベクトル生成
         try:
+            logger.info(f"Generating FAQ embedding: faq_id={faq.id}, question_length={len(faq.question)}, answer_length={len(faq.answer)}")
             embedding = await generate_faq_embedding(faq)
             if embedding:
                 faq.embedding = embedding
                 await self.db.flush()
-                logger.info(f"FAQ embedding generated: faq_id={faq.id}")
+                logger.info(f"FAQ embedding generated successfully: faq_id={faq.id}, embedding_length={len(embedding)}")
             else:
-                logger.warning(f"Failed to generate FAQ embedding: faq_id={faq.id}")
+                logger.warning(f"Failed to generate FAQ embedding (empty result): faq_id={faq.id}")
         except Exception as e:
-            logger.error(f"Error generating FAQ embedding: {str(e)}")
+            logger.error(
+                f"Error generating FAQ embedding: {str(e)}",
+                exc_info=True,
+                extra={
+                    "faq_id": faq.id,
+                    "facility_id": facility_id,
+                    "question": faq.question[:100] if faq.question else None,
+                    "answer": faq.answer[:100] if faq.answer else None,
+                    "error": str(e)
+                }
+            )
             # 埋め込み生成失敗でもFAQは保存（後で再生成可能）
         
         await self.db.commit()
         await self.db.refresh(faq)
         
-        # キャッシュを無効化
-        await delete_cache_pattern(f"faq:list:facility_id={facility_id}*")
+        # キャッシュを無効化（ワイルドカードを使用して、すべてのパラメータ組み合わせを無効化）
+        await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
         
         logger.info(
             f"FAQ created: faq_id={faq.id}, facility_id={facility_id}",
@@ -262,8 +286,8 @@ class FAQService:
         await self.db.commit()
         await self.db.refresh(faq)
         
-        # キャッシュを無効化
-        await delete_cache_pattern(f"faq:list:facility_id={facility_id}*")
+        # キャッシュを無効化（ワイルドカードを使用して、すべてのパラメータ組み合わせを無効化）
+        await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
         
         logger.info(
             f"FAQ updated: faq_id={faq.id}, facility_id={facility_id}",
@@ -311,11 +335,15 @@ class FAQService:
         if faq.facility_id != facility_id:
             raise ValueError(f"FAQ does not belong to facility: faq_id={faq_id}, facility_id={facility_id}")
         
+        # キャッシュを先に無効化（削除前に無効化することで、古いデータが残らないようにする）
+        await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
+        
+        # FAQを削除
         await self.db.delete(faq)
         await self.db.commit()
         
-        # キャッシュを無効化
-        await delete_cache_pattern(f"faq:list:facility_id={facility_id}*")
+        # 念のため、再度キャッシュを無効化
+        await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
         
         logger.info(
             f"FAQ deleted: faq_id={faq.id}, facility_id={facility_id}",
