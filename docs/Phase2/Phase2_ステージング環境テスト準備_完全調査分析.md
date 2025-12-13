@@ -151,60 +151,51 @@
 
 #### 4.1.1 フロントエンドのデプロイ先の選択
 
-**選択肢1: Vercel（推奨）**
-- 理由: `.github/workflows/staging-deploy.yml`に既に設定がある
-- メリット: GitHub Actionsで自動デプロイ可能
-- デメリット: Vercelのアカウントとシークレット設定が必要
-
-**選択肢2: Render.com Static Site**
+**選択肢1: Render.com Static Site（推奨）** ★修正
 - 理由: バックエンドと同じプラットフォームで統一
-- メリット: 同じダッシュボードで管理可能
-- デメリット: 追加の設定が必要
+- メリット: 同じダッシュボードで管理可能、Phase 1引き継ぎ書で決定済み
+- デメリット: 追加の設定が必要（軽微）
 
-**推奨**: **選択肢1（Vercel）** - 既存の設定を活用し、統一性を保つ
+**選択肢2: Vercel（使用しない）** ❌
+- 理由: Phase 1引き継ぎ書で「Vercelは今後使用しない」と決定済み
+- 問題: 過去にVercelで設定に失敗した経験がある（Phase 0）
+- 結論: 使用しない
+
+**推奨**: **選択肢1（Render.com Static Site）** - Phase 1引き継ぎ書で決定済み、大原則（統一・同一化）に準拠
 
 #### 4.1.2 Vercelへのデプロイ手順
 
-1. **Vercelプロジェクトの作成**
-   - Vercelダッシュボードにログイン
-   - 「Add New」→「Project」を選択
-   - GitHubリポジトリを選択
+1. **Render.com Static Siteの作成**
+   - Render.comダッシュボードで「New +」→「Static Site」を選択
+   - GitHubリポジトリを接続（既に接続済みの場合は選択）
    - 以下の設定を行う:
-     - **Framework Preset**: `Vite`
+     - **Name**: `yadopera-frontend-staging`
+     - **Branch**: `develop`
      - **Root Directory**: `frontend`
      - **Build Command**: `npm run build`
-     - **Output Directory**: `dist`
-     - **Install Command**: `npm install`
+     - **Publish Directory**: `dist`
 
 2. **環境変数設定**
-   - Vercelの「Settings」→「Environment Variables」で以下を設定:
+   - Static Siteダッシュボードで「Environment」タブを開く
+   - 以下の環境変数を追加:
      ```bash
      VITE_API_BASE_URL=https://yadopera-backend-staging.onrender.com
      VITE_ENVIRONMENT=staging
      ```
 
-3. **ブランチ設定**
-   - **Production Branch**: `main`
-   - **Preview Branches**: `develop`（ステージング環境として使用）
+3. **バックエンドのCORS設定を更新**
+   - Render.comのバックエンドサービスの「Environment」タブを開く
+   - `CORS_ORIGINS`環境変数を更新:
+     ```bash
+     CORS_ORIGINS=https://yadopera-frontend-staging.onrender.com,http://localhost:5173
+     ```
+     - 注: Static Siteの実際のURLに置き換える
 
-4. **GitHub Actionsの設定確認**
-   - `.github/workflows/staging-deploy.yml`の設定を確認
-   - Vercelのシークレット（`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`）が設定されているか確認
-
-#### 4.1.3 バックエンドのCORS設定を更新
-
-1. Render.comのバックエンドサービスの「Environment」タブを開く
-2. `CORS_ORIGINS`環境変数を更新:
-   ```bash
-   CORS_ORIGINS=https://yadopera-frontend-staging.vercel.app,http://localhost:5173
-   ```
-   - 注: Vercelの実際のURLに置き換える
-
-#### 4.1.4 デプロイ確認
+#### 4.1.3 デプロイ確認
 
 1. **フロントエンドのデプロイ確認**
-   - Vercelのダッシュボードでデプロイ状況を確認
-   - フロントエンドのURLを確認（例: `https://yadopera-frontend-staging.vercel.app`）
+   - Render.comのダッシュボードでデプロイ状況を確認
+   - フロントエンドのURLを確認（例: `https://yadopera-frontend-staging.onrender.com`）
 
 2. **バックエンドのCORS設定確認**
    - Render.comのバックエンドサービスの環境変数を確認
