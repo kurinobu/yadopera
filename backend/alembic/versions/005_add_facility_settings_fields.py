@@ -19,9 +19,22 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # facilities テーブルに staff_absence_periods と icon_url を追加
-    op.add_column('facilities', sa.Column('staff_absence_periods', postgresql.JSON(astext_type=sa.Text()), nullable=True, server_default='[]'))
-    op.add_column('facilities', sa.Column('icon_url', sa.String(length=255), nullable=True))
+    # facilities テーブルに staff_absence_periods と icon_url を追加（既存チェック付き）
+    op.execute("""
+        DO $$ BEGIN
+            ALTER TABLE facilities ADD COLUMN staff_absence_periods JSONB DEFAULT '[]';
+        EXCEPTION
+            WHEN duplicate_column THEN null;
+        END $$;
+    """)
+    
+    op.execute("""
+        DO $$ BEGIN
+            ALTER TABLE facilities ADD COLUMN icon_url VARCHAR(255);
+        EXCEPTION
+            WHEN duplicate_column THEN null;
+        END $$;
+    """)
 
 
 def downgrade() -> None:

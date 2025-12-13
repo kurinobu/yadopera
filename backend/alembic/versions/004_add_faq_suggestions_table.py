@@ -19,32 +19,65 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    # faq_suggestions テーブル作成
-    op.create_table(
-        'faq_suggestions',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('facility_id', sa.Integer(), nullable=False),
-        sa.Column('source_message_id', sa.Integer(), nullable=False),
-        sa.Column('suggested_question', sa.Text(), nullable=False),
-        sa.Column('suggested_answer', sa.Text(), nullable=False),
-        sa.Column('suggested_category', sa.String(length=50), nullable=False),
-        sa.Column('language', sa.String(length=10), nullable=True, server_default='en'),
-        sa.Column('status', sa.String(length=20), nullable=True, server_default='pending'),
-        sa.Column('reviewed_at', sa.DateTime(timezone=True), nullable=True),
-        sa.Column('reviewed_by', sa.Integer(), nullable=True),
-        sa.Column('created_faq_id', sa.Integer(), nullable=True),
-        sa.Column('created_at', sa.DateTime(timezone=True), server_default=sa.text('now()'), nullable=True),
-        sa.ForeignKeyConstraint(['facility_id'], ['facilities.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['source_message_id'], ['messages.id'], ondelete='CASCADE'),
-        sa.ForeignKeyConstraint(['reviewed_by'], ['users.id'], ondelete='SET NULL'),
-        sa.ForeignKeyConstraint(['created_faq_id'], ['faqs.id'], ondelete='SET NULL'),
-        sa.PrimaryKeyConstraint('id')
-    )
+    # faq_suggestions テーブル作成（既存チェック付き）
+    op.execute("""
+        DO $$ BEGIN
+            CREATE TABLE faq_suggestions (
+                id SERIAL NOT NULL,
+                facility_id INTEGER NOT NULL,
+                source_message_id INTEGER NOT NULL,
+                suggested_question TEXT NOT NULL,
+                suggested_answer TEXT NOT NULL,
+                suggested_category VARCHAR(50) NOT NULL,
+                language VARCHAR(10) DEFAULT 'en',
+                status VARCHAR(20) DEFAULT 'pending',
+                reviewed_at TIMESTAMP WITH TIME ZONE,
+                reviewed_by INTEGER,
+                created_faq_id INTEGER,
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT now(),
+                PRIMARY KEY (id),
+                FOREIGN KEY(facility_id) REFERENCES facilities (id) ON DELETE CASCADE,
+                FOREIGN KEY(source_message_id) REFERENCES messages (id) ON DELETE CASCADE,
+                FOREIGN KEY(reviewed_by) REFERENCES users (id) ON DELETE SET NULL,
+                FOREIGN KEY(created_faq_id) REFERENCES faqs (id) ON DELETE SET NULL
+            );
+        EXCEPTION
+            WHEN duplicate_table THEN null;
+        END $$;
+    """)
     
-    op.create_index('idx_faq_suggestions_facility_id', 'faq_suggestions', ['facility_id'])
-    op.create_index('idx_faq_suggestions_status', 'faq_suggestions', ['status'])
-    op.create_index('idx_faq_suggestions_created_at', 'faq_suggestions', ['created_at'])
-    op.create_index('idx_faq_suggestions_source_message_id', 'faq_suggestions', ['source_message_id'])
+    # インデックス作成（既存チェック付き）
+    op.execute("""
+        DO $$ BEGIN
+            CREATE INDEX idx_faq_suggestions_facility_id ON faq_suggestions(facility_id);
+        EXCEPTION
+            WHEN duplicate_table THEN null;
+        END $$;
+    """)
+    
+    op.execute("""
+        DO $$ BEGIN
+            CREATE INDEX idx_faq_suggestions_status ON faq_suggestions(status);
+        EXCEPTION
+            WHEN duplicate_table THEN null;
+        END $$;
+    """)
+    
+    op.execute("""
+        DO $$ BEGIN
+            CREATE INDEX idx_faq_suggestions_created_at ON faq_suggestions(created_at);
+        EXCEPTION
+            WHEN duplicate_table THEN null;
+        END $$;
+    """)
+    
+    op.execute("""
+        DO $$ BEGIN
+            CREATE INDEX idx_faq_suggestions_source_message_id ON faq_suggestions(source_message_id);
+        EXCEPTION
+            WHEN duplicate_table THEN null;
+        END $$;
+    """)
 
 
 def downgrade() -> None:
