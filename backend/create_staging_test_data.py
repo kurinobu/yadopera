@@ -14,6 +14,7 @@ from app.core.config import settings
 # すべてのモデルをインポート（リレーションシップ解決のため）
 from app.models.facility import Facility
 from app.models.user import User
+from app.models.faq_suggestion import FAQSuggestion  # リレーションシップ解決のため
 from sqlalchemy import select
 
 async def create_staging_test_data():
