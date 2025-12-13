@@ -44,12 +44,12 @@ import { useRoute, useRouter } from 'vue-router'
 import { SUPPORTED_LANGUAGES } from '@/utils/constants'
 import LanguageCard from '@/components/guest/LanguageCard.vue'
 import Loading from '@/components/common/Loading.vue'
-import { facilityApi } from '@/api/facility'
-import { useFacilityStore } from '@/stores/facility'
+// import { facilityApi } from '@/api/facility'
+// import { useFacilityStore } from '@/stores/facility'
 
 const route = useRoute()
 const router = useRouter()
-const facilityStore = useFacilityStore()
+// const facilityStore = useFacilityStore()
 
 const facilityId = computed(() => route.params.facilityId as string)
 const supportedLanguages = ref(SUPPORTED_LANGUAGES)

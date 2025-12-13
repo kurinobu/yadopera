@@ -64,7 +64,7 @@ const emit = defineEmits<{
 }>()
 
 const tokenInput = ref('')
-const error = ref<string | null>(null)
+const error = ref<string | undefined>(undefined)
 const isVerifying = ref(false)
 
 const canSubmit = computed(() => {
@@ -74,7 +74,7 @@ const canSubmit = computed(() => {
 const handleInput = () => {
   // 大文字に変換
   tokenInput.value = tokenInput.value.toUpperCase()
-  error.value = null
+  error.value = undefined
 }
 
 const handleSubmit = async () => {
@@ -91,7 +91,7 @@ const handleSubmit = async () => {
 
   try {
     isVerifying.value = true
-    error.value = null
+    error.value = undefined
 
     emit('link', token)
     
@@ -107,7 +107,7 @@ const handleSubmit = async () => {
 
 const handleCancel = () => {
   tokenInput.value = ''
-  error.value = null
+  error.value = undefined
   emit('update:isOpen', false)
 }
 </script>

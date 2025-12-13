@@ -18,12 +18,9 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { SUPPORTED_LANGUAGES } from '@/utils/constants'
 
-interface Language {
-  code: string
-  name: string
-  flag: string
-}
+type Language = typeof SUPPORTED_LANGUAGES[number]
 
 interface Props {
   language: Language

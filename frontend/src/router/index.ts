@@ -36,7 +36,7 @@ const router = createRouter({
 })
 
 // 認証ガード
-router.beforeEach(async (to: RouteLocationNormalized, from: RouteLocationNormalized, next: NavigationGuardNext) => {
+router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
   const authStore = useAuthStore()
   
   // トークンが存在するが、ユーザー情報が取得されていない場合、取得を試みる

@@ -123,8 +123,8 @@ const emit = defineEmits<{
 
 const isEditMode = computed(() => !!props.faq)
 
-const formData = ref<FAQCreate & { language: string }>({
-  category: '' as FAQCategory,
+const formData = ref<Omit<FAQCreate, 'category'> & { category: FAQCategory | ''; language: string }>({
+  category: '',
   language: 'en',
   question: '',
   answer: '',
@@ -145,7 +145,7 @@ watch(() => props.faq, (faq) => {
     }
   } else {
     formData.value = {
-      category: '' as FAQCategory,
+      category: '',
       language: 'en',
       question: '',
       answer: '',
@@ -196,9 +196,9 @@ const handleSubmit = () => {
     delete errors.value.category
   }
 
-  if (isValid.value) {
+  if (isValid.value && formData.value.category !== '') {
     emit('submit', {
-      category: formData.value.category,
+      category: formData.value.category as FAQCategory,
       language: formData.value.language,
       question: formData.value.question.trim(),
       answer: formData.value.answer.trim(),

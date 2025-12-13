@@ -101,6 +101,7 @@
 
     <!-- セッション統合トークン入力モーダル -->
     <SessionTokenInput
+      v-if="facilityId !== null"
       :is-open="showTokenInput"
       :facility-id="facilityId"
       @update:is-open="showTokenInput = $event"
@@ -110,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChat } from '@/composables/useChat'
 import { useSession } from '@/composables/useSession'
@@ -131,7 +132,7 @@ const route = useRoute()
 const router = useRouter()
 const facilityStore = useFacilityStore()
 const chatStore = useChatStore()
-const { messages, sessionId, isLoading, sendMessage, loadHistory } = useChat()
+const { messages, isLoading, sendMessage, loadHistory } = useChat()
 const { getOrCreateSessionId, linkSession, verifyToken } = useSession()
 
 // 施設IDを取得（facilityStoreから取得、またはroute.paramsから取得）
@@ -500,12 +501,14 @@ const handleTokenLink = async (token: string) => {
     }
 
     // セッション統合
-    await linkSession(facilityId.value, token)
+    if (facilityId.value !== null) {
+      await linkSession(facilityId.value, token)
 
-    // 会話履歴を再読み込み
-    const currentSessionId = getOrCreateSessionId()
-    if (currentSessionId) {
-      await loadHistory(currentSessionId, facilityId.value)
+      // 会話履歴を再読み込み
+      const currentSessionId = getOrCreateSessionId()
+      if (currentSessionId) {
+        await loadHistory(currentSessionId, facilityId.value)
+      }
     }
 
     // TODO: Week 4でトークン取得APIを実装

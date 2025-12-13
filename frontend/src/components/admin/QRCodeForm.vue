@@ -341,7 +341,8 @@ const handleDownload = async (format: 'pdf' | 'png' | 'svg') => {
       const newQRCode = await qrcodeApi.generateQRCode({
         location: previewQRCode.value.location,
         custom_location_name: previewQRCode.value.custom_location_name,
-        format: format
+        format: format,
+        include_session_token: false
       })
       qrCodeUrl = newQRCode.qr_code_url
       filename = `qrcode-${newQRCode.location}-${newQRCode.id}.${format}`

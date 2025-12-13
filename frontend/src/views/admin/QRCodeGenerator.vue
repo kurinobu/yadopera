@@ -130,7 +130,6 @@ import QRCodeForm from '@/components/admin/QRCodeForm.vue'
 import Loading from '@/components/common/Loading.vue'
 import { formatDateTime } from '@/utils/formatters'
 import { qrcodeApi } from '@/api/qrcode'
-import { facilityApi } from '@/api/facility'
 import type { QRCodeLocation, QRCodeResponse } from '@/types/qrcode'
 
 // データ状態
@@ -139,14 +138,14 @@ const error = ref<string | null>(null)
 const facilityId = ref<number | null>(null)
 const facilitySlug = ref<string>('')
 
-interface GeneratedQRCode {
-  id: number
-  location: QRCodeLocation
-  custom_location_name?: string
-  qr_code_url: string
-  qr_code_data: string
-  created_at: string
-}
+// interface GeneratedQRCode {
+//   id: number
+//   location: QRCodeLocation
+//   custom_location_name?: string
+//   qr_code_url: string
+//   qr_code_data: string
+//   created_at: string
+// }
 
 const generatedQRCodes = ref<QRCodeResponse[]>([])
 
@@ -199,7 +198,7 @@ const getLocationLabel = (location: QRCodeLocation, customLocationName?: string)
 const handleGenerate = async (data: {
   location: QRCodeLocation
   custom_location_name?: string
-  format: 'pdf' | 'png' | 'svg'
+  format?: 'pdf' | 'png' | 'svg'
 }) => {
   if (loading.value || !facilityId.value) return
   
@@ -212,7 +211,7 @@ const handleGenerate = async (data: {
       location: data.location,
       custom_location_name: data.custom_location_name,
       include_session_token: false,
-      format: data.format
+      format: data.format || 'png'
     })
     
     // データベースから最新の一覧を取得（重複を防ぐため）
@@ -305,7 +304,8 @@ const handleDownloadExisting = async (qrCode: QRCodeResponse, format: 'pdf' | 'p
       const newQRCode = await qrcodeApi.generateQRCode({
         location: qrCode.location,
         custom_location_name: qrCode.custom_location_name,
-        format: format
+        format: format as "svg" | "pdf" | "png",
+        include_session_token: false
       })
       qrCodeUrl = newQRCode.qr_code_url
       filename = `qrcode-${newQRCode.location}-${newQRCode.id}.${format}`

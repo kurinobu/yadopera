@@ -45,7 +45,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { facilityApi } from '@/api/facility'
 import { useFacilityStore } from '@/stores/facility'
-import { useChatStore } from '@/stores/chat'
+// import { useChatStore } from '@/stores/chat'
 import { useSession } from '@/composables/useSession'
 import FacilityHeader from '@/components/guest/FacilityHeader.vue'
 import TopQuestions from '@/components/guest/TopQuestions.vue'
@@ -57,7 +57,7 @@ import type { TopQuestion } from '@/types/facility'
 const route = useRoute()
 const router = useRouter()
 const facilityStore = useFacilityStore()
-const chatStore = useChatStore()
+// const chatStore = useChatStore()
 const { getOrCreateSessionId } = useSession()
 
 const facilityId = computed(() => route.params.facilityId as string)
@@ -118,7 +118,7 @@ const handleMessageSubmit = async (message: string) => {
     error.value = null
 
     // セッションIDを取得または生成
-    const sessionId = getOrCreateSessionId()
+    getOrCreateSessionId()
 
     // チャット画面に遷移してメッセージを送信
     router.push({

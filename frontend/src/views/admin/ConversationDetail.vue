@@ -132,7 +132,7 @@ import Loading from '@/components/common/Loading.vue'
 import { chatApi } from '@/api/chat'
 import { faqApi } from '@/api/faq'
 import { formatPercentage } from '@/utils/formatters'
-import type { ChatHistoryResponse, ChatMessage } from '@/types/chat'
+import type { ChatHistoryResponse } from '@/types/chat'
 import type { FAQ, FAQCategory } from '@/types/faq'
 
 const route = useRoute()

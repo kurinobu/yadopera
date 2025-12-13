@@ -18,10 +18,6 @@ const apiClient: AxiosInstance = axios.create({
   }
 })
 
-// リトライ設定
-const MAX_RETRIES = 3
-const RETRY_DELAY = 1000 // 1秒
-
 // リクエストインターセプター: JWTトークン追加
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {

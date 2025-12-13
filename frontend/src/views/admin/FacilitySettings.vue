@@ -375,9 +375,9 @@ import { authApi } from '@/api/auth'
 import type {
   FacilitySettingsResponse,
   FacilitySettingsUpdateRequest,
-  StaffAbsencePeriod,
   PasswordChangeRequest
 } from '@/types/facility'
+import type { StaffAbsencePeriod } from '@/types/facility'
 
 const router = useRouter()
 
@@ -390,7 +390,19 @@ const settings = ref<FacilitySettingsResponse | null>(null)
 const showWifiPassword = ref(false)
 
 // フォームデータ
-const formData = ref<FacilitySettingsUpdateRequest>({
+const formData = ref<{
+  name: string
+  email: string
+  phone: string
+  address: string
+  wifi_ssid: string
+  wifi_password: string
+  check_in_time: string
+  check_out_time: string
+  house_rules: string
+  local_info: string
+  staff_absence_periods: StaffAbsencePeriod[]
+}>({
   name: '',
   email: '',
   phone: '',

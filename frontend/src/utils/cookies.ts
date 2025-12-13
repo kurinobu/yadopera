@@ -21,7 +21,7 @@ export function setCookie(
   name: string,
   value: string,
   options?: {
-    expires?: Date | number
+    expires?: Date
     maxAge?: number
     path?: string
     domain?: string

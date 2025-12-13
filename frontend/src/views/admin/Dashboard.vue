@@ -93,7 +93,7 @@ import FeedbackStats from '@/components/admin/FeedbackStats.vue'
 import Loading from '@/components/common/Loading.vue'
 import { formatPercentage } from '@/utils/formatters'
 import { dashboardApi } from '@/api/dashboard'
-import type { DashboardData, ChatHistory, OvernightQueue, FeedbackStats as FeedbackStatsType, WeeklySummary } from '@/types/dashboard'
+import type { DashboardData, ChatHistory, FeedbackStats as FeedbackStatsType } from '@/types/dashboard'
 
 const router = useRouter()
 
@@ -168,10 +168,7 @@ const handleConversationClick = (conversation: ChatHistory) => {
   })
 }
 
-const handleQueueViewAll = () => {
-  // 夜間対応キュー専用ページへの遷移はOvernightQueueListコンポーネント内で処理
-  // この関数は必要に応じて追加の処理を行う（現時点では不要）
-}
+// handleQueueViewAllは削除（未使用のため）
 
 const handleFeedbackRespond = (answer: FeedbackStatsType['low_rated_answers'][0]) => {
   // FAQ管理ページにジャンプ（FeedbackStatsコンポーネント内で既に処理されている）

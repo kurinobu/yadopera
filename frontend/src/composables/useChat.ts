@@ -5,7 +5,7 @@
 import { computed } from 'vue'
 import { useChatStore } from '@/stores/chat'
 import { chatApi } from '@/api/chat'
-import type { ChatRequest, ChatResponse } from '@/types/chat'
+import type { ChatRequest } from '@/types/chat'
 
 export function useChat() {
   const chatStore = useChatStore()

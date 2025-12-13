@@ -96,7 +96,7 @@ import { faqApi } from '@/api/faq'
 import { faqSuggestionApi } from '@/api/faqSuggestion'
 import { unresolvedQuestionsApi } from '@/api/unresolvedQuestions'
 import { feedbackApi } from '@/api/feedback'
-import type { FAQ, FAQCreate, UnresolvedQuestion, FaqSuggestion, LowRatedAnswer, FAQCategory } from '@/types/faq'
+import type { FAQ, FAQCreate, UnresolvedQuestion, FaqSuggestion, LowRatedAnswer } from '@/types/faq'
 
 // データ状態
 const loading = ref(true)
@@ -106,7 +106,7 @@ const unresolvedQuestions = ref<UnresolvedQuestion[]>([])
 const loadingUnresolved = ref(false)
 
 // モックデータ（Week 4でAPI連携に置き換え、一部は残す）
-const mockFaqs: FAQ[] = [
+/* const mockFaqs: FAQ[] = [
   {
     id: 1,
     facility_id: 1,
@@ -143,7 +143,7 @@ const mockFaqs: FAQ[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
   }
-]
+] */
 
 
 // 低評価回答リスト
@@ -275,7 +275,7 @@ const selectedSuggestion = ref<FaqSuggestion | null>(null)
 const isEditMode = computed(() => !!editingFaq.value)
 
 // モックのFAQ提案（未解決質問から生成）
-const generateSuggestion = (question: UnresolvedQuestion): FaqSuggestion => {
+/* const generateSuggestion = (question: UnresolvedQuestion): FaqSuggestion => {
   // モック: 回答テンプレート自動生成（Week 4でAPI連携）
   const mockAnswer = `This is a suggested answer template for: ${question.question}. Please customize this answer.`
   
@@ -292,7 +292,7 @@ const generateSuggestion = (question: UnresolvedQuestion): FaqSuggestion => {
     status: 'pending',
     created_at: question.created_at
   }
-}
+} */
 
 // イベントハンドラー
 const handleEdit = (faq: FAQ) => {
@@ -336,8 +336,7 @@ const handleDelete = async (faq: FAQ) => {
 const handleAddFaqFromQuestion = async (question: UnresolvedQuestion) => {
   try {
     // 未解決質問からFAQ提案を生成（API呼び出し）
-    const suggestion = await faqSuggestionApi.generateSuggestion(question.message_id)
-    selectedSuggestion.value = suggestion
+    selectedSuggestion.value = await faqSuggestionApi.generateSuggestion(question.message_id)
     
     // FAQ提案カードまで自動スクロール
     await scrollToSection('faq-suggestion')
@@ -401,7 +400,7 @@ const handleCloseForm = () => {
   editingFaq.value = null
 }
 
-const handleApproveSuggestion = async (suggestion: FaqSuggestion) => {
+const handleApproveSuggestion = async (_suggestion: FaqSuggestion) => {
   // API連携はFaqSuggestionCard内で実装済み
   // ここでは提案をクリアしてFAQ一覧と未解決質問リストを再取得
   selectedSuggestion.value = null
@@ -409,7 +408,7 @@ const handleApproveSuggestion = async (suggestion: FaqSuggestion) => {
   await fetchUnresolvedQuestions()
 }
 
-const handleRejectSuggestion = async (suggestion: FaqSuggestion) => {
+const handleRejectSuggestion = async (_suggestion: FaqSuggestion) => {
   // API連携はFaqSuggestionCard内で実装済み
   // ここでは提案をクリア
   selectedSuggestion.value = null
@@ -418,8 +417,7 @@ const handleRejectSuggestion = async (suggestion: FaqSuggestion) => {
 const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
   try {
     // FAQ提案を生成（GPT-4o mini）
-    const suggestion = await faqSuggestionApi.generateSuggestion(answer.message_id)
-    selectedSuggestion.value = suggestion
+    selectedSuggestion.value = await faqSuggestionApi.generateSuggestion(answer.message_id)
   } catch (err: any) {
     console.error('Failed to generate FAQ suggestion:', err)
     const errorMessage = err.response?.data?.detail || err.message || 'FAQ提案の生成に失敗しました'
@@ -432,7 +430,7 @@ const handleFeedbackIgnore = (answer: LowRatedAnswer) => {
   console.log('Feedback ignore:', answer)
 }
 
-const handleCancelSuggestion = (suggestion: FaqSuggestion) => {
+const handleCancelSuggestion = (_suggestion: FaqSuggestion) => {
   // 提案をクリア（承認・却下せずに閉じる）
   selectedSuggestion.value = null
 }

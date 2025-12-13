@@ -210,7 +210,7 @@ const descriptionText = computed(() => {
   const periods = facilitySettings.value.staff_absence_periods
   
   // すべての時間帯を表示用の文字列に変換
-  const periodStrings = periods.map((period, index) => {
+  const periodStrings = periods.map((period) => {
     const startTime = period.start_time
     const endTime = period.end_time
     return `${startTime}-${endTime}`
@@ -237,7 +237,7 @@ const resolvedCount = computed(() => queueData.value?.resolved_count || 0)
 const totalCount = computed(() => queueData.value?.total || 0)
 
 // モックデータ（Week 4でAPI連携に置き換え）
-const mockQueue: OvernightQueue[] = [
+/* const mockQueue: OvernightQueue[] = [
   {
     id: 1,
     facility_id: 1,
@@ -274,7 +274,7 @@ const mockQueue: OvernightQueue[] = [
     resolved_by: 1,
     created_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString() // 3時間前
   }
-]
+] */
 
 const isProcessing = ref(false)
 

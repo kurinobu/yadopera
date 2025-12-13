@@ -79,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch, onMounted, onUnmounted } from 'vue'
+import { computed, watch, onUnmounted } from 'vue'
 
 interface Props {
   modelValue: boolean

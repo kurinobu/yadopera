@@ -6,8 +6,7 @@ import apiClient from './axios'
 import type {
   FacilityPublicResponse,
   FacilitySettingsResponse,
-  FacilitySettingsUpdateRequest,
-  PasswordChangeRequest
+  FacilitySettingsUpdateRequest
 } from '@/types/facility'
 
 export const facilityApi = {
