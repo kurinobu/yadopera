@@ -1,7 +1,10 @@
 # Render.com Static Site ステージング環境デプロイ手順
 
 **作成日**: 2025年12月13日  
+**最終更新日**: 2025年12月13日  
 **目的**: フロントエンドのステージング環境をRender.com Static Siteにデプロイする（修正案2）
+
+**状態**: ✅ **デプロイ完了（2025-12-13）**
 
 ---
 
@@ -10,6 +13,13 @@
 - Render.com Proアカウント（既存契約）
 - GitHubリポジトリへのアクセス権限
 - Render.comバックエンドサービスのURL: `https://yadopera-backend-staging.onrender.com`
+
+## 1.1 ステージング環境URL（2025-12-13更新）
+
+- **バックエンド**: `https://yadopera-backend-staging.onrender.com`
+- **フロントエンド**: `https://yadopera-frontend-staging.onrender.com`
+- **管理画面ログイン**: `https://yadopera-frontend-staging.onrender.com/admin/login`
+- **テストユーザー**: `test@example.com` / `testpassword123`（問題2解決済み）
 
 ---
 
@@ -162,12 +172,43 @@ CORS_ORIGINS=https://yadopera-frontend-staging.onrender.com,http://localhost:517
 
 ## 7. 完了条件
 
-- ✅ フロントエンドのステージング環境がデプロイされている
-- ✅ フロントエンドのURLが確認できる
+- ✅ フロントエンドのステージング環境がデプロイされている（2025-12-13完了）
+- ✅ フロントエンドのURLが確認できる: `https://yadopera-frontend-staging.onrender.com`
 - ✅ バックエンドのCORS設定が正しく設定されている
 - ✅ フロントエンドからバックエンドへのAPI呼び出しが正常に動作する
 - ✅ 管理画面のログインとダッシュボード表示が正常に動作する
 - ✅ CORSエラーが発生していない
+- ✅ テストユーザーが作成されている（問題2解決済み、2025-12-13）
+- ✅ PWAアイコンとvite.svgが作成されている（問題3解決済み、2025-12-13）
+
+## 7.1 解決済みの問題（2025-12-13更新）
+
+### 問題2: ステージング環境でテストユーザーが存在しない ✅ **解決済み**
+
+**解決日**: 2025年12月13日  
+**解決方法**: `backend/create_staging_test_data.py`を実行してテストユーザーを作成
+
+**テストユーザー情報**:
+- メールアドレス: `test@example.com`
+- パスワード: `testpassword123`
+- ユーザーID: 87
+- 施設ID: 347
+- 施設slug: `test-facility`
+
+**状態**: ✅ ログイン可能
+
+### 問題3: PWAアイコンとvite.svgの404エラー ✅ **解決済み**
+
+**解決日**: 2025年12月13日  
+**解決方法**: `frontend/public`ディレクトリに以下のファイルを作成
+
+**作成したファイル**:
+- `frontend/public/pwa-192x192.png`
+- `frontend/public/pwa-512x512.png`
+- `frontend/public/vite.svg`
+- `frontend/public/favicon.ico`
+
+**状態**: ✅ 404エラー解消
 
 ---
 
@@ -176,10 +217,12 @@ CORS_ORIGINS=https://yadopera-frontend-staging.onrender.com,http://localhost:517
 - [Render.com Documentation](https://render.com/docs)
 - [Vite Environment Variables](https://vitejs.dev/guide/env-and-mode.html)
 - `docs/Phase2/Phase2_ステージング環境テスト準備_完全調査分析.md`
+- `docs/Phase2/Phase2_ステージング環境ログインエラー_完全調査分析レポート.md`
+- `docs/Phase2/Phase2_引き継ぎ書_20251213.md`
 - `docs/Deployment/Render_Railway_手動設定_実行手順.md`（ステップ5: フロントエンド設定）
 - `docs/Phase1/Phase1_引き継ぎ書.md`（11.2節: Vercelは今後使用しない）
 
 ---
 
-**次のステップ**: Render.com Static Siteを作成し、環境変数を設定してデプロイを実行する
+**状態**: ✅ **デプロイ完了（2025-12-13）。問題2と問題3は解決済み。**
 

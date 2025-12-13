@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   postgres:
     image: pgvector/pgvector:pg15
@@ -36,12 +34,15 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: yadopera-backend
+    env_file:
+      - ./backend/.env
     environment:
       - DATABASE_URL=postgresql://yadopera_user:yadopera_password@postgres:5432/yadopera
       - REDIS_URL=redis://redis:6379/0
       - ENVIRONMENT=development
       - DEBUG=True
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
     ports:
       - "8000:8000"
     volumes:

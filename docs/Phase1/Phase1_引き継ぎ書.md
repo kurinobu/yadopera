@@ -96,11 +96,13 @@
 
 ## 3. ステージング環境情報
 
-### 3.1 ステージング環境URL
+### 3.1 ステージング環境URL（2025-12-13更新）
 
 - **バックエンド**: https://yadopera-backend-staging.onrender.com
+- **フロントエンド**: https://yadopera-frontend-staging.onrender.com
 - **ヘルスチェック**: https://yadopera-backend-staging.onrender.com/api/v1/health
 - **APIドキュメント**: https://yadopera-backend-staging.onrender.com/docs
+- **管理画面ログイン**: https://yadopera-frontend-staging.onrender.com/admin/login
 
 ### 3.2 ステージング環境接続情報
 
@@ -142,9 +144,22 @@
 - `ACCESS_TOKEN_EXPIRE_MINUTES`: 10080
 - `ENVIRONMENT`: staging
 - `DEBUG`: False
-- `CORS_ORIGINS`: ステージング環境のフロントエンドURL
+- `CORS_ORIGINS`: `https://yadopera-frontend-staging.onrender.com,http://localhost:5173`
 
 **参考**: 実際の環境変数値はRender.comダッシュボードで確認してください。
+
+### 3.4 ステージング環境のテストユーザー（2025-12-13更新）
+
+**テストユーザー情報**:
+- メールアドレス: `test@example.com`
+- パスワード: `testpassword123`
+- ユーザーID: 87
+- 施設ID: 347
+- 施設slug: `test-facility`
+
+**状態**: ✅ 作成済み（問題2解決済み、2025-12-13）
+
+**参考**: `backend/create_staging_test_data.py`で作成
 
 ---
 

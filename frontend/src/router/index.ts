@@ -47,6 +47,16 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
       console.error('Failed to initialize auth:', error)
       // エラーが発生した場合、ログアウト
       authStore.logout()
+      
+      // logout後、認証が必要なページへのアクセスなら即座にリダイレクト
+      const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+      if (requiresAuth) {
+        return next({
+          name: 'AdminLogin',
+          query: { redirect: to.fullPath }
+        })
+      }
+      // 認証が不要なページの場合は、そのまま続行
     }
   }
   
@@ -54,16 +64,19 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
 
   if (requiresAuth && !authStore.isAuthenticated) {
     // 認証が必要なページに未認証でアクセスした場合
-    next({
+    return next({
       name: 'AdminLogin',
       query: { redirect: to.fullPath }
     })
-  } else if (to.name === 'AdminLogin' && authStore.isAuthenticated) {
-    // 既に認証済みの場合はダッシュボードにリダイレクト
-    next({ name: 'AdminDashboard' })
-  } else {
-    next()
   }
+  
+  // ログインページで既に認証済みの場合
+  if (to.name === 'AdminLogin' && authStore.isAuthenticated) {
+    return next({ name: 'AdminDashboard' })
+  }
+  
+  // その他は通常通り遷移
+  next()
 })
 
 export default router

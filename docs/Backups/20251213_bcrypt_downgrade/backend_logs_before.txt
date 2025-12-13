@@ -1,0 +1,50 @@
+yadopera-backend  |     return await AuthService.login(db, login_data)
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/app/app/services/auth_service.py", line 76, in login
+yadopera-backend  |     user = await AuthService.authenticate_user(db, login_data)
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/app/app/services/auth_service.py", line 48, in authenticate_user
+yadopera-backend  |     if not verify_password(login_data.password, user.password_hash):
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/app/app/core/security.py", line 45, in verify_password
+yadopera-backend  |     return pwd_context.verify(plain_password, hashed_password)
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/context.py", line 2347, in verify
+yadopera-backend  |     return record.verify(secret, hash, **kwds)
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/utils/handlers.py", line 792, in verify
+yadopera-backend  |     return consteq(self._calc_checksum(secret), chk)
+yadopera-backend  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/handlers/bcrypt.py", line 591, in _calc_checksum
+yadopera-backend  |     self._stub_requires_backend()
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/utils/handlers.py", line 2254, in _stub_requires_backend
+yadopera-backend  |     cls.set_backend()
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/utils/handlers.py", line 2156, in set_backend
+yadopera-backend  |     return owner.set_backend(name, dryrun=dryrun)
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/utils/handlers.py", line 2163, in set_backend
+yadopera-backend  |     return cls.set_backend(name, dryrun=dryrun)
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/utils/handlers.py", line 2188, in set_backend
+yadopera-backend  |     cls._set_backend(name, dryrun)
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/utils/handlers.py", line 2311, in _set_backend
+yadopera-backend  |     super(SubclassBackendMixin, cls)._set_backend(name, dryrun)
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/utils/handlers.py", line 2224, in _set_backend
+yadopera-backend  |     ok = loader(**kwds)
+yadopera-backend  |          ^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/handlers/bcrypt.py", line 626, in _load_backend_mixin
+yadopera-backend  |     return mixin_cls._finalize_backend_mixin(name, dryrun)
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/handlers/bcrypt.py", line 421, in _finalize_backend_mixin
+yadopera-backend  |     if detect_wrap_bug(IDENT_2A):
+yadopera-backend  |        ^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/handlers/bcrypt.py", line 380, in detect_wrap_bug
+yadopera-backend  |     if verify(secret, bug_hash):
+yadopera-backend  |        ^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/utils/handlers.py", line 792, in verify
+yadopera-backend  |     return consteq(self._calc_checksum(secret), chk)
+yadopera-backend  |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/handlers/bcrypt.py", line 655, in _calc_checksum
+yadopera-backend  |     hash = _bcrypt.hashpw(secret, config)
+yadopera-backend  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+yadopera-backend  | ValueError: password cannot be longer than 72 bytes, truncate manually if necessary (e.g. my_password[:72])
