@@ -82,7 +82,7 @@
                 {{ formatDateTime(qrCode.created_at) }}
               </p>
             </div>
-            <div v-if="qrCode.qr_code_url" class="flex items-center justify-center mb-3">
+            <div class="flex items-center justify-center mb-3">
               <img
                 :src="qrCode.qr_code_url"
                 alt="QR Code"
