@@ -30,8 +30,9 @@ services:
 
   - type: static
     name: yadopera-frontend-staging
-    buildCommand: npm run build
-    publishPath: dist
+    rootDir: frontend
+    buildCommand: npx vite build
+    staticPublishPath: ./dist
     routes:
       - type: rewrite
         source: /*
