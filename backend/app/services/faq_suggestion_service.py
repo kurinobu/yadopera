@@ -23,6 +23,25 @@ from app.services.faq_service import FAQService
 logger = logging.getLogger(__name__)
 
 
+def detect_language(text: str) -> str:
+    """
+    テキストの言語を検出（簡易版）
+    - 日本語文字（ひらがな、カタカナ、漢字）が含まれていれば "ja"
+    - そうでなければ "en"
+    
+    Args:
+        text: 検出対象のテキスト
+    
+    Returns:
+        str: 言語コード（"ja" または "en"）
+    """
+    import re
+    japanese_pattern = re.compile(r'[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]')
+    if japanese_pattern.search(text):
+        return "ja"
+    return "en"
+
+
 class FAQSuggestionService:
     """
     FAQ提案サービス
@@ -118,12 +137,12 @@ class FAQSuggestionService:
         if message.conversation.facility_id != facility_id:
             raise ValueError(f"Message does not belong to facility: message_id={message_id}, facility_id={facility_id}")
         
-        # 既存の提案を確認
+        # 既存の提案を確認（最新の1件を取得）
         existing_result = await self.db.execute(
             select(FAQSuggestion).where(
                 FAQSuggestion.source_message_id == message_id,
                 FAQSuggestion.status == FAQSuggestionStatus.PENDING.value
-            )
+            ).order_by(FAQSuggestion.created_at.desc()).limit(1)
         )
         existing = existing_result.scalar_one_or_none()
         if existing:
@@ -144,13 +163,84 @@ class FAQSuggestionService:
             )
         
         # 質問文を取得（ユーザーメッセージから）
-        question = message.content
+        # メッセージがASSISTANTの場合は、同じ会話のUSERメッセージを取得
+        if message.role == MessageRole.ASSISTANT.value:
+            # 同じ会話の全メッセージを時系列順で取得
+            conversation_messages_result = await self.db.execute(
+                select(Message)
+                .where(Message.conversation_id == message.conversation_id)
+                .order_by(Message.created_at.asc())
+            )
+            conversation_messages = conversation_messages_result.scalars().all()
+            
+            # このメッセージ（AI応答）の前にあるユーザーメッセージ（質問）を取得
+            def pick_question_before(index: int) -> str | None:
+                """
+                直前以前のUSERメッセージから「質問らしい」ものを優先的に選ぶ。
+                疑問符を含むものを優先し、それがなければ直近のUSERロールを返す。
+                """
+                for i in range(index - 1, -1, -1):
+                    msg = conversation_messages[i]
+                    if msg.role != MessageRole.USER.value:
+                        continue
+                    content = (msg.content or "").strip()
+                    if "?" in content or content.endswith("？"):
+                        return content
+                for i in range(index - 1, -1, -1):
+                    msg = conversation_messages[i]
+                    if msg.role == MessageRole.USER.value:
+                        return (msg.content or "").strip()
+                return None
+
+            # メッセージのインデックスを見つける
+            message_index = None
+            for i, msg in enumerate(conversation_messages):
+                if msg.id == message.id:
+                    message_index = i
+                    break
+
+            question = pick_question_before(message_index) if message_index is not None and message_index > 0 else None
+
+            if not question:
+                # USERメッセージが見つからない場合、エラー
+                raise ValueError(f"User message not found for assistant message: message_id={message_id}")
+            
+            existing_answer = message.content  # 既存の回答（改善対象）
+        else:
+            # USERメッセージの場合
+            question = message.content
+            existing_answer = None  # 新規FAQ提案
         
         # 会話の言語を取得
-        language = message.conversation.guest_language or "en"
+        conversation_language = message.conversation.guest_language or "en"
+        
+        # 質問文の言語を検出
+        question_language = detect_language(question)
+        
+        # 言語の優先順位: 質問文の言語 > 会話の言語設定
+        # 質問文が日本語の場合は日本語、そうでなければ会話の言語設定を使用
+        language = question_language if question_language == "ja" else conversation_language
         
         # GPT-4o miniで回答文テンプレートとカテゴリを生成
-        prompt = f"""You are an AI assistant helping a guesthouse create FAQ entries.
+        if existing_answer:
+            # ゲストフィードバック連動の場合：既存の回答を改善
+            prompt = f"""You are an AI assistant helping a guesthouse improve FAQ entries.
+
+Guest question: {question}
+Current answer (needs improvement): {existing_answer}
+
+Please generate:
+1. An improved answer template (2-3 sentences, professional and friendly, addressing the guest's concern better)
+2. A category from: basic, facilities, location, trouble
+
+Format your response as:
+ANSWER: [your improved answer template]
+CATEGORY: [category]
+
+Language: {language}"""
+        else:
+            # 未解決質問の場合：新規FAQ提案
+            prompt = f"""You are an AI assistant helping a guesthouse create FAQ entries.
 
 Guest question: {question}
 
@@ -195,7 +285,12 @@ Language: {language}"""
         except Exception as e:
             logger.error(f"Error generating FAQ suggestion: {str(e)}")
             # フォールバック: デフォルト値を使用
-            suggested_answer = f"This is a suggested answer template for: {question}. Please customize this answer."
+            if existing_answer:
+                # ゲストフィードバック連動の場合：既存の回答を少し改善したテンプレート
+                suggested_answer = f"This is an improved answer template. Original: {existing_answer[:100]}... Please customize this answer."
+            else:
+                # 未解決質問の場合：新規FAQ提案
+                suggested_answer = f"This is a suggested answer template for: {question}. Please customize this answer."
             suggested_category = "basic"
         
         # FAQ提案を作成

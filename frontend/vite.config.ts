@@ -11,7 +11,15 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
-        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+        // 管理APIは常に最新を取得するため、キャッシュさせない
+        runtimeCaching: [
+          {
+            urlPattern: /\/api\/v1\/admin\/.*$/,
+            handler: 'NetworkOnly',
+            method: 'GET'
+          }
+        ]
       },
       manifest: {
         name: 'やどぺら',

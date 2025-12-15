@@ -10,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from app.models.guest_feedback import GuestFeedback
+from app.models.ignored_feedback import IgnoredFeedback
 from app.models.message import Message, MessageRole
 from app.models.conversation import Conversation
 from app.schemas.dashboard import LowRatedAnswer
@@ -62,6 +63,21 @@ class FeedbackService:
         
         # 2回以上低評価がついたメッセージIDを取得
         low_rated_message_ids = [msg_id for msg_id, count in message_negative_count.items() if count >= 2]
+        
+        if not low_rated_message_ids:
+            return []
+        
+        # 無視されたメッセージIDを取得
+        ignored_result = await self.db.execute(
+            select(IgnoredFeedback.message_id).where(
+                IgnoredFeedback.facility_id == facility_id,
+                IgnoredFeedback.message_id.in_(low_rated_message_ids)
+            )
+        )
+        ignored_message_ids = set(ignored_result.scalars().all())
+        
+        # 無視されたメッセージIDを除外
+        low_rated_message_ids = [msg_id for msg_id in low_rated_message_ids if msg_id not in ignored_message_ids]
         
         if not low_rated_message_ids:
             return []
@@ -124,4 +140,63 @@ class FeedbackService:
         )
         
         return low_rated_answers
+    
+    async def ignore_negative_feedback(
+        self,
+        message_id: int,
+        facility_id: int,
+        user_id: int
+    ) -> None:
+        """
+        低評価回答を無視
+        
+        Args:
+            message_id: メッセージID
+            facility_id: 施設ID
+            user_id: 無視したユーザーID
+        
+        Raises:
+            ValueError: メッセージが見つからない場合、または既に無視されている場合
+        """
+        # メッセージを取得
+        message = await self.db.get(Message, message_id)
+        if not message:
+            raise ValueError(f"Message not found: message_id={message_id}")
+        
+        # 会話を取得して施設IDを確認
+        conversation = await self.db.get(Conversation, message.conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation not found: conversation_id={message.conversation_id}")
+        
+        if conversation.facility_id != facility_id:
+            raise ValueError(f"Message does not belong to facility: message_id={message_id}, facility_id={facility_id}")
+        
+        # 既に無視されているか確認
+        existing_result = await self.db.execute(
+            select(IgnoredFeedback).where(
+                IgnoredFeedback.message_id == message_id,
+                IgnoredFeedback.facility_id == facility_id
+            )
+        )
+        existing = existing_result.scalar_one_or_none()
+        if existing:
+            raise ValueError(f"Negative feedback already ignored: message_id={message_id}")
+        
+        # 無視状態を記録
+        ignored_feedback = IgnoredFeedback(
+            message_id=message_id,
+            facility_id=facility_id,
+            ignored_by=user_id
+        )
+        self.db.add(ignored_feedback)
+        await self.db.commit()
+        
+        logger.info(
+            f"Negative feedback ignored: message_id={message_id}, facility_id={facility_id}, user_id={user_id}",
+            extra={
+                "message_id": message_id,
+                "facility_id": facility_id,
+                "user_id": user_id
+            }
+        )
 
