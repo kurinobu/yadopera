@@ -10,7 +10,11 @@ export const dashboardApi = {
    * ダッシュボードデータ取得
    */
   async getDashboard(): Promise<DashboardData> {
-    const response = await apiClient.get<DashboardData>('/admin/dashboard')
+    // キャッシュを確実にバイパスするため、クエリにタイムスタンプを付与
+    const response = await apiClient.get<DashboardData>('/admin/dashboard', {
+      params: { _t: Date.now() },
+      headers: { 'Cache-Control': 'no-cache' }
+    })
     return response.data
   }
 }

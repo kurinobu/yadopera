@@ -2,7 +2,7 @@
 ダッシュボードAPIエンドポイント
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.api.deps import get_current_user
@@ -15,6 +15,7 @@ router = APIRouter(prefix="/admin/dashboard", tags=["admin", "dashboard"])
 
 @router.get("", response_model=DashboardResponse)
 async def get_dashboard(
+    response: Response,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -40,6 +41,10 @@ async def get_dashboard(
         # ダッシュボードサービスでデータ取得
         dashboard_service = DashboardService(db)
         dashboard_data = await dashboard_service.get_dashboard_data(facility_id)
+        
+        # 管理画面向けAPIは常に最新を返すためキャッシュ禁止
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["Pragma"] = "no-cache"
         
         return dashboard_data
     
