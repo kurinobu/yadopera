@@ -84,7 +84,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onActivated, h } from 'vue'
-import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
+import { useRouter, onBeforeRouteUpdate } from 'vue-router'
 import StatsCard from '@/components/admin/StatsCard.vue'
 import CategoryChart from '@/components/admin/CategoryChart.vue'
 import ChatHistoryList from '@/components/admin/ChatHistoryList.vue'
