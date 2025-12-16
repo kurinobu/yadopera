@@ -83,8 +83,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, h } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted, onActivated, h } from 'vue'
+import { useRouter, useRoute, onBeforeRouteUpdate } from 'vue-router'
 import StatsCard from '@/components/admin/StatsCard.vue'
 import CategoryChart from '@/components/admin/CategoryChart.vue'
 import ChatHistoryList from '@/components/admin/ChatHistoryList.vue'
@@ -96,6 +96,7 @@ import { dashboardApi } from '@/api/dashboard'
 import type { DashboardData, ChatHistory, FeedbackStats as FeedbackStatsType } from '@/types/dashboard'
 
 const router = useRouter()
+// const route = useRoute() // 未使用のため削除
 
 // データ状態
 const loading = ref(true)
@@ -120,6 +121,19 @@ const fetchDashboardData = async () => {
 // コンポーネントマウント時にデータ取得
 onMounted(() => {
   fetchDashboardData()
+})
+
+// ページ再表示時（例: 他ページから戻ったとき）に最新データを取得
+onActivated(() => {
+  fetchDashboardData()
+})
+
+// ルート遷移でダッシュボードに戻ったときも再取得（キャッシュ残り対策）
+onBeforeRouteUpdate((to, _from, next) => {
+  if (to.name === 'AdminDashboard') {
+    fetchDashboardData()
+  }
+  next()
 })
 
 // 計算プロパティ（実データから取得）

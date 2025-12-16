@@ -32,7 +32,7 @@ services:
     name: yadopera-frontend-staging
     rootDir: frontend
     buildCommand: npx vite build
-    staticPublishPath: ./dist
+    staticPublishPath: dist
     routes:
       - type: rewrite
         source: /*
