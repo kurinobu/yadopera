@@ -128,6 +128,26 @@ class FAQService:
         if request.category not in [cat.value for cat in FAQCategory]:
             raise ValueError(f"Invalid category: {request.category}")
         
+        # 重複チェック: 同じ質問文、同じ回答文、同じ施設IDのFAQが既に存在するか確認
+        existing_faq_result = await self.db.execute(
+            select(FAQ).where(
+                FAQ.facility_id == facility_id,
+                FAQ.question == request.question,
+                FAQ.answer == request.answer,
+                FAQ.language == request.language
+            )
+        )
+        existing_faq = existing_faq_result.scalar_one_or_none()
+        if existing_faq:
+            logger.warning(
+                f"Duplicate FAQ detected: facility_id={facility_id}, question={request.question[:50]}..., "
+                f"existing_faq_id={existing_faq.id}"
+            )
+            raise ValueError(
+                f"FAQ with the same question and answer already exists: faq_id={existing_faq.id}. "
+                f"Please edit the existing FAQ instead of creating a duplicate."
+            )
+        
         # priorityがNoneの場合はデフォルト値1を使用（念のため）
         priority = request.priority if request.priority is not None else 1
         
