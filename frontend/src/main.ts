@@ -12,9 +12,14 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-// 初期化処理
-const themeStore = useThemeStore()
-themeStore.initTheme()
+// 初期化処理（エラーハンドリングを追加）
+try {
+  const themeStore = useThemeStore()
+  themeStore.initTheme()
+} catch (error) {
+  console.error('Failed to initialize theme:', error)
+  // エラーが発生してもアプリは起動する
+}
 
 const authStore = useAuthStore()
 // 認証初期化（非同期処理）

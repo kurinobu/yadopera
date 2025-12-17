@@ -79,9 +79,15 @@ const isDismissed = ref(false)
 
 // localStorageから非表示状態を確認
 const DISMISSED_KEY = 'pwa_install_dismissed'
-const dismissed = localStorage.getItem(DISMISSED_KEY)
-if (dismissed) {
-  isDismissed.value = true
+let dismissed = false
+try {
+  const stored = localStorage.getItem(DISMISSED_KEY)
+  if (stored) {
+    dismissed = true
+    isDismissed.value = true
+  }
+} catch (error) {
+  console.warn('Failed to access localStorage for PWA prompt:', error)
 }
 
 const handleInstall = async () => {
@@ -100,7 +106,11 @@ const handleInstall = async () => {
 
 const dismiss = () => {
   isDismissed.value = true
-  localStorage.setItem(DISMISSED_KEY, 'true')
+  try {
+    localStorage.setItem(DISMISSED_KEY, 'true')
+  } catch (error) {
+    console.warn('Failed to save PWA prompt dismissal:', error)
+  }
 }
 
 // 非表示状態を反映
