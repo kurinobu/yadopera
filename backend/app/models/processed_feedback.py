@@ -24,7 +24,8 @@ class ProcessedFeedback(Base):
     # リレーションシップ
     message = relationship("Message")
     facility = relationship("Facility")
-    faq_suggestion = relationship("FAQSuggestion")
+    # faq_suggestionリレーションシップは削除（SQLAlchemyの循環参照を避ける）
+    # 必要に応じて、faq_suggestion_idから直接取得する
     processed_by_user = relationship("User", foreign_keys=[processed_by])
 
     __table_args__ = (
