@@ -44,12 +44,20 @@ apiClient.interceptors.response.use(
     const authStore = useAuthStore()
 
     if (error.response) {
-      const { status } = error.response
+      const { status, config } = error.response
+      const url = config?.url || ''
 
       // 401 Unauthorized: トークン無効または期限切れ
       if (status === 401) {
         authStore.logout()
         // TODO: ログイン画面にリダイレクト（Week 4で実装）
+      }
+
+      // 403 Forbidden: 認証は成功したが、アクセス権限がない（非アクティブユーザーなど）
+      // ログアウトAPIの403エラーの場合は無限ループを防ぐため、ログアウト処理を実行しない
+      if (status === 403 && !url.includes('/auth/logout')) {
+        // 認証エラー（非アクティブユーザーなど）の場合、ログアウト処理を実行
+        authStore.logout()
       }
 
       // エラーを処理して返す

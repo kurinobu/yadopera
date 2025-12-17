@@ -58,9 +58,17 @@ async def logout(
     ログアウト
     
     JWTトークンはクライアント側で削除
+    認証が必要だが、403エラーが発生した場合でもログアウト処理は成功として扱う
     """
-    await AuthService.logout(db, current_user)
-    return LogoutResponse(message="Logged out successfully")
+    try:
+        await AuthService.logout(db, current_user)
+        return LogoutResponse(message="Logged out successfully")
+    except HTTPException as e:
+        # 403エラー（非アクティブユーザーなど）が発生した場合でも、ログアウト処理は成功として扱う
+        # クライアント側でトークンを削除するため、サーバー側での処理は不要
+        if e.status_code == status.HTTP_403_FORBIDDEN:
+            return LogoutResponse(message="Logged out successfully")
+        raise
 
 
 @router.put("/password", response_model=PasswordChangeResponse, status_code=status.HTTP_200_OK)
