@@ -11,6 +11,7 @@ from sqlalchemy.orm import selectinload
 
 from app.models.guest_feedback import GuestFeedback
 from app.models.ignored_feedback import IgnoredFeedback
+from app.models.processed_feedback import ProcessedFeedback
 from app.models.message import Message, MessageRole
 from app.models.conversation import Conversation
 from app.schemas.dashboard import LowRatedAnswer
