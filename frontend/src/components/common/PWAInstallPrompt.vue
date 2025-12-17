@@ -79,11 +79,9 @@ const isDismissed = ref(false)
 
 // localStorageから非表示状態を確認
 const DISMISSED_KEY = 'pwa_install_dismissed'
-let dismissed = false
 try {
   const stored = localStorage.getItem(DISMISSED_KEY)
   if (stored) {
-    dismissed = true
     isDismissed.value = true
   }
 } catch (error) {
