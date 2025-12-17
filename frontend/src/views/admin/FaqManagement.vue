@@ -419,12 +419,30 @@ const handleRejectSuggestion = async (_suggestion: FaqSuggestion) => {
 
 const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
   try {
+    console.log('Generating FAQ suggestion for message_id:', answer.message_id)
     // FAQ提案を生成（GPT-4o mini）
     selectedSuggestion.value = await faqSuggestionApi.generateSuggestion(answer.message_id)
+    console.log('FAQ suggestion generated:', selectedSuggestion.value)
+    
+    // FAQ提案カードまで自動スクロール
+    await scrollToSection('faq-suggestion')
   } catch (err: any) {
     console.error('Failed to generate FAQ suggestion:', err)
-    const errorMessage = err.response?.data?.detail || err.message || 'FAQ提案の生成に失敗しました'
-    alert(errorMessage)
+    // エラーメッセージをユーザーフレンドリーに変換
+    let errorMessage = 'FAQ提案の生成に失敗しました'
+    const detail = err.response?.data?.detail || err.message || ''
+    
+    if (detail.includes('User message not found')) {
+      errorMessage = '質問文が見つかりませんでした。データ不整合の可能性があります。管理者にお問い合わせください。'
+    } else if (detail.includes('Message not found')) {
+      errorMessage = 'メッセージが見つかりませんでした。既に削除されている可能性があります。'
+    } else if (detail.includes('does not belong to facility')) {
+      errorMessage = 'この質問はFAQ提案を生成できません。権限がない可能性があります。'
+    } else if (detail) {
+      errorMessage = `FAQ提案の生成に失敗しました: ${detail}`
+    }
+    
+    alert(`❌ エラー: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`)
     // エラー後は提案をクリア（現状維持）
     selectedSuggestion.value = null
   }
@@ -433,19 +451,28 @@ const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
 const ignoringMessageId = ref<number | null>(null)
 
 const handleFeedbackIgnore = async (answer: LowRatedAnswer) => {
-  if (!confirm('この低評価回答を無視しますか？無視した回答は画面から非表示になります。')) {
+  console.log('Feedback ignore clicked:', answer)
+  
+  const confirmed = confirm('この低評価回答を無視しますか？無視した回答は画面から非表示になります。')
+  console.log('Confirm dialog result:', confirmed)
+  
+  if (!confirmed) {
+    console.log('User cancelled ignore action')
     return
   }
   
   // ローディング状態を設定
   ignoringMessageId.value = answer.message_id
+  console.log('Calling ignoreNegativeFeedback API for message_id:', answer.message_id)
   
   try {
     await feedbackApi.ignoreNegativeFeedback(answer.message_id)
+    console.log('Ignore API call successful')
     // 成功メッセージを表示
-    alert('低評価回答を無視しました。画面から非表示になります。')
+    alert('✅ 低評価回答を無視しました。画面から非表示になります。')
     // 低評価回答リストを再取得（画面に反映）
     await fetchLowRatedAnswers()
+    console.log('Low-rated answers list refreshed')
   } catch (err: any) {
     console.error('Failed to ignore negative feedback:', err)
     const errorMessage = err.response?.data?.detail || err.message || '低評価回答の無視に失敗しました'
@@ -454,6 +481,7 @@ const handleFeedbackIgnore = async (answer: LowRatedAnswer) => {
   } finally {
     // ローディング状態を解除
     ignoringMessageId.value = null
+    console.log('Ignore action completed')
   }
 }
 

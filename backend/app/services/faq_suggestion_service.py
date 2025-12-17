@@ -179,6 +179,12 @@ class FAQSuggestionService:
                 直前以前のUSERメッセージから「質問らしい」ものを優先的に選ぶ。
                 疑問符を含むものを優先し、それがなければ直近のUSERロールを返す。
                 """
+                logger.debug(
+                    f"pick_question_before: index={index}, total_messages={len(conversation_messages)}, "
+                    f"message_id={message_id}, conversation_id={message.conversation_id}"
+                )
+                
+                # 疑問符を含むUSERメッセージを優先的に探す
                 for i in range(index - 1, -1, -1):
                     msg = conversation_messages[i]
                     if msg.role != MessageRole.USER.value:
@@ -188,14 +194,26 @@ class FAQSuggestionService:
                         continue
                     # 疑問符を含むものを優先
                     if "?" in content or content.endswith("？"):
+                        logger.debug(
+                            f"Found question with question mark: message_id={msg.id}, content={content[:50]}..."
+                        )
                         return content
+                
                 # 疑問符がない場合は、直近のUSERロールを返す
                 for i in range(index - 1, -1, -1):
                     msg = conversation_messages[i]
                     if msg.role == MessageRole.USER.value:
                         content = (msg.content or "").strip()
                         if content:
+                            logger.debug(
+                                f"Found question without question mark: message_id={msg.id}, content={content[:50]}..."
+                            )
                             return content
+                
+                logger.warning(
+                    f"No USER message found before assistant message: message_id={message_id}, "
+                    f"conversation_id={message.conversation_id}, index={index}"
+                )
                 return None
 
             # メッセージのインデックスを見つける
@@ -207,22 +225,41 @@ class FAQSuggestionService:
 
             if message_index is None:
                 logger.error(
-                    f"Message not found in conversation: message_id={message_id}, conversation_id={message.conversation_id}"
+                    f"Message not found in conversation: message_id={message_id}, conversation_id={message.conversation_id}, "
+                    f"total_messages={len(conversation_messages)}"
                 )
                 raise ValueError(f"Message not found in conversation: message_id={message_id}")
 
-            question = pick_question_before(message_index) if message_index > 0 else None
+            if message_index == 0:
+                logger.error(
+                    f"Assistant message is the first message in conversation: message_id={message_id}, "
+                    f"conversation_id={message.conversation_id}"
+                )
+                raise ValueError(
+                    f"Assistant message is the first message in conversation: message_id={message_id}. "
+                    f"Please ensure there is a USER message before this ASSISTANT message."
+                )
+
+            question = pick_question_before(message_index)
 
             if not question:
                 # USERメッセージが見つからない場合、エラー（回答文を質問文として使用しない）
                 logger.error(
                     f"User message not found for assistant message: message_id={message_id}, "
                     f"conversation_id={message.conversation_id}, message_index={message_index}, "
-                    f"total_messages={len(conversation_messages)}"
+                    f"total_messages={len(conversation_messages)}, "
+                    f"message_content={message.content[:100] if message.content else 'None'}..."
                 )
+                # 会話履歴の詳細をログに記録
+                for i, msg in enumerate(conversation_messages[:message_index + 1]):
+                    logger.error(
+                        f"  Message[{i}]: id={msg.id}, role={msg.role}, "
+                        f"content={msg.content[:50] if msg.content else 'None'}..."
+                    )
                 raise ValueError(
                     f"User message not found for assistant message: message_id={message_id}. "
-                    f"Please ensure there is a USER message before this ASSISTANT message."
+                    f"Please ensure there is a USER message before this ASSISTANT message. "
+                    f"Conversation has {len(conversation_messages)} messages."
                 )
             
             existing_answer = message.content  # 既存の回答（改善対象）
