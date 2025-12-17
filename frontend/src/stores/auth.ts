@@ -20,10 +20,15 @@ export const useAuthStore = defineStore('auth', () => {
 
   function setToken(tokenValue: string | null) {
     token.value = tokenValue
-    if (tokenValue) {
-      localStorage.setItem('auth_token', tokenValue)
-    } else {
-      localStorage.removeItem('auth_token')
+    try {
+      if (tokenValue) {
+        localStorage.setItem('auth_token', tokenValue)
+      } else {
+        localStorage.removeItem('auth_token')
+      }
+    } catch (error) {
+      // localStorageが利用できない場合、メモリのみに保存
+      console.warn('Failed to access localStorage, token stored in memory only:', error)
     }
   }
 
@@ -38,18 +43,23 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function initAuth() {
-    const storedToken = localStorage.getItem('auth_token')
-    if (storedToken) {
-      token.value = storedToken
-      try {
-        // トークンからユーザー情報を取得
-        const userData = await authApi.getCurrentUser()
-        setUser(userData)
-      } catch (error) {
-        // トークンが無効な場合、ログアウト
-        console.error('Failed to get current user:', error)
-        logout()
+    try {
+      const storedToken = localStorage.getItem('auth_token')
+      if (storedToken) {
+        token.value = storedToken
+        try {
+          // トークンからユーザー情報を取得
+          const userData = await authApi.getCurrentUser()
+          setUser(userData)
+        } catch (error) {
+          // トークンが無効な場合、ログアウト
+          console.error('Failed to get current user:', error)
+          logout()
+        }
       }
+    } catch (error) {
+      // localStorageが利用できない場合、認証情報なしで続行
+      console.warn('Failed to access localStorage, continuing without auth:', error)
     }
   }
 

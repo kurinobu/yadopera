@@ -28,9 +28,15 @@ export function usePWA() {
 
   function checkIfInstalled() {
     // スタンドアロンモードで実行されているか確認
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      isInstalled.value = true
-      isInstallable.value = false
+    try {
+      if (typeof window !== 'undefined' && window.matchMedia) {
+        if (window.matchMedia('(display-mode: standalone)').matches) {
+          isInstalled.value = true
+          isInstallable.value = false
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to check if installed:', error)
     }
   }
 
