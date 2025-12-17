@@ -76,8 +76,18 @@ class FeedbackService:
         )
         ignored_message_ids = set(ignored_result.scalars().all())
         
-        # 無視されたメッセージIDを除外
-        low_rated_message_ids = [msg_id for msg_id in low_rated_message_ids if msg_id not in ignored_message_ids]
+        # 処理済みのメッセージIDを取得（FAQ承認により処理済みとなった低評価回答）
+        processed_result = await self.db.execute(
+            select(ProcessedFeedback.message_id).where(
+                ProcessedFeedback.facility_id == facility_id,
+                ProcessedFeedback.message_id.in_(low_rated_message_ids)
+            )
+        )
+        processed_message_ids = set(processed_result.scalars().all())
+        
+        # 無視されたメッセージIDと処理済みのメッセージIDを除外
+        excluded_message_ids = ignored_message_ids | processed_message_ids
+        low_rated_message_ids = [msg_id for msg_id in low_rated_message_ids if msg_id not in excluded_message_ids]
         
         if not low_rated_message_ids:
             return []

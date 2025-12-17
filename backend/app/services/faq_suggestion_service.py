@@ -15,6 +15,7 @@ from app.models.faq import FAQ, FAQCategory
 from app.models.message import Message, MessageRole
 from app.models.guest_feedback import GuestFeedback
 from app.models.escalation import Escalation
+from app.models.processed_feedback import ProcessedFeedback
 from app.schemas.faq_suggestion import FAQSuggestionResponse, ApproveSuggestionRequest
 from app.schemas.faq import FAQRequest
 from app.ai.openai_client import OpenAIClient
@@ -641,6 +642,57 @@ Language: {language}"""
             suggestion.reviewed_at = datetime.utcnow()
             suggestion.reviewed_by = user_id
             suggestion.created_faq_id = faq.id
+            
+            # FAQ承認により処理済みとなった低評価回答を記録
+            try:
+                # 既に処理済みとして記録されているか確認
+                processed_result = await self.db.execute(
+                    select(ProcessedFeedback).where(
+                        ProcessedFeedback.message_id == suggestion.source_message_id,
+                        ProcessedFeedback.facility_id == facility_id
+                    )
+                )
+                existing_processed = processed_result.scalar_one_or_none()
+                
+                if not existing_processed:
+                    # 処理済みとして記録
+                    processed_feedback = ProcessedFeedback(
+                        message_id=suggestion.source_message_id,
+                        facility_id=facility_id,
+                        faq_suggestion_id=suggestion_id,
+                        processed_by=user_id
+                    )
+                    self.db.add(processed_feedback)
+                    logger.info(
+                        f"Processed feedback recorded after FAQ approval: message_id={suggestion.source_message_id}, "
+                        f"suggestion_id={suggestion_id}, faq_id={faq.id}",
+                        extra={
+                            "message_id": suggestion.source_message_id,
+                            "suggestion_id": suggestion_id,
+                            "faq_id": faq.id,
+                            "facility_id": facility_id
+                        }
+                    )
+                else:
+                    logger.debug(
+                        f"Feedback already processed: message_id={suggestion.source_message_id}, "
+                        f"suggestion_id={suggestion_id}",
+                        extra={
+                            "message_id": suggestion.source_message_id,
+                            "suggestion_id": suggestion_id
+                        }
+                    )
+            except Exception as e:
+                # 処理済み記録の失敗はFAQ作成を妨げない（ログのみ記録）
+                logger.error(
+                    f"Error recording processed feedback after FAQ approval: {str(e)}",
+                    exc_info=True,
+                    extra={
+                        "suggestion_id": suggestion_id,
+                        "source_message_id": suggestion.source_message_id,
+                        "error": str(e)
+                    }
+                )
             
             await self.db.commit()
             await self.db.refresh(suggestion)

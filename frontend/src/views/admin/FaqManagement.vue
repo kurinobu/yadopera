@@ -437,6 +437,8 @@ const handleApproveSuggestion = async (_suggestion: FaqSuggestion) => {
   selectedSuggestion.value = null
   await fetchFaqs()
   await fetchUnresolvedQuestions()
+  // 低評価回答リストを再取得（FAQ承認により処理済みとなった低評価回答を除外）
+  await fetchLowRatedAnswers()
 }
 
 const handleRejectSuggestion = async (_suggestion: FaqSuggestion) => {
