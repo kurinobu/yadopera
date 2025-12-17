@@ -80,6 +80,36 @@
         @cancel="handleCloseForm"
       />
     </Modal>
+
+    <!-- 無視確認モーダル -->
+    <Modal
+      v-model="showIgnoreConfirm"
+      title="低評価回答の無視"
+      size="md"
+      @close="showIgnoreConfirm = false"
+    >
+      <div class="space-y-4">
+        <p class="text-gray-700 dark:text-gray-300">
+          この低評価回答を無視しますか？無視した回答は画面から非表示になります。
+        </p>
+        <div class="flex items-center justify-end space-x-3">
+          <button
+            @click="showIgnoreConfirm = false"
+            class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+          >
+            キャンセル
+          </button>
+          <button
+            @click="confirmIgnore"
+            :disabled="ignoringMessageId !== null"
+            class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <span v-if="ignoringMessageId !== null">処理中...</span>
+            <span v-else>無視する</span>
+          </button>
+        </div>
+      </div>
+    </Modal>
   </div>
 </template>
 
@@ -420,14 +450,20 @@ const handleRejectSuggestion = async (_suggestion: FaqSuggestion) => {
 const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
   try {
     console.log('Generating FAQ suggestion for message_id:', answer.message_id)
+    console.log('Answer data:', answer)
     // FAQ提案を生成（GPT-4o mini）
-    selectedSuggestion.value = await faqSuggestionApi.generateSuggestion(answer.message_id)
-    console.log('FAQ suggestion generated:', selectedSuggestion.value)
+    const suggestion = await faqSuggestionApi.generateSuggestion(answer.message_id)
+    console.log('FAQ suggestion generated:', suggestion)
+    console.log('Suggested question:', suggestion.suggested_question)
+    console.log('Suggested answer:', suggestion.suggested_answer)
+    
+    selectedSuggestion.value = suggestion
     
     // FAQ提案カードまで自動スクロール
     await scrollToSection('faq-suggestion')
   } catch (err: any) {
     console.error('Failed to generate FAQ suggestion:', err)
+    console.error('Error details:', err.response?.data || err.message)
     // エラーメッセージをユーザーフレンドリーに変換
     let errorMessage = 'FAQ提案の生成に失敗しました'
     const detail = err.response?.data?.detail || err.message || ''
@@ -449,17 +485,23 @@ const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
 }
 
 const ignoringMessageId = ref<number | null>(null)
+const showIgnoreConfirm = ref(false)
+const pendingIgnoreAnswer = ref<LowRatedAnswer | null>(null)
 
-const handleFeedbackIgnore = async (answer: LowRatedAnswer) => {
+const handleFeedbackIgnore = (answer: LowRatedAnswer) => {
   console.log('Feedback ignore clicked:', answer)
-  
-  const confirmed = confirm('この低評価回答を無視しますか？無視した回答は画面から非表示になります。')
-  console.log('Confirm dialog result:', confirmed)
-  
-  if (!confirmed) {
-    console.log('User cancelled ignore action')
+  // 確認モーダルを表示
+  pendingIgnoreAnswer.value = answer
+  showIgnoreConfirm.value = true
+}
+
+const confirmIgnore = async () => {
+  if (!pendingIgnoreAnswer.value) {
     return
   }
+  
+  const answer = pendingIgnoreAnswer.value
+  console.log('Confirm ignore for message_id:', answer.message_id)
   
   // ローディング状態を設定
   ignoringMessageId.value = answer.message_id
@@ -470,13 +512,17 @@ const handleFeedbackIgnore = async (answer: LowRatedAnswer) => {
     console.log('Ignore API call successful')
     // 成功メッセージを表示
     alert('✅ 低評価回答を無視しました。画面から非表示になります。')
+    // モーダルを閉じる
+    showIgnoreConfirm.value = false
+    pendingIgnoreAnswer.value = null
     // 低評価回答リストを再取得（画面に反映）
     await fetchLowRatedAnswers()
     console.log('Low-rated answers list refreshed')
   } catch (err: any) {
     console.error('Failed to ignore negative feedback:', err)
+    console.error('Error details:', err.response?.data || err.message)
     const errorMessage = err.response?.data?.detail || err.message || '低評価回答の無視に失敗しました'
-    // エラーメッセージを確実に表示（alertの代わりに、より目立つ方法を使用）
+    // エラーメッセージを確実に表示
     alert(`❌ エラー: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`)
   } finally {
     // ローディング状態を解除

@@ -83,9 +83,13 @@ class FeedbackService:
             return []
         
         # メッセージを取得（会話も一緒に取得）
+        # ASSISTANTロールのメッセージのみを取得（データ整合性を確保）
         messages_result = await self.db.execute(
             select(Message)
-            .where(Message.id.in_(low_rated_message_ids))
+            .where(
+                Message.id.in_(low_rated_message_ids),
+                Message.role == MessageRole.ASSISTANT.value
+            )
             .options(selectinload(Message.conversation))
         )
         messages = messages_result.scalars().all()
@@ -94,15 +98,43 @@ class FeedbackService:
         
         for message in messages:
             # 会話内のメッセージを取得（質問を取得するため）
+            # faq_suggestion_service.pyと同じロジックで順序を確実にする
             conversation_messages_result = await self.db.execute(
                 select(Message)
                 .where(Message.conversation_id == message.conversation_id)
-                .order_by(Message.created_at.asc())
+                .order_by(Message.created_at.asc(), Message.id.asc())
             )
             conversation_messages = conversation_messages_result.scalars().all()
             
             # このメッセージ（AI応答）の前にあるユーザーメッセージ（質問）を取得
-            question = None
+            # faq_suggestion_service.pyのpick_question_before関数と同じロジック
+            def pick_question_before(index: int) -> str | None:
+                """
+                直前以前のUSERメッセージから「質問らしい」ものを優先的に選ぶ。
+                疑問符を含むものを優先し、それがなければ直近のUSERロールを返す。
+                """
+                # 疑問符を含むUSERメッセージを優先的に探す
+                for i in range(index - 1, -1, -1):
+                    msg = conversation_messages[i]
+                    if msg.role != MessageRole.USER.value:
+                        continue
+                    content = (msg.content or "").strip()
+                    if not content:
+                        continue
+                    # 疑問符を含むものを優先
+                    if "?" in content or content.endswith("？"):
+                        return content
+                
+                # 疑問符がない場合は、直近のUSERロールを返す
+                for i in range(index - 1, -1, -1):
+                    msg = conversation_messages[i]
+                    if msg.role == MessageRole.USER.value:
+                        content = (msg.content or "").strip()
+                        if content:
+                            return content
+                
+                return None
+            
             # メッセージのインデックスを見つける
             message_index = None
             for i, msg in enumerate(conversation_messages):
@@ -110,16 +142,27 @@ class FeedbackService:
                     message_index = i
                     break
             
-            if message_index is not None and message_index > 0:
-                # インデックスの前にある最後のUSERロールのメッセージを取得
-                for i in range(message_index - 1, -1, -1):
-                    if conversation_messages[i].role == MessageRole.USER.value:
-                        question = conversation_messages[i].content
-                        break
+            if message_index is None:
+                logger.warning(
+                    f"Message not found in conversation: message_id={message.id}, "
+                    f"conversation_id={message.conversation_id}"
+                )
+                continue
             
-            # 質問が見つからない場合はデフォルト値を設定
-            if not question:
+            if message_index == 0:
+                logger.warning(
+                    f"Assistant message is the first message in conversation: message_id={message.id}, "
+                    f"conversation_id={message.conversation_id}"
+                )
                 question = "質問が見つかりませんでした"
+            else:
+                question = pick_question_before(message_index)
+                if not question:
+                    logger.warning(
+                        f"User message not found for assistant message: message_id={message.id}, "
+                        f"conversation_id={message.conversation_id}, message_index={message_index}"
+                    )
+                    question = "質問が見つかりませんでした"
             
             # 回答はメッセージの内容（200文字まで）
             answer = message.content[:200] if len(message.content) > 200 else message.content
