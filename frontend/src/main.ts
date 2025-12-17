@@ -12,23 +12,43 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 
-// 初期化処理（エラーハンドリングを追加）
-try {
-  const themeStore = useThemeStore()
-  themeStore.initTheme()
-} catch (error) {
-  console.error('Failed to initialize theme:', error)
-  // エラーが発生してもアプリは起動する
+// 初期化処理（すべて非同期で実行）
+async function initializeApp() {
+  try {
+    const themeStore = useThemeStore()
+    themeStore.initTheme()
+  } catch (error) {
+    console.error('Failed to initialize theme:', error)
+    // エラーが発生してもアプリは起動する
+  }
+
+  try {
+    const authStore = useAuthStore()
+    await authStore.initAuth()
+  } catch (error) {
+    console.error('Failed to initialize auth:', error)
+    // エラーが発生してもアプリは起動する
+  }
+
+  // すべての初期化処理が完了したら、アプリをマウント
+  app.mount('#app')
 }
 
-const authStore = useAuthStore()
-// 認証初期化（非同期処理）
-authStore.initAuth().then(() => {
+// タイムアウトを設定し、一定時間経過後は強制的にアプリをマウント
+const mountTimeout = setTimeout(() => {
+  console.warn('App initialization timeout, mounting app anyway')
   app.mount('#app')
-}).catch((error) => {
-  console.error('Failed to initialize auth:', error)
-  // エラーが発生してもアプリは起動する
-  app.mount('#app')
-})
+}, 2000) // 2秒後にタイムアウト
+
+initializeApp()
+  .then(() => {
+    clearTimeout(mountTimeout)
+  })
+  .catch((error) => {
+    clearTimeout(mountTimeout)
+    console.error('Failed to initialize app:', error)
+    // エラーが発生してもアプリは起動する
+    app.mount('#app')
+  })
 
 
