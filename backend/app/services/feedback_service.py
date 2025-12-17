@@ -109,9 +109,21 @@ class FeedbackService:
         # ASSISTANTロールのメッセージが取得できなかった場合の警告
         if len(messages) < len(low_rated_message_ids):
             missing_ids = set(low_rated_message_ids) - {msg.id for msg in messages}
+            # フィルタリングされたメッセージの詳細を確認
+            missing_messages_result = await self.db.execute(
+                select(Message)
+                .where(Message.id.in_(list(missing_ids)))
+            )
+            missing_messages = missing_messages_result.scalars().all()
+            for missing_msg in missing_messages:
+                logger.warning(
+                    f"Message filtered out (not ASSISTANT role): message_id={missing_msg.id}, "
+                    f"role={missing_msg.role}, facility_id={facility_id}"
+                )
             logger.warning(
                 f"Some message IDs were filtered out (not ASSISTANT role): "
-                f"facility_id={facility_id}, missing_ids={missing_ids}"
+                f"facility_id={facility_id}, missing_ids={missing_ids}, "
+                f"filtered_count={len(missing_ids)}, retrieved_count={len(messages)}"
             )
         
         low_rated_answers: List[LowRatedAnswer] = []

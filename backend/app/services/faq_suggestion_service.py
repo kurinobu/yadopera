@@ -142,12 +142,19 @@ class FAQSuggestionService:
             logger.error(
                 f"Attempted to generate FAQ suggestion for USER role message: "
                 f"message_id={message_id}, facility_id={facility_id}, "
+                f"conversation_id={message.conversation_id}, "
                 f"content={message.content[:100] if message.content else 'None'}..."
+            )
+            # データ不整合の可能性をログに記録
+            logger.error(
+                f"Data inconsistency detected: message_id={message_id} is USER role but was included in negative feedbacks. "
+                f"This should not happen as feedback_service.py filters for ASSISTANT role messages only."
             )
             raise ValueError(
                 f"FAQ suggestion cannot be generated for USER role messages. "
                 f"Please specify an ASSISTANT role message (message_id={message_id} is USER role). "
-                f"USER role messages are user questions, not AI responses that need improvement."
+                f"USER role messages are user questions, not AI responses that need improvement. "
+                f"If you see this error, it indicates a data inconsistency issue."
             )
         
         # 既存の提案を確認（最新の1件を取得）

@@ -468,8 +468,10 @@ const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
     let errorMessage = 'FAQ提案の生成に失敗しました'
     const detail = err.response?.data?.detail || err.message || ''
     
-    if (detail.includes('USER role messages') || detail.includes('USER role message')) {
-      errorMessage = 'データ不整合が発生しています。USERロールのメッセージに対してFAQ提案を生成することはできません。管理者にお問い合わせください。'
+    if (detail.includes('USER role messages') || detail.includes('USER role message') || detail.includes('is USER role')) {
+      errorMessage = 'データ不整合が発生しています。USERロールのメッセージに対してFAQ提案を生成することはできません。このメッセージは低評価回答リストから除外されます。管理者にお問い合わせください。'
+    } else if (detail.includes('Assistant message is the first message')) {
+      errorMessage = 'このメッセージは会話の最初のメッセージです。USERメッセージが存在しないため、FAQ提案を生成できません。データ不整合の可能性があります。管理者にお問い合わせください。'
     } else if (detail.includes('User message not found')) {
       errorMessage = '質問文が見つかりませんでした。データ不整合の可能性があります。管理者にお問い合わせください。'
     } else if (detail.includes('Message not found')) {
