@@ -357,32 +357,60 @@ class EscalationService:
             # Conversationを取得（既にeager loadされている）
             conversation = escalation.conversation
             if not conversation:
-                logger.warning(f"Conversation not found for escalation {escalation.id}")
+                logger.warning(
+                    f"Conversation not found for escalation {escalation.id} "
+                    f"(conversation_id={escalation.conversation_id})"
+                )
                 continue
             
             # 最初のユーザーメッセージを取得
-            message_query = select(Message).where(
+            user_message_query = select(Message).where(
                 Message.conversation_id == conversation.id,
                 Message.role == MessageRole.USER.value
             ).order_by(Message.created_at.asc()).limit(1)
             
-            message_result = await db.execute(message_query)
-            message = message_result.scalar_one_or_none()
+            user_message_result = await db.execute(user_message_query)
+            user_message = user_message_result.scalar_one_or_none()
             
-            if message:
-                unresolved_questions.append(
-                    UnresolvedQuestionResponse(
-                        id=escalation.id,
-                        message_id=message.id,
-                        facility_id=facility_id,
-                        question=message.content,
-                        language=conversation.guest_language or "en",
-                        confidence_score=float(escalation.ai_confidence) if escalation.ai_confidence else 0.0,
-                        created_at=escalation.created_at
+            if user_message:
+                # そのUSERメッセージに対するASSISTANTロールのメッセージを取得
+                # USERメッセージの後に作成された最初のASSISTANTメッセージを取得
+                assistant_message_query = select(Message).where(
+                    Message.conversation_id == conversation.id,
+                    Message.role == MessageRole.ASSISTANT.value,
+                    Message.created_at > user_message.created_at
+                ).order_by(Message.created_at.asc()).limit(1)
+                
+                assistant_message_result = await db.execute(assistant_message_query)
+                assistant_message = assistant_message_result.scalar_one_or_none()
+                
+                if assistant_message:
+                    # ASSISTANTロールのメッセージIDを返す（FAQ提案生成に必要）
+                    unresolved_questions.append(
+                        UnresolvedQuestionResponse(
+                            id=escalation.id,
+                            message_id=assistant_message.id,  # ASSISTANTロールのメッセージID
+                            facility_id=facility_id,
+                            question=user_message.content,  # 質問文はUSERメッセージの内容
+                            language=conversation.guest_language or "en",
+                            confidence_score=float(escalation.ai_confidence) if escalation.ai_confidence else 0.0,
+                            created_at=escalation.created_at
+                        )
                     )
-                )
+                else:
+                    logger.warning(
+                        f"No assistant message found after user message for conversation {conversation.id} "
+                        f"(escalation_id={escalation.id}, facility_id={facility_id}, user_message_id={user_message.id})"
+                    )
+                    # ASSISTANTメッセージが見つからない場合、このエスカレーションは未解決質問リストから除外される
+                    continue
             else:
-                logger.warning(f"No user message found for conversation {conversation.id}")
+                logger.warning(
+                    f"No user message found for conversation {conversation.id} "
+                    f"(escalation_id={escalation.id}, facility_id={facility_id})"
+                )
+                # このエスカレーションは未解決質問リストから除外される
+                continue
         
         return unresolved_questions
 
