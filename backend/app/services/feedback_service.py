@@ -94,6 +94,26 @@ class FeedbackService:
         )
         messages = messages_result.scalars().all()
         
+        # ログを追加して、取得されたメッセージのroleを確認
+        logger.info(
+            f"Retrieved messages for negative feedbacks: facility_id={facility_id}, "
+            f"low_rated_message_ids={low_rated_message_ids}, "
+            f"retrieved_count={len(messages)}"
+        )
+        for msg in messages:
+            logger.debug(
+                f"Message in negative feedbacks: message_id={msg.id}, role={msg.role}, "
+                f"content={msg.content[:50] if msg.content else 'None'}..."
+            )
+        
+        # ASSISTANTロールのメッセージが取得できなかった場合の警告
+        if len(messages) < len(low_rated_message_ids):
+            missing_ids = set(low_rated_message_ids) - {msg.id for msg in messages}
+            logger.warning(
+                f"Some message IDs were filtered out (not ASSISTANT role): "
+                f"facility_id={facility_id}, missing_ids={missing_ids}"
+            )
+        
         low_rated_answers: List[LowRatedAnswer] = []
         
         for message in messages:

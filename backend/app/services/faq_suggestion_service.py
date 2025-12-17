@@ -137,6 +137,19 @@ class FAQSuggestionService:
         if message.conversation.facility_id != facility_id:
             raise ValueError(f"Message does not belong to facility: message_id={message_id}, facility_id={facility_id}")
         
+        # USERロールのメッセージに対してFAQ提案を生成しようとした場合、エラーを発生させる
+        if message.role == MessageRole.USER.value:
+            logger.error(
+                f"Attempted to generate FAQ suggestion for USER role message: "
+                f"message_id={message_id}, facility_id={facility_id}, "
+                f"content={message.content[:100] if message.content else 'None'}..."
+            )
+            raise ValueError(
+                f"FAQ suggestion cannot be generated for USER role messages. "
+                f"Please specify an ASSISTANT role message (message_id={message_id} is USER role). "
+                f"USER role messages are user questions, not AI responses that need improvement."
+            )
+        
         # 既存の提案を確認（最新の1件を取得）
         existing_result = await self.db.execute(
             select(FAQSuggestion).where(
