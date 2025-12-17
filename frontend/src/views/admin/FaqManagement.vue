@@ -62,6 +62,7 @@
     <!-- ゲストフィードバック連動 -->
     <FeedbackLinkedFaqs
       :low-rated-faqs="lowRatedAnswers"
+      :ignoring-message-id="ignoringMessageId"
       @improve="handleFeedbackImprove"
       @ignore="handleFeedbackIgnore"
     />
@@ -112,8 +113,8 @@ const loadingUnresolved = ref(false)
     facility_id: 1,
     category: 'basic',
     language: 'en',
-    question: 'What time is check-in?',
-    answer: 'Check-in is from 3pm to 10pm. If you arrive outside these hours, please contact us in advance.',
+    question: 'What time is check-out?',
+    answer: 'Check-out is by 11:00 AM. If you need to leave later, please contact us in advance.',
     priority: 5,
     is_active: true,
     created_at: new Date().toISOString(),
@@ -412,6 +413,8 @@ const handleRejectSuggestion = async (_suggestion: FaqSuggestion) => {
   // API連携はFaqSuggestionCard内で実装済み
   // ここでは提案をクリア
   selectedSuggestion.value = null
+  // 低評価回答リストを再取得（画面に反映）
+  await fetchLowRatedAnswers()
 }
 
 const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
@@ -422,12 +425,36 @@ const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
     console.error('Failed to generate FAQ suggestion:', err)
     const errorMessage = err.response?.data?.detail || err.message || 'FAQ提案の生成に失敗しました'
     alert(errorMessage)
+    // エラー後は提案をクリア（現状維持）
+    selectedSuggestion.value = null
   }
 }
 
-const handleFeedbackIgnore = (answer: LowRatedAnswer) => {
-  // TODO: Week 4でAPI連携を実装（ステップ4で実装予定）
-  console.log('Feedback ignore:', answer)
+const ignoringMessageId = ref<number | null>(null)
+
+const handleFeedbackIgnore = async (answer: LowRatedAnswer) => {
+  if (!confirm('この低評価回答を無視しますか？無視した回答は画面から非表示になります。')) {
+    return
+  }
+  
+  // ローディング状態を設定
+  ignoringMessageId.value = answer.message_id
+  
+  try {
+    await feedbackApi.ignoreNegativeFeedback(answer.message_id)
+    // 成功メッセージを表示
+    alert('低評価回答を無視しました。画面から非表示になります。')
+    // 低評価回答リストを再取得（画面に反映）
+    await fetchLowRatedAnswers()
+  } catch (err: any) {
+    console.error('Failed to ignore negative feedback:', err)
+    const errorMessage = err.response?.data?.detail || err.message || '低評価回答の無視に失敗しました'
+    // エラーメッセージを確実に表示（alertの代わりに、より目立つ方法を使用）
+    alert(`❌ エラー: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`)
+  } finally {
+    // ローディング状態を解除
+    ignoringMessageId.value = null
+  }
 }
 
 const handleCancelSuggestion = (_suggestion: FaqSuggestion) => {

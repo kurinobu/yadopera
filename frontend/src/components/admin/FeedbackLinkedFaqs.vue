@@ -39,9 +39,11 @@
           </button>
           <button
             @click="handleIgnore(answer)"
-            class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors"
+            :disabled="isIgnoring(answer.message_id)"
+            class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            無視
+            <span v-if="isIgnoring(answer.message_id)">処理中...</span>
+            <span v-else>無視</span>
           </button>
         </div>
       </div>
@@ -59,13 +61,17 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { LowRatedAnswer } from '@/types/faq'
 
 interface Props {
   lowRatedFaqs: LowRatedAnswer[]
+  ignoringMessageId?: number | null
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  ignoringMessageId: null
+})
 
 const emit = defineEmits<{
   improve: [answer: LowRatedAnswer]
@@ -78,6 +84,10 @@ const handleImprove = (answer: LowRatedAnswer) => {
 
 const handleIgnore = (answer: LowRatedAnswer) => {
   emit('ignore', answer)
+}
+
+const isIgnoring = (messageId: number) => {
+  return props.ignoringMessageId === messageId
 }
 </script>
 

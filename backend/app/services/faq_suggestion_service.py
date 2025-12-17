@@ -165,11 +165,11 @@ class FAQSuggestionService:
         # 質問文を取得（ユーザーメッセージから）
         # メッセージがASSISTANTの場合は、同じ会話のUSERメッセージを取得
         if message.role == MessageRole.ASSISTANT.value:
-            # 同じ会話の全メッセージを時系列順で取得
+            # 同じ会話の全メッセージを時系列順で取得（created_atとidでソートして順序を確実にする）
             conversation_messages_result = await self.db.execute(
                 select(Message)
                 .where(Message.conversation_id == message.conversation_id)
-                .order_by(Message.created_at.asc())
+                .order_by(Message.created_at.asc(), Message.id.asc())
             )
             conversation_messages = conversation_messages_result.scalars().all()
             
@@ -184,12 +184,18 @@ class FAQSuggestionService:
                     if msg.role != MessageRole.USER.value:
                         continue
                     content = (msg.content or "").strip()
+                    if not content:
+                        continue
+                    # 疑問符を含むものを優先
                     if "?" in content or content.endswith("？"):
                         return content
+                # 疑問符がない場合は、直近のUSERロールを返す
                 for i in range(index - 1, -1, -1):
                     msg = conversation_messages[i]
                     if msg.role == MessageRole.USER.value:
-                        return (msg.content or "").strip()
+                        content = (msg.content or "").strip()
+                        if content:
+                            return content
                 return None
 
             # メッセージのインデックスを見つける
@@ -199,11 +205,25 @@ class FAQSuggestionService:
                     message_index = i
                     break
 
-            question = pick_question_before(message_index) if message_index is not None and message_index > 0 else None
+            if message_index is None:
+                logger.error(
+                    f"Message not found in conversation: message_id={message_id}, conversation_id={message.conversation_id}"
+                )
+                raise ValueError(f"Message not found in conversation: message_id={message_id}")
+
+            question = pick_question_before(message_index) if message_index > 0 else None
 
             if not question:
-                # USERメッセージが見つからない場合、エラー
-                raise ValueError(f"User message not found for assistant message: message_id={message_id}")
+                # USERメッセージが見つからない場合、エラー（回答文を質問文として使用しない）
+                logger.error(
+                    f"User message not found for assistant message: message_id={message_id}, "
+                    f"conversation_id={message.conversation_id}, message_index={message_index}, "
+                    f"total_messages={len(conversation_messages)}"
+                )
+                raise ValueError(
+                    f"User message not found for assistant message: message_id={message_id}. "
+                    f"Please ensure there is a USER message before this ASSISTANT message."
+                )
             
             existing_answer = message.content  # 既存の回答（改善対象）
         else:
