@@ -111,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChat } from '@/composables/useChat'
 import { useSession } from '@/composables/useSession'
@@ -239,6 +239,7 @@ onMounted(async () => {
           })
           chatStore.setSessionToken(existingToken.token)
           tokenExpiresAt.value = existingToken.expires_at
+          await nextTick() // Vueのレンダリングサイクルを明示的にトリガー
         } catch (err: any) {
           // 404エラー（トークンが存在しない）の場合は新規生成
           if (err?.code === 'NOT_FOUND') {
@@ -256,6 +257,7 @@ onMounted(async () => {
             })
             chatStore.setSessionToken(newToken.token)
             tokenExpiresAt.value = newToken.expires_at
+            await nextTick() // Vueのレンダリングサイクルを明示的にトリガー
           } else {
             // その他のエラーはログに記録するが、チャット機能は継続できる
             console.error('[Chat.vue] onMounted: トークン取得エラー', err)

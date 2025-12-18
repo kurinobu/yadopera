@@ -33,6 +33,7 @@ class SessionTokenService:
         - 4桁英数字ランダム生成
         - 重複チェック（UNIQUE制約）
         - 最大10回再試行
+        - 会話が存在しない場合は会話を作成する（2025-12-18追加）
         
         Args:
             facility_id: 施設ID
@@ -51,11 +52,18 @@ class SessionTokenService:
         )
         conversation = result.scalar_one_or_none()
         
+        # 会話が存在しない場合は新規作成（2025-12-18追加）
         if conversation is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Primary session not found"
+            conversation = Conversation(
+                facility_id=facility_id,
+                session_id=primary_session_id,
+                guest_language="en",  # デフォルト言語（後でメッセージ送信時に更新可能）
+                started_at=datetime.utcnow(),
+                last_activity_at=datetime.utcnow()
             )
+            db.add(conversation)
+            await db.flush()
+            await db.refresh(conversation)
         
         if conversation.facility_id != facility_id:
             raise HTTPException(
