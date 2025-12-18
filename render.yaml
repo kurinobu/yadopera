@@ -35,6 +35,18 @@ services:
     staticPublishPath: dist
     routes:
       - type: rewrite
+        source: /assets/*
+        destination: /assets/*
+      - type: rewrite
+        source: /registerSW.js
+        destination: /registerSW.js
+      - type: rewrite
+        source: /manifest.webmanifest
+        destination: /manifest.webmanifest
+      - type: rewrite
+        source: /sw.js
+        destination: /sw.js
+      - type: rewrite
         source: /*
         destination: /index.html
 
