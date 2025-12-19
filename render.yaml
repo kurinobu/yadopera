@@ -33,6 +33,11 @@ services:
     rootDir: frontend
     buildCommand: npx vite build
     staticPublishPath: dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://yadopera-backend-staging.onrender.com
+      - key: VITE_ENVIRONMENT
+        value: staging
     routes:
       - type: rewrite
         source: /assets/*
