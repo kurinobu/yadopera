@@ -199,22 +199,40 @@ onMounted(async () => {
           facilityId: response.facility.id
         })
       } catch (err: any) {
-        console.error('[Chat.vue] onMounted: 施設情報取得エラー', err)
-        console.error('Error code:', err?.code)
-        console.error('Error type:', typeof err?.code)
+        // デバッグログ: エラーオブジェクトの構造を完全に確認
+        console.error('=== [Chat.vue] onMounted: 施設情報取得エラー - 完全なエラーオブジェクト構造 ===')
+        console.error('Error object:', err)
+        console.error('Error code (err?.code):', err?.code)
+        console.error('Error code type:', typeof err?.code)
+        console.error('Error error?.code:', err?.error?.code)
+        console.error('Error response?.data?.error?.code:', err?.response?.data?.error?.code)
         console.error('Error object keys:', Object.keys(err || {}))
+        console.error('Error object JSON (完全な構造):', JSON.stringify(err, null, 2))
+        console.error('Error object prototype:', Object.getPrototypeOf(err))
+        console.error('Error object hasOwnProperty check:', {
+          hasCode: err?.hasOwnProperty?.('code'),
+          hasError: err?.hasOwnProperty?.('error'),
+          hasResponse: err?.hasOwnProperty?.('response')
+        })
+        console.error('=== [Chat.vue] エラーオブジェクト構造確認終了 ===')
         
         // オフライン時のエラーメッセージ
         // NETWORK_ERRORの場合は、navigator.onLineの値に関わらずオフライン時のメッセージを表示
-        const errorCode = err?.code || err?.error?.code
+        const errorCode = err?.code || err?.error?.code || err?.response?.data?.error?.code
+        console.error('[Chat.vue] 検出されたerrorCode:', errorCode, 'type:', typeof errorCode)
+        
         if (errorCode === 'NETWORK_ERROR' || String(errorCode) === 'NETWORK_ERROR') {
           error.value = '現在オフラインです。インターネット接続を確認してください。'
+          console.log('[Chat.vue] NETWORK_ERROR検出: オフラインメッセージを表示')
         } else if (errorCode === 'TIMEOUT_ERROR' || String(errorCode) === 'TIMEOUT_ERROR') {
           error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
+          console.log('[Chat.vue] TIMEOUT_ERROR検出')
         } else if (errorCode === 'SERVER_ERROR' || String(errorCode) === 'SERVER_ERROR') {
           error.value = 'サーバーエラーが発生しました。しばらくしてから再度お試しください。'
+          console.log('[Chat.vue] SERVER_ERROR検出')
         } else {
           error.value = '施設情報の取得に失敗しました'
+          console.warn('[Chat.vue] エラーコードが検出されませんでした。汎用エラーメッセージを表示。errorCode:', errorCode)
         }
         return
       }
@@ -422,25 +440,44 @@ const handleMessageSubmit = async (message: string) => {
       console.log('[Chat.vue] handleMessageSubmit: エスカレーション必要', response.escalation_id)
     }
   } catch (err: any) {
-    console.error('[Chat.vue] handleMessageSubmit: エラー', err, {
+    // デバッグログ: エラーオブジェクトの構造を完全に確認
+    console.error('=== [Chat.vue] handleMessageSubmit: エラー - 完全なエラーオブジェクト構造 ===')
+    console.error('Error object:', err)
+    console.error('Error code (err?.code):', err?.code)
+    console.error('Error code type:', typeof err?.code)
+    console.error('Error error?.code:', err?.error?.code)
+    console.error('Error response?.data?.error?.code:', err?.response?.data?.error?.code)
+    console.error('Error object keys:', Object.keys(err || {}))
+    console.error('Error object JSON (完全な構造):', JSON.stringify(err, null, 2))
+    console.error('Error object prototype:', Object.getPrototypeOf(err))
+    console.error('Error object hasOwnProperty check:', {
+      hasCode: err?.hasOwnProperty?.('code'),
+      hasError: err?.hasOwnProperty?.('error'),
+      hasResponse: err?.hasOwnProperty?.('response')
+    })
+    console.error('Additional context:', {
       messagesCount: messages.value.length,
       messages: messages.value
     })
-    console.error('Error code:', err?.code)
-    console.error('Error type:', typeof err?.code)
-    console.error('Error object keys:', Object.keys(err || {}))
+    console.error('=== [Chat.vue] エラーオブジェクト構造確認終了 ===')
     
     // オフライン時のエラーメッセージ
     // NETWORK_ERRORの場合は、navigator.onLineの値に関わらずオフライン時のメッセージを表示
-    const errorCode = err?.code || err?.error?.code
+    const errorCode = err?.code || err?.error?.code || err?.response?.data?.error?.code
+    console.error('[Chat.vue] 検出されたerrorCode:', errorCode, 'type:', typeof errorCode)
+    
     if (errorCode === 'NETWORK_ERROR' || String(errorCode) === 'NETWORK_ERROR') {
       error.value = '現在オフラインです。インターネット接続を確認してください。'
+      console.log('[Chat.vue] NETWORK_ERROR検出: オフラインメッセージを表示')
     } else if (errorCode === 'TIMEOUT_ERROR' || String(errorCode) === 'TIMEOUT_ERROR') {
       error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
+      console.log('[Chat.vue] TIMEOUT_ERROR検出')
     } else if (errorCode === 'SERVER_ERROR' || String(errorCode) === 'SERVER_ERROR') {
       error.value = 'サーバーエラーが発生しました。しばらくしてから再度お試しください。'
+      console.log('[Chat.vue] SERVER_ERROR検出')
     } else {
       error.value = err.message || 'メッセージの送信に失敗しました'
+      console.warn('[Chat.vue] エラーコードが検出されませんでした。汎用エラーメッセージを表示。errorCode:', errorCode)
     }
   }
 }
