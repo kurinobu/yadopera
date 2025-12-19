@@ -47,6 +47,7 @@ import { facilityApi } from '@/api/facility'
 import { useFacilityStore } from '@/stores/facility'
 // import { useChatStore } from '@/stores/chat'
 import { useSession } from '@/composables/useSession'
+import { useOffline } from '@/composables/useOffline'
 import FacilityHeader from '@/components/guest/FacilityHeader.vue'
 import TopQuestions from '@/components/guest/TopQuestions.vue'
 import MessageInput from '@/components/guest/MessageInput.vue'
@@ -59,6 +60,7 @@ const router = useRouter()
 const facilityStore = useFacilityStore()
 // const chatStore = useChatStore()
 const { getOrCreateSessionId } = useSession()
+const { isOffline } = useOffline()
 
 const facilityId = computed(() => route.params.facilityId as string)
 const language = computed(() => (route.query.lang as string) || 'en')
@@ -84,8 +86,18 @@ onMounted(async () => {
     
     facilityStore.setFacility(response.facility)
     facilityStore.setTopQuestions(response.top_questions)
-  } catch (err) {
-    error.value = '施設情報の取得に失敗しました'
+  } catch (err: any) {
+    // オフライン時のエラーメッセージ
+    // NETWORK_ERRORの場合は、navigator.onLineの値に関わらずオフライン時のメッセージを表示
+    if (err.code === 'NETWORK_ERROR') {
+      error.value = '現在オフラインです。インターネット接続を確認してください。'
+    } else if (err.code === 'TIMEOUT_ERROR') {
+      error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
+    } else if (err.code === 'SERVER_ERROR') {
+      error.value = 'サーバーエラーが発生しました。しばらくしてから再度お試しください。'
+    } else {
+      error.value = '施設情報の取得に失敗しました'
+    }
     console.error('Facility fetch error:', err)
   } finally {
     isLoading.value = false
@@ -113,6 +125,12 @@ const handleMessageSubmit = async (message: string) => {
     return
   }
 
+  // オフライン時のメッセージ送信をブロック
+  if (isOffline.value) {
+    error.value = '現在オフラインです。メッセージを送信できません。インターネット接続を確認してください。'
+    return
+  }
+
   try {
     isSubmitting.value = true
     error.value = null
@@ -130,8 +148,18 @@ const handleMessageSubmit = async (message: string) => {
         message: message
       }
     })
-  } catch (err) {
-    error.value = 'メッセージの送信に失敗しました'
+  } catch (err: any) {
+    // オフライン時のエラーメッセージ
+    // NETWORK_ERRORの場合は、navigator.onLineの値に関わらずオフライン時のメッセージを表示
+    if (err.code === 'NETWORK_ERROR') {
+      error.value = '現在オフラインです。インターネット接続を確認してください。'
+    } else if (err.code === 'TIMEOUT_ERROR') {
+      error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
+    } else if (err.code === 'SERVER_ERROR') {
+      error.value = 'サーバーエラーが発生しました。しばらくしてから再度お試しください。'
+    } else {
+      error.value = 'メッセージの送信に失敗しました'
+    }
     console.error('Message submit error:', err)
   } finally {
     isSubmitting.value = false
