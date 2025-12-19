@@ -87,18 +87,24 @@ onMounted(async () => {
     facilityStore.setFacility(response.facility)
     facilityStore.setTopQuestions(response.top_questions)
   } catch (err: any) {
+    // デバッグログ: エラーオブジェクトの構造を確認
+    console.error('Facility fetch error:', err)
+    console.error('Error code:', err?.code)
+    console.error('Error type:', typeof err?.code)
+    console.error('Error object keys:', Object.keys(err || {}))
+    
     // オフライン時のエラーメッセージ
     // NETWORK_ERRORの場合は、navigator.onLineの値に関わらずオフライン時のメッセージを表示
-    if (err.code === 'NETWORK_ERROR') {
+    const errorCode = err?.code || err?.error?.code
+    if (errorCode === 'NETWORK_ERROR' || String(errorCode) === 'NETWORK_ERROR') {
       error.value = '現在オフラインです。インターネット接続を確認してください。'
-    } else if (err.code === 'TIMEOUT_ERROR') {
+    } else if (errorCode === 'TIMEOUT_ERROR' || String(errorCode) === 'TIMEOUT_ERROR') {
       error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
-    } else if (err.code === 'SERVER_ERROR') {
+    } else if (errorCode === 'SERVER_ERROR' || String(errorCode) === 'SERVER_ERROR') {
       error.value = 'サーバーエラーが発生しました。しばらくしてから再度お試しください。'
     } else {
       error.value = '施設情報の取得に失敗しました'
     }
-    console.error('Facility fetch error:', err)
   } finally {
     isLoading.value = false
   }
@@ -149,18 +155,24 @@ const handleMessageSubmit = async (message: string) => {
       }
     })
   } catch (err: any) {
+    // デバッグログ: エラーオブジェクトの構造を確認
+    console.error('Message submit error:', err)
+    console.error('Error code:', err?.code)
+    console.error('Error type:', typeof err?.code)
+    console.error('Error object keys:', Object.keys(err || {}))
+    
     // オフライン時のエラーメッセージ
     // NETWORK_ERRORの場合は、navigator.onLineの値に関わらずオフライン時のメッセージを表示
-    if (err.code === 'NETWORK_ERROR') {
+    const errorCode = err?.code || err?.error?.code
+    if (errorCode === 'NETWORK_ERROR' || String(errorCode) === 'NETWORK_ERROR') {
       error.value = '現在オフラインです。インターネット接続を確認してください。'
-    } else if (err.code === 'TIMEOUT_ERROR') {
+    } else if (errorCode === 'TIMEOUT_ERROR' || String(errorCode) === 'TIMEOUT_ERROR') {
       error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
-    } else if (err.code === 'SERVER_ERROR') {
+    } else if (errorCode === 'SERVER_ERROR' || String(errorCode) === 'SERVER_ERROR') {
       error.value = 'サーバーエラーが発生しました。しばらくしてから再度お試しください。'
     } else {
       error.value = 'メッセージの送信に失敗しました'
     }
-    console.error('Message submit error:', err)
   } finally {
     isSubmitting.value = false
   }
