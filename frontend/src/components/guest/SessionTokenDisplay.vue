@@ -20,7 +20,7 @@
         </svg>
         <div>
           <p class="text-xs text-blue-700 dark:text-blue-300 font-medium mb-1">
-            セッション統合トークン / Session Token
+            会話引き継ぎコード / Conversation Link Code
           </p>
           <p class="text-lg font-mono font-bold text-blue-900 dark:text-blue-100">
             {{ token }}

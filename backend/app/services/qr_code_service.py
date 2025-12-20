@@ -37,7 +37,7 @@ class QRCodeService:
     """
     QRコード生成サービス
     - 設置場所別URL生成
-    - セッション統合トークン埋め込みオプション対応
+    - 会話引き継ぎコード埋め込みオプション対応
     - PDF/PNG/SVG形式生成
     """
     
@@ -66,7 +66,7 @@ class QRCodeService:
             facility_slug: 施設slug
             location: 設置場所
             custom_location_name: カスタム設置場所名（オプション）
-            session_token: セッション統合トークン（オプション）
+            session_token: 会話引き継ぎコード（オプション）
             base_url: ベースURL
         
         Returns:
@@ -98,7 +98,7 @@ class QRCodeService:
             facility_id: 施設ID
             location: 設置場所
             custom_location_name: カスタム設置場所名（オプション）
-            include_session_token: セッション統合トークン埋め込み（v0.3新規）
+            include_session_token: 会話引き継ぎコード埋め込み（v0.3新規）
             format: 出力形式（pdf/png/svg）
             primary_session_id: プライマリセッションID（include_session_token=Trueの場合）
         
@@ -113,7 +113,7 @@ class QRCodeService:
         if not facility:
             raise ValueError(f"Facility not found: facility_id={facility_id}")
         
-        # セッション統合トークン生成（オプション）
+        # 会話引き継ぎコード生成（オプション）
         session_token = None
         if include_session_token:
             if not primary_session_id:

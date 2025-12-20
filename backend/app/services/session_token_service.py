@@ -1,5 +1,5 @@
 """
-セッション統合トークンサービス（v0.3新規）
+会話引き継ぎコードサービス（v0.3新規）
 """
 
 import random
@@ -15,7 +15,7 @@ from fastapi import HTTPException, status
 
 class SessionTokenService:
     """
-    セッション統合トークン管理サービス（v0.3新規）
+    会話引き継ぎコード管理サービス（v0.3新規）
     """
     
     TOKEN_LENGTH = 4
@@ -29,7 +29,7 @@ class SessionTokenService:
         db: AsyncSession
     ) -> str:
         """
-        セッション統合トークン生成（v0.3新規）
+        会話引き継ぎコード生成（v0.3新規）
         - 4桁英数字ランダム生成
         - 重複チェック（UNIQUE制約）
         - 最大10回再試行
@@ -117,7 +117,7 @@ class SessionTokenService:
         
         Args:
             facility_id: 施設ID
-            token: セッション統合トークン
+            token: 会話引き継ぎコード
             new_session_id: 統合する新しいセッションID
             db: データベースセッション
             
@@ -194,7 +194,7 @@ class SessionTokenService:
         トークン検証
         
         Args:
-            token: セッション統合トークン
+            token: 会話引き継ぎコード
             db: データベースセッション
             
         Returns:

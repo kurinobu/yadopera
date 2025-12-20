@@ -28,7 +28,7 @@ async def generate_qr_code(
     
     - **location**: 設置場所（entrance/room/kitchen/lounge/custom）
     - **custom_location_name**: カスタム設置場所名（location=customの場合）
-    - **include_session_token**: セッション統合トークン埋め込み（v0.3新規）
+    - **include_session_token**: 会話引き継ぎコード埋め込み（v0.3新規）
     - **format**: 出力形式（pdf/png/svg、デフォルト: png）
     - **primary_session_id**: プライマリセッションID（include_session_token=Trueの場合）
     
@@ -44,7 +44,7 @@ async def generate_qr_code(
                 detail="User is not associated with any facility"
             )
         
-        # セッション統合トークン埋め込みの場合、primary_session_idが必要
+        # 会話引き継ぎコード埋め込みの場合、primary_session_idが必要
         if request.include_session_token and not request.primary_session_id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,

@@ -1,5 +1,5 @@
 """
-セッション統合トークン関連スキーマ（v0.3新規）
+会話引き継ぎコード関連スキーマ（v0.3新規）
 """
 
 from pydantic import BaseModel, Field
@@ -12,13 +12,13 @@ class SessionLinkRequest(BaseModel):
     セッション統合リクエスト
     """
     facility_id: int = Field(..., description="施設ID")
-    token: str = Field(..., min_length=4, max_length=10, description="セッション統合トークン（4桁英数字）")
+    token: str = Field(..., min_length=4, max_length=10, description="会話引き継ぎコード（4桁英数字）")
     current_session_id: str = Field(..., description="現在のセッションID")
 
 
 class SessionTokenGenerateRequest(BaseModel):
     """
-    セッション統合トークン生成リクエスト
+    会話引き継ぎコード生成リクエスト
     """
     facility_id: int = Field(..., description="施設ID")
     session_id: str = Field(..., description="セッションID")
@@ -36,7 +36,7 @@ class SessionLinkResponse(BaseModel):
 
 class SessionTokenResponse(BaseModel):
     """
-    セッション統合トークン情報レスポンス
+    会話引き継ぎコード情報レスポンス
     """
     token: str = Field(..., description="トークン（4桁英数字）")
     primary_session_id: str = Field(..., description="プライマリセッションID")
@@ -50,7 +50,7 @@ class SessionTokenResponse(BaseModel):
 
 class SessionTokenVerifyResponse(BaseModel):
     """
-    セッション統合トークン検証レスポンス
+    会話引き継ぎコード検証レスポンス
     """
     valid: bool = Field(..., description="トークンが有効か")
     token: Optional[str] = Field(None, description="トークン")

@@ -1,5 +1,5 @@
 """
-セッション統合トークンAPIテスト
+会話引き継ぎコードAPIテスト
 """
 
 import pytest
@@ -10,7 +10,7 @@ from app.models.session_token import SessionToken
 
 
 class TestSessionTokenVerify:
-    """セッション統合トークン検証APIテスト"""
+    """会話引き継ぎコード検証APIテスト"""
     
     @pytest.mark.asyncio
     async def test_verify_token_success(self, client, db_session, test_facility):

@@ -20,7 +20,7 @@ export function isValidMessage(message: string): boolean {
   return message.length >= MIN_LENGTH && message.length <= MAX_LENGTH
 }
 
-// セッション統合トークンバリデーション（4桁英数字）
+// 会話引き継ぎコードバリデーション（4桁英数字）
 export function isValidSessionToken(token: string): boolean {
   const tokenRegex = /^[A-Z0-9]{4}$/
   return tokenRegex.test(token.toUpperCase())

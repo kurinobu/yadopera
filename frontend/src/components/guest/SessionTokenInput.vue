@@ -2,7 +2,7 @@
   <Modal
     :model-value="isOpen"
     @update:model-value="$emit('update:isOpen', $event)"
-    title="セッション統合 / Link Session"
+    title="会話引き継ぎ / Link Conversation"
     size="sm"
   >
     <div class="space-y-4">

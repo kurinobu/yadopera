@@ -11,7 +11,7 @@ class QRCodeRequest(BaseModel):
     """QRコード生成リクエスト"""
     location: str = Field(..., description="設置場所（entrance/room/kitchen/lounge/custom）")
     custom_location_name: Optional[str] = Field(None, description="カスタム設置場所名（location=customの場合）")
-    include_session_token: bool = Field(default=False, description="セッション統合トークン埋め込み（v0.3新規）")
+    include_session_token: bool = Field(default=False, description="会話引き継ぎコード埋め込み（v0.3新規）")
     format: str = Field(default="png", description="出力形式（pdf/png/svg）")
     primary_session_id: Optional[str] = Field(None, description="プライマリセッションID（include_session_token=Trueの場合）")
 
@@ -31,7 +31,7 @@ class QRCodeResponse(BaseModel):
     facility_id: int = Field(..., description="施設ID")
     location: str = Field(..., description="設置場所")
     custom_location_name: Optional[str] = Field(None, description="カスタム設置場所名")
-    include_session_token: bool = Field(..., description="セッション統合トークン埋め込み有無")
+    include_session_token: bool = Field(..., description="会話引き継ぎコード埋め込み有無")
     qr_code_url: str = Field(..., description="QRコード画像URL（Base64エンコードまたはファイルパス）")
     qr_code_data: str = Field(..., description="QRコードに埋め込まれたURL")
     format: str = Field(..., description="出力形式")

@@ -1,5 +1,5 @@
 """
-セッション統合トークンAPIエンドポイント（v0.3新規）
+会話引き継ぎコードAPIエンドポイント（v0.3新規）
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -29,7 +29,7 @@ async def link_session(
     セッション統合
     
     - **facility_id**: 施設ID
-    - **token**: セッション統合トークン（4桁英数字）
+    - **token**: 会話引き継ぎコード（4桁英数字）
     - **current_session_id**: 現在のセッションID
     
     成功時はセッションが統合され、会話履歴が統合されます
@@ -63,9 +63,9 @@ async def verify_token(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    セッション統合トークン検証
+    会話引き継ぎコード検証
     
-    - **token**: セッション統合トークン（4桁英数字）
+    - **token**: 会話引き継ぎコード（4桁英数字）
     
     トークンの有効性を確認し、トークン情報を返却します
     """
@@ -93,12 +93,12 @@ async def generate_token(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    セッション統合トークン生成
+    会話引き継ぎコード生成
     
     - **facility_id**: 施設ID
     - **session_id**: セッションID
     
-    セッション統合トークン（4桁英数字）を生成し、返却します
+    会話引き継ぎコード（4桁英数字）を生成し、返却します
     """
     try:
         token = await session_token_service.generate_token(

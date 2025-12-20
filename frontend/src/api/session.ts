@@ -1,5 +1,5 @@
 /**
- * セッション統合トークンAPI
+ * 会話引き継ぎコードAPI
  */
 
 import apiClient from './axios'

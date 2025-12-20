@@ -4,7 +4,7 @@ API v1 ルーター統合
 
 統合されているルーター:
 - auth: 認証API（ログイン、トークンリフレッシュ）
-- session: セッション統合トークンAPI
+- session: 会話引き継ぎコードAPI
 - facility: 施設情報API（公開）
 - chat: チャットAPI（RAG統合型AI対話、会話履歴）
 - admin.dashboard: ダッシュボードAPI（管理画面）

@@ -1,5 +1,5 @@
 """
-セッション統合トークンモデル（v0.3新規）
+会話引き継ぎコードモデル（v0.3新規）
 """
 
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, ARRAY
@@ -11,8 +11,8 @@ from app.database import Base
 
 class SessionToken(Base):
     """
-    セッション統合トークンモデル
-    デバイス間セッション統合機能用（v0.3新規）
+    会話引き継ぎコードモデル
+    デバイス間会話引き継ぎ機能用（v0.3新規）
     """
     __tablename__ = "session_tokens"
 

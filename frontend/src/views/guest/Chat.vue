@@ -31,7 +31,7 @@
           />
         </div>
       </div>
-      <!-- セッション統合トークン表示 -->
+      <!-- 会話引き継ぎコード表示 -->
       <SessionTokenDisplay
         :token="sessionToken"
         :expires-at="tokenExpiresAt"
@@ -99,7 +99,7 @@
       </div>
     </div>
 
-    <!-- セッション統合トークン入力モーダル -->
+    <!-- 会話引き継ぎコード入力モーダル -->
     <SessionTokenInput
       v-if="facilityId !== null"
       :is-open="showTokenInput"
@@ -257,7 +257,7 @@ onMounted(async () => {
     const currentSessionId = getOrCreateSessionId()
     console.log('[Chat.vue] onMounted: セッションID取得', { currentSessionId })
 
-    // セッション統合トークンを生成・取得
+    // 会話引き継ぎコードを生成・取得
     if (currentSessionId && facilityId.value) {
       try {
         console.log('[Chat.vue] onMounted: トークン取得開始', {
@@ -566,7 +566,7 @@ const handleBack = () => {
   })
 }
 
-// セッション統合トークン統合
+// 会話引き継ぎコード統合
 const handleTokenLink = async (token: string) => {
   try {
     error.value = null
