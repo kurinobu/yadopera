@@ -2,7 +2,7 @@
   "name": "yadopera-frontend",
   "version": "0.3.0",
   "type": "module",
-  "description": "YadOPERA Frontend - 小規模宿泊施設向けAI多言語自動案内システム",
+  "description": "やどぺら Frontend - 小規模宿泊施設向けAI多言語自動案内システム",
   "engines": {
     "node": ">=18.0.0 <23.0.0",
     "npm": ">=9.0.0"

@@ -36,8 +36,8 @@ export default defineConfig({
         ]
       },
       manifest: {
-        name: 'YadOPERA',
-        short_name: 'YadOPERA',
+        name: 'やどぺら',
+        short_name: 'やどぺら',
         description: '小規模宿泊施設向けAI多言語自動案内システム',
         theme_color: '#ffffff',
         icons: [

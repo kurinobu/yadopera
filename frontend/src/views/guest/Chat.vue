@@ -22,7 +22,7 @@
             @click="showTokenInput = true"
             class="px-3 py-1.5 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
           >
-            会話引き継ぎ / Link
+            トークン統合 / Link
           </button>
           <DarkModeToggle />
           <EscalationButton
@@ -31,7 +31,7 @@
           />
         </div>
       </div>
-      <!-- 会話引き継ぎコード表示 -->
+      <!-- セッション統合トークン表示 -->
       <SessionTokenDisplay
         :token="sessionToken"
         :expires-at="tokenExpiresAt"
@@ -216,22 +216,14 @@ onMounted(async () => {
         })
         console.error('=== [Chat.vue] エラーオブジェクト構造確認終了 ===')
         
-        // オフライン時またはネットワークエラー時のエラーメッセージ
-        // isOfflineとエラーコードを組み合わせて、オフライン状態とネットワークエラーを区別
+        // オフライン時のエラーメッセージ
+        // NETWORK_ERRORの場合は、navigator.onLineの値に関わらずオフライン時のメッセージを表示
         const errorCode = err?.code || err?.error?.code || err?.response?.data?.error?.code
         console.error('[Chat.vue] 検出されたerrorCode:', errorCode, 'type:', typeof errorCode)
-        console.error('[Chat.vue] isOffline.value:', isOffline.value)
         
         if (errorCode === 'NETWORK_ERROR' || String(errorCode) === 'NETWORK_ERROR') {
-          if (isOffline.value) {
-            // オフライン時
-            error.value = '現在オフラインです。インターネット接続を確認してください。'
-            console.log('[Chat.vue] NETWORK_ERROR検出 + オフライン状態: オフラインメッセージを表示')
-          } else {
-            // オンラインだがネットワークエラー
-            error.value = 'ネットワークエラーが発生しました。接続を確認して再度お試しください。'
-            console.log('[Chat.vue] NETWORK_ERROR検出 + オンライン状態: ネットワークエラーメッセージを表示')
-          }
+          error.value = '現在オフラインです。インターネット接続を確認してください。'
+          console.log('[Chat.vue] NETWORK_ERROR検出: オフラインメッセージを表示')
         } else if (errorCode === 'TIMEOUT_ERROR' || String(errorCode) === 'TIMEOUT_ERROR') {
           error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
           console.log('[Chat.vue] TIMEOUT_ERROR検出')
@@ -469,22 +461,14 @@ const handleMessageSubmit = async (message: string) => {
     })
     console.error('=== [Chat.vue] エラーオブジェクト構造確認終了 ===')
     
-    // オフライン時またはネットワークエラー時のエラーメッセージ
-    // isOfflineとエラーコードを組み合わせて、オフライン状態とネットワークエラーを区別
+    // オフライン時のエラーメッセージ
+    // NETWORK_ERRORの場合は、navigator.onLineの値に関わらずオフライン時のメッセージを表示
     const errorCode = err?.code || err?.error?.code || err?.response?.data?.error?.code
     console.error('[Chat.vue] 検出されたerrorCode:', errorCode, 'type:', typeof errorCode)
-    console.error('[Chat.vue] isOffline.value:', isOffline.value)
     
     if (errorCode === 'NETWORK_ERROR' || String(errorCode) === 'NETWORK_ERROR') {
-      if (isOffline.value) {
-        // オフライン時
-        error.value = '現在オフラインです。インターネット接続を確認してください。'
-        console.log('[Chat.vue] NETWORK_ERROR検出 + オフライン状態: オフラインメッセージを表示')
-      } else {
-        // オンラインだがネットワークエラー
-        error.value = 'ネットワークエラーが発生しました。接続を確認して再度お試しください。'
-        console.log('[Chat.vue] NETWORK_ERROR検出 + オンライン状態: ネットワークエラーメッセージを表示')
-      }
+      error.value = '現在オフラインです。インターネット接続を確認してください。'
+      console.log('[Chat.vue] NETWORK_ERROR検出: オフラインメッセージを表示')
     } else if (errorCode === 'TIMEOUT_ERROR' || String(errorCode) === 'TIMEOUT_ERROR') {
       error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
       console.log('[Chat.vue] TIMEOUT_ERROR検出')
@@ -582,15 +566,15 @@ const handleBack = () => {
   })
 }
 
-// 会話引き継ぎコード統合
+// セッション統合トークン統合
 const handleTokenLink = async (token: string) => {
   try {
     error.value = null
 
-    // 会話引き継ぎコードを検証
+    // トークンを検証
     const isValid = await verifyToken(token)
     if (!isValid) {
-      error.value = '無効な会話引き継ぎコードです / Invalid conversation code'
+      error.value = '無効なトークンです / Invalid token'
       return
     }
 
@@ -605,17 +589,17 @@ const handleTokenLink = async (token: string) => {
       }
     }
 
-    // TODO: Week 4で会話引き継ぎコード取得APIを実装
+    // TODO: Week 4でトークン取得APIを実装
     // 現在はモック処理
     chatStore.setSessionToken(token)
     tokenExpiresAt.value = new Date(Date.now() + 10 * 60 * 1000).toISOString() // 10分後
   } catch (err: any) {
-    error.value = err.message || '会話引き継ぎに失敗しました'
+    error.value = err.message || 'セッション統合に失敗しました'
     console.error('Token link error:', err)
   }
 }
 
-// 会話引き継ぎコードコピー
+// トークンコピー
 const handleTokenCopy = (token: string) => {
   // TODO: トースト通知を表示（Week 4で実装）
   console.log('Token copied:', token)

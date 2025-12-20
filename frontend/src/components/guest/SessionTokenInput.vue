@@ -2,14 +2,14 @@
   <Modal
     :model-value="isOpen"
     @update:model-value="$emit('update:isOpen', $event)"
-    title="会話引き継ぎ / Link Conversation"
+    title="セッション統合 / Link Session"
     size="sm"
   >
     <div class="space-y-4">
       <p class="text-sm text-gray-600 dark:text-gray-400">
-        他のデバイスで表示されている4桁の会話引き継ぎコードを入力してください。
+        他のデバイスで表示されている4桁のトークンを入力してください。
         <br />
-        Enter the 4-digit conversation code shown on your other device.
+        Enter the 4-digit token shown on your other device.
       </p>
 
       <Input
