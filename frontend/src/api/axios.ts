@@ -47,18 +47,6 @@ apiClient.interceptors.response.use(
       const { status, config } = error.response
       const url = config?.url || ''
 
-      // ログアウトAPIのエラーは特別に処理（無限ループを防ぐ）
-      if (url.includes('/auth/logout')) {
-        // ログアウトAPIのエラーは無視して、エラーを返さない
-        // クライアント側でログアウト処理を実行するため
-        console.warn('Logout API error (ignored):', status, error.message)
-        return Promise.reject({
-          code: 'LOGOUT_ERROR',
-          message: 'Logout API error (ignored)',
-          ignored: true
-        })
-      }
-
       // 401 Unauthorized: トークン無効または期限切れ
       if (status === 401) {
         authStore.logout()
@@ -66,7 +54,8 @@ apiClient.interceptors.response.use(
       }
 
       // 403 Forbidden: 認証は成功したが、アクセス権限がない（非アクティブユーザーなど）
-      if (status === 403) {
+      // ログアウトAPIの403エラーの場合は無限ループを防ぐため、ログアウト処理を実行しない
+      if (status === 403 && !url.includes('/auth/logout')) {
         // 認証エラー（非アクティブユーザーなど）の場合、ログアウト処理を実行
         authStore.logout()
       }
@@ -78,17 +67,6 @@ apiClient.interceptors.response.use(
 
     // ネットワークエラーやタイムアウト
     if (error.request) {
-      // ログアウトAPIのネットワークエラーは特別に処理
-      const url = error.config?.url || ''
-      if (url.includes('/auth/logout')) {
-        console.warn('Logout API network error (ignored):', error.message)
-        return Promise.reject({
-          code: 'LOGOUT_NETWORK_ERROR',
-          message: 'Logout API network error (ignored)',
-          ignored: true
-        })
-      }
-
       // タイムアウトエラーの判定
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         return Promise.reject({
