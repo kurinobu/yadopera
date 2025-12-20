@@ -5,11 +5,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from app.api.deps import get_current_user
+from app.api.deps import get_current_user, get_optional_user
 from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, UserResponse, PasswordChangeRequest, PasswordChangeResponse
 from app.services.auth_service import AuthService
 from app.models.user import User
 from app.core.security import hash_password, verify_password
+from typing import Optional
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -51,24 +52,25 @@ async def get_current_user_info(
 
 @router.post("/logout", response_model=LogoutResponse)
 async def logout(
-    current_user: User = Depends(get_current_user),
+    optional_user: Optional[User] = Depends(get_optional_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     ログアウト
     
     JWTトークンはクライアント側で削除
-    認証が必要だが、403エラーが発生した場合でもログアウト処理は成功として扱う
+    認証はオプション（トークンが無効でもログアウト処理は成功）
+    403エラーが発生してもログアウト処理は成功として扱う
     """
     try:
-        await AuthService.logout(db, current_user)
+        # ユーザーが認証されている場合のみ、ログアウト処理を実行
+        if optional_user is not None:
+            await AuthService.logout(db, optional_user)
         return LogoutResponse(message="Logged out successfully")
-    except HTTPException as e:
-        # 403エラー（非アクティブユーザーなど）が発生した場合でも、ログアウト処理は成功として扱う
+    except Exception:
+        # エラーが発生してもログアウト処理は成功として扱う
         # クライアント側でトークンを削除するため、サーバー側での処理は不要
-        if e.status_code == status.HTTP_403_FORBIDDEN:
-            return LogoutResponse(message="Logged out successfully")
-        raise
+        return LogoutResponse(message="Logged out successfully")
 
 
 @router.put("/password", response_model=PasswordChangeResponse, status_code=status.HTTP_200_OK)
