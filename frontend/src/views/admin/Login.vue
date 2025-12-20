@@ -6,7 +6,7 @@
         <!-- ヘッダー -->
         <div class="text-center mb-8">
           <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            やどぺら
+            YadOPERA
           </h1>
           <p class="text-gray-600 dark:text-gray-400">
             管理画面にログイン / Admin Login
@@ -23,7 +23,7 @@
         <!-- フッター -->
         <div class="mt-6 text-center">
           <p class="text-xs text-gray-500 dark:text-gray-400">
-            © 2024 やどぺら. All rights reserved.
+            © 2024 YadOPERA. All rights reserved.
           </p>
         </div>
       </div>

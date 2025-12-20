@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 app = FastAPI(
-    title="やどぺら API",
+    title="YadOPERA API",
     description="小規模宿泊施設向けAI多言語自動案内システム",
     version="0.3.0",
 )
@@ -27,7 +27,7 @@ app.add_middleware(
 @app.get("/")
 def read_root():
     return {
-        "message": "やどぺら API v0.3",
+        "message": "YadOPERA API v0.3",
         "status": "ok"
     }
 

@@ -39,12 +39,12 @@ class TestChatAPI:
         user_message = Message(
             conversation_id=conversation.id,
             role=MessageRole.USER.value,
-            content="What time is check-in?"
+            content="What time is check-out?"
         )
         ai_message = Message(
             conversation_id=conversation.id,
             role=MessageRole.ASSISTANT.value,
-            content="Check-in is from 3pm to 10pm."
+            content="Check-out is by 11:00 AM."
         )
         db_session.add(user_message)
         db_session.add(ai_message)

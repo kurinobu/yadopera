@@ -123,7 +123,7 @@ const segments = computed(() => {
   return validItems.map((item) => {
     const percentage = total.value > 0 ? item.value / total.value : 0
     const dashLength = circumference * percentage
-    const offset = currentOffset  // 現在のオフセット位置から開始
+    const offset = circumference - (currentOffset + dashLength)  // 修正: 正しい計算式（円周から累積オフセット+セグメント長を引く）
     
     currentOffset += dashLength  // 次のセグメントの開始位置を更新
     

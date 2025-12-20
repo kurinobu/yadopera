@@ -1,6 +1,11 @@
 """
 テストデータ作成スクリプト
 Phase 1完了のためのテストユーザー・テストデータを作成
+
+【重要】禁止事項：
+- 「check-in」「チェックイン」関連の質問をテストデータとして使用することは絶対に禁止
+- 理由：このアプリはチェックイン済みのゲストが使用するため、チェックイン時間を聞く質問は現実的でない
+- ゲストや管理者が実際に使用することは問題ないが、開発者がテストデータとして使用することは禁止
 """
 
 import asyncio
@@ -27,6 +32,110 @@ from app.models.question_pattern import QuestionPattern  # noqa: F401
 from app.models.guest_feedback import GuestFeedback  # noqa: F401
 from app.models.faq import FAQ
 import pytz
+
+# ============================================================================
+# 【再発防止策1】禁止用語チェック関数（create_staging_test_data.pyと同じ）
+# ============================================================================
+
+FORBIDDEN_PATTERNS = [
+    "check-in",
+    "チェックイン",
+    "checkin",
+    "Check-in",
+    "Check-In",
+    "CHECK-IN"
+]
+
+def validate_test_data_question(question: str, context: str = "") -> None:
+    """
+    テストデータの質問文に禁止用語が含まれていないか検証
+    
+    Args:
+        question: 検証する質問文
+        context: エラーメッセージ用のコンテキスト情報
+    
+    Raises:
+        ValueError: 禁止用語が含まれている場合
+    """
+    question_lower = question.lower()
+    for pattern in FORBIDDEN_PATTERNS:
+        if pattern.lower() in question_lower:
+            error_msg = (
+                f"❌ 重大エラー: 禁止用語「{pattern}」がテストデータに含まれています！\n"
+                f"   質問文: \"{question}\"\n"
+                f"   コンテキスト: {context}\n"
+                f"\n"
+                f"【重要】このアプリはチェックイン済みのゲストが使用します。\n"
+                f"「check-in」関連の質問をテストデータとして使用することは絶対に禁止です。\n"
+                f"ゲストや管理者が実際に使用することは問題ありませんが、\n"
+                f"開発者がテストデータとして使用することは禁止です。\n"
+                f"\n"
+                f"適切な質問例:\n"
+                f"  - \"What time is check-out?\"\n"
+                f"  - \"Where is the WiFi password?\"\n"
+                f"  - \"Where is the nearest convenience store?\"\n"
+            )
+            raise ValueError(error_msg)
+
+def validate_test_data_answer(answer: str, context: str = "") -> None:
+    """
+    テストデータの回答文に禁止用語が含まれていないか検証
+    
+    Args:
+        answer: 検証する回答文
+        context: エラーメッセージ用のコンテキスト情報
+    
+    Raises:
+        ValueError: 禁止用語が含まれている場合
+    """
+    answer_lower = answer.lower()
+    for pattern in FORBIDDEN_PATTERNS:
+        if pattern.lower() in answer_lower:
+            # 回答文の場合は、禁止用語が含まれていてもエラーにはしない
+            # （施設情報として「Check-in: 15:00」のような表示は問題ない）
+            # ただし、警告は出す
+            print(f"  ⚠️ 警告: 回答文に「{pattern}」が含まれています: \"{answer[:50]}...\"")
+            print(f"     （施設情報としての表示は問題ありませんが、注意してください）")
+
+def validate_test_data_dict(data: dict, data_type: str = "テストデータ") -> None:
+    """
+    テストデータ辞書に禁止用語が含まれていないか検証
+    
+    Args:
+        data: 検証するデータ辞書
+        data_type: データタイプ（エラーメッセージ用）
+    
+    Raises:
+        ValueError: 禁止用語が含まれている場合
+    """
+    if "question" in data:
+        validate_test_data_question(data["question"], f"{data_type} (question)")
+    if "answer" in data:
+        validate_test_data_answer(data["answer"], f"{data_type} (answer)")
+    if "content" in data:
+        validate_test_data_question(data["content"], f"{data_type} (content)")
+
+def validate_all_test_data(test_data_list: list, data_type: str = "テストデータ") -> None:
+    """
+    テストデータリスト全体を検証
+    
+    Args:
+        test_data_list: 検証するテストデータリスト
+        data_type: データタイプ（エラーメッセージ用）
+    
+    Raises:
+        ValueError: 禁止用語が含まれている場合
+    """
+    for i, data in enumerate(test_data_list, 1):
+        try:
+            validate_test_data_dict(data, f"{data_type} [{i}]")
+        except ValueError as e:
+            print(f"\n{'='*80}")
+            print(f"【検証エラー】")
+            print(f"{'='*80}")
+            print(str(e))
+            print(f"{'='*80}\n")
+            raise
 
 async def create_test_data():
     """テストデータを作成"""
@@ -124,7 +233,7 @@ async def create_test_data():
             unresolved_questions_data = [
                 {
                     "session_id": "test-session-unresolved-1",
-                    "question": "What time is check-in?",
+                    "question": "What time is check-out?",
                     "language": "en",
                     "trigger_type": "low_confidence",
                     "ai_confidence": Decimal("0.5"),
@@ -140,13 +249,18 @@ async def create_test_data():
                 },
                 {
                     "session_id": "test-session-unresolved-3",
-                    "question": "チェックインの時間は何時ですか？",
+                    "question": "チェックアウトの時間は何時ですか？",
                     "language": "ja",
                     "trigger_type": "keyword",
                     "ai_confidence": Decimal("0.6"),
                     "days_ago": 3
                 }
             ]
+            
+            # 【再発防止策2】テストデータ作成前に必ず検証
+            print("  🔍 テストデータの検証中...")
+            validate_all_test_data(unresolved_questions_data, "未解決質問")
+            print("  ✅ 検証完了: 禁止用語は含まれていません")
             
             for i, data in enumerate(unresolved_questions_data, 1):
                 # 既存の会話を確認
@@ -180,6 +294,9 @@ async def create_test_data():
                         existing_user_message = message_result.scalar_one_or_none()
                         
                         if not existing_user_message:
+                            # 【再発防止策3】メッセージ作成前に再度検証
+                            validate_test_data_question(data["question"], f"未解決質問メッセージ作成時（既存会話） (session_id={data['session_id']})")
+                            
                             # ユーザーメッセージを作成
                             user_message = Message(
                                 conversation_id=existing_conversation.id,
@@ -219,6 +336,9 @@ async def create_test_data():
                 )
                 session.add(conversation)
                 await session.flush()
+                
+                # 【再発防止策3】メッセージ作成前に再度検証
+                validate_test_data_question(data["question"], f"未解決質問メッセージ作成時 (session_id={data['session_id']})")
                 
                 # ユーザーメッセージを作成
                 user_message = Message(
@@ -261,11 +381,16 @@ async def create_test_data():
             
             # FAQを4カテゴリで作成
             faq_categories = [
-                {"category": "basic", "question": "What time is check-in?", "answer": "Check-in time is 3:00 PM."},
+                {"category": "basic", "question": "What time is check-out?", "answer": "Check-out time is 11:00 AM."},
                 {"category": "facilities", "question": "Do you have WiFi?", "answer": "Yes, we have free WiFi. The password is in your room."},
                 {"category": "location", "question": "Where is the nearest convenience store?", "answer": "There is a convenience store about 5 minutes walk from here."},
                 {"category": "trouble", "question": "I lost my room key.", "answer": "Please contact the front desk. We will help you immediately."}
             ]
+            
+            # 【再発防止策2】FAQテストデータ作成前に必ず検証
+            print("  🔍 FAQテストデータの検証中...")
+            validate_all_test_data(faq_categories, "FAQ")
+            print("  ✅ 検証完了: 禁止用語は含まれていません")
             
             created_faqs = {}
             for faq_data in faq_categories:
@@ -302,14 +427,14 @@ async def create_test_data():
             category_conversations_data = [
                 {
                     "session_id": "test-session-category-basic-1",
-                    "question": "What time is check-in?",
+                    "question": "What time is check-out?",
                     "language": "en",
                     "category": "basic",
                     "days_ago": 1
                 },
                 {
                     "session_id": "test-session-category-basic-2",
-                    "question": "When can I check in?",
+                    "question": "What time is check-out?",
                     "language": "en",
                     "category": "basic",
                     "days_ago": 2
@@ -336,6 +461,11 @@ async def create_test_data():
                     "days_ago": 5
                 }
             ]
+            
+            # 【再発防止策2】カテゴリ別会話テストデータ作成前に必ず検証
+            print("  🔍 カテゴリ別会話テストデータの検証中...")
+            validate_all_test_data(category_conversations_data, "カテゴリ別会話")
+            print("  ✅ 検証完了: 禁止用語は含まれていません")
             
             for data in category_conversations_data:
                 # 既存の会話を確認
@@ -373,6 +503,9 @@ async def create_test_data():
                 existing_user_message = user_message_result.scalar_one_or_none()
                 
                 if not existing_user_message:
+                    # 【再発防止策3】メッセージ作成前に再度検証
+                    validate_test_data_question(data["question"], f"カテゴリ別会話メッセージ作成時 (session_id={data['session_id']})")
+                    
                     user_message = Message(
                         conversation_id=conversation.id,
                         role=MessageRole.USER.value,
@@ -435,6 +568,11 @@ async def create_test_data():
                 }
             ]
             
+            # 【再発防止策2】夜間対応キューテストデータ作成前に必ず検証
+            print("  🔍 夜間対応キューテストデータの検証中...")
+            validate_all_test_data(overnight_queue_data, "夜間対応キュー")
+            print("  ✅ 検証完了: 禁止用語は含まれていません")
+            
             for data in overnight_queue_data:
                 # 既存の会話を確認
                 conversation_result = await session.execute(
@@ -471,6 +609,9 @@ async def create_test_data():
                 existing_user_message = user_message_result.scalar_one_or_none()
                 
                 if not existing_user_message:
+                    # 【再発防止策3】メッセージ作成前に再度検証
+                    validate_test_data_question(data["question"], f"夜間対応キューメッセージ作成時 (session_id={data['session_id']})")
+                    
                     user_message = Message(
                         conversation_id=conversation.id,
                         role=MessageRole.USER.value,

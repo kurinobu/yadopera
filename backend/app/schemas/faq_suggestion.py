@@ -36,8 +36,8 @@ class ApproveSuggestionRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "question": "What time is check-in?",
-                "answer": "Check-in is from 3pm to 10pm.",
+                "question": "What time is check-out?",
+                "answer": "Check-out is by 11:00 AM.",
                 "category": "basic",
                 "priority": 5
             }

@@ -21,7 +21,7 @@ class TestSafetyCheck:
             ("病院に行きたい", True),
             ("医者を呼んで", True),
             ("具合悪い", True),
-            ("What time is check-in?", False),
+            ("What time is check-out?", False),
             ("Where is the WiFi password?", False),
         ]
         
@@ -39,7 +39,7 @@ class TestSafetyCheck:
             ("火災です", True),
             ("地震です", True),
             ("非常口はどこですか", True),
-            ("What time is check-in?", False),
+            ("What time is check-out?", False),
             ("Where is the laundry room?", False),
         ]
         

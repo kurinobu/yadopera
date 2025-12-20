@@ -38,3 +38,4 @@ def downgrade() -> None:
     op.drop_index('idx_ignored_feedbacks_facility_id', table_name='ignored_feedbacks')
     op.drop_index('idx_ignored_feedbacks_message_id', table_name='ignored_feedbacks')
     op.drop_table('ignored_feedbacks')
+

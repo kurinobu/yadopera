@@ -69,7 +69,7 @@ class TestEscalation:
         escalation_info = await escalation_service.check_escalation_needed(
             facility_id=test_facility.id,
             confidence=Decimal("0.5"),  # 閾値0.7未満
-            message="What time is check-in?",
+            message="What time is check-out?",
             session_id="test-session-2",
             language="en",
             conversation_id=conversation.id,
@@ -166,7 +166,7 @@ class TestEscalation:
         escalation_info = await escalation_service.check_escalation_needed(
             facility_id=test_facility.id,
             confidence=Decimal("0.8"),  # 閾値0.7以上
-            message="What time is check-in?",
+            message="What time is check-out?",
             session_id="test-session-5",
             language="en",
             conversation_id=conversation.id,

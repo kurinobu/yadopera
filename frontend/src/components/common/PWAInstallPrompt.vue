@@ -32,7 +32,7 @@
             アプリをインストール
           </h3>
           <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
-            やどぺらをホーム画面に追加して、オフラインでも利用できます。
+            YadOPERAをホーム画面に追加して、オフラインでも利用できます。
           </p>
           <div class="flex space-x-2">
             <button

@@ -31,8 +31,8 @@ class FAQUpdateRequest(BaseModel):
             "example": {
                 "category": "basic",
                 "language": "en",
-                "question": "What time is check-in?",
-                "answer": "Check-in is from 3pm to 10pm.",
+                "question": "What time is check-out?",
+                "answer": "Check-out is by 11:00 AM.",
                 "priority": 5,
                 "is_active": True
             }

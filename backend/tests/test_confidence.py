@@ -20,8 +20,8 @@ class TestConfidence:
             facility_id=1,
             category="basic",
             language="en",
-            question="What time is check-in?",
-            answer="Check-in is from 3pm to 10pm.",
+            question="What time is check-out?",
+            answer="Check-out is by 11:00 AM.",
             priority=5,
             is_active=True,
             created_by=None  # テンプレートFAQ
@@ -136,7 +136,7 @@ class TestConfidence:
         confidence = await calculate_confidence(
             response_text="This is a test response.",
             similar_faqs=[],
-            question="What time is check-in at 3pm?",  # 数値含む
+            question="What time is check-out? I need to leave by 11am.",  # 数値含む
             facility_id=1,
             db=db_session
         )

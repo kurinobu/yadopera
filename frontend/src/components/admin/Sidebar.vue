@@ -9,7 +9,7 @@
       <!-- ロゴ -->
       <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <h1 class="text-xl font-bold text-gray-900 dark:text-white">
-          やどぺら
+          YadOPERA
         </h1>
         <button
           @click="$emit('close-mobile-menu')"

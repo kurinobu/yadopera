@@ -10,7 +10,7 @@
 
 ### 1.1 要約定義書v0.2での記載
 
-**コスト構造（月額）**（`docs/Summary/yadopera_v02_summary.md` 577-587行目）:
+**コスト構造（月額）**（`docs/Summary/yadopera-v02-summary.md` 577-587行目）:
 
 | 項目 | 金額 | 備考 |
 |------|------|------|

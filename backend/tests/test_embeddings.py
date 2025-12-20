@@ -56,8 +56,8 @@ class TestEmbeddings:
             facility_id=1,
             category="basic",
             language="en",
-            question="What time is check-in?",
-            answer="Check-in is from 3pm to 10pm.",
+            question="What time is check-out?",
+            answer="Check-out is by 11:00 AM.",
             priority=5,
             is_active=True
         )
@@ -69,7 +69,7 @@ class TestEmbeddings:
         assert len(embedding) == 1536
         # 質問と回答が結合されて埋め込み生成されることを確認
         mock_generate_embedding.assert_called_once_with(
-            "What time is check-in? Check-in is from 3pm to 10pm."
+            "What time is check-out? Check-out is by 11:00 AM."
         )
     
     @pytest.mark.asyncio

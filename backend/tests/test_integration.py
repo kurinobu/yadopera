@@ -82,12 +82,12 @@ class TestChatFlow:
         user_message = Message(
             conversation_id=conversation.id,
             role=MessageRole.USER.value,
-            content="What time is check-in?"
+            content="What time is check-out?"
         )
         ai_message = Message(
             conversation_id=conversation.id,
             role=MessageRole.ASSISTANT.value,
-            content="Check-in is from 3pm to 10pm."
+            content="Check-out is by 11:00 AM."
         )
         db_session.add(user_message)
         db_session.add(ai_message)
@@ -141,8 +141,8 @@ class TestAdminFlow:
             json={
                 "category": "basic",
                 "language": "en",
-                "question": "What time is check-in?",
-                "answer": "Check-in is from 3pm to 10pm.",
+                "question": "What time is check-out?",
+                "answer": "Check-out is by 11:00 AM.",
                 "priority": 5
             }
         )
@@ -153,7 +153,7 @@ class TestAdminFlow:
         
         if create_response.status_code == status.HTTP_201_CREATED:
             data = create_response.json()
-            assert data["question"] == "What time is check-in?"
+            assert data["question"] == "What time is check-out?"
             assert data["facility_id"] == test_facility.id
     
     @pytest.mark.asyncio

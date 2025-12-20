@@ -28,3 +28,4 @@ class IgnoredFeedback(Base):
     __table_args__ = (
         UniqueConstraint('message_id', 'facility_id', name='uq_ignored_feedback_message_facility'),
     )
+

@@ -39,7 +39,7 @@
             v-model="formData.name"
             type="text"
             label="施設名"
-            placeholder="例: やどぺらゲストハウス"
+            placeholder="例: YadOPERAゲストハウス"
             :required="true"
             :maxlength="255"
             :error="errors.name"

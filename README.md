@@ -1,6 +1,6 @@
-# やどぺら（Yadopera）
+# YadOPERA
 
-**やどぺら** = 「宿」 + 「ぺらぺら（流暢に話す）」
+**YadOPERA** = 「宿」 + 「ぺらぺら（流暢に話す）」
 
 小規模宿泊施設向け外国人ゲスト対応自動化SaaS。QRコードをスマホで読み取るだけで、AIが24時間多言語自動応答。
 
@@ -144,7 +144,7 @@ cp frontend/.env.example frontend/.env
 | 変数名 | 説明 | デフォルト値 |
 |--------|------|------------|
 | `VITE_API_BASE_URL` | Backend APIのベースURL | `http://localhost:8000` |
-| `VITE_APP_NAME` | アプリケーション名 | `やどぺら` |
+| `VITE_APP_NAME` | アプリケーション名 | `YadOPERA` |
 
 ## サービス起動
 

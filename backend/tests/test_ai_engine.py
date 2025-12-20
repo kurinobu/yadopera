@@ -21,8 +21,8 @@ class TestRAGEngine:
             facility_id=test_facility.id,
             category="basic",
             language="en",
-            question="What time is check-in?",
-            answer="Check-in is from 3pm to 10pm.",
+            question="What time is check-out?",
+            answer="Check-out is by 11:00 AM.",
             priority=5,
             is_active=True
         )
@@ -47,7 +47,7 @@ class TestRAGEngine:
         mock_search_faqs.return_value = [mock_faq]
         
         mock_client = AsyncMock()
-        mock_client.generate_response = AsyncMock(return_value="Check-in is from 3pm to 10pm.")
+        mock_client.generate_response = AsyncMock(return_value="Check-out is by 11:00 AM.")
         mock_openai_client_class.return_value = mock_client
         
         # エンジン初期化
@@ -55,7 +55,7 @@ class TestRAGEngine:
         
         # テスト実行
         response = await engine.process_message(
-            message="What time is check-in?",
+            message="What time is check-out?",
             facility_id=test_facility.id,
             session_id="test-session-1",
             language="en"
@@ -63,7 +63,7 @@ class TestRAGEngine:
         
         # アサーション
         assert response.session_id == "test-session-1"
-        assert response.response == "Check-in is from 3pm to 10pm."
+        assert response.response == "Check-out is by 11:00 AM."
         assert response.ai_confidence == Decimal("0.7")  # 暫定値
         assert response.source == "rag_generated"
         assert len(response.matched_faq_ids) > 0
