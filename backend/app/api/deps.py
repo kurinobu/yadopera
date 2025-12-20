@@ -14,7 +14,6 @@ from app.core.jwt import decode_token
 
 # HTTPBearerスキーム（Authorization: Bearer <token>）
 security = HTTPBearer()
-security_optional = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
@@ -81,58 +80,6 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Inactive user",
         )
-    
-    return user
-
-
-async def get_optional_user(
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(security_optional),
-    db: AsyncSession = Depends(get_db)
-) -> Optional[User]:
-    """
-    現在のユーザー取得（JWT認証・オプション）
-    
-    トークンが無効でもエラーを発生させず、Noneを返す
-    ログアウト処理など、認証が失敗しても処理を続行する必要がある場合に使用
-    
-    Args:
-        credentials: HTTPBearer認証情報（オプション）
-        db: データベースセッション
-        
-    Returns:
-        認証されたユーザー、またはNone（認証失敗時）
-    """
-    if credentials is None:
-        return None
-    
-    token = credentials.credentials
-    
-    # トークンデコード
-    payload = decode_token(token)
-    if payload is None:
-        return None
-    
-    # ユーザーID取得
-    sub_value = payload.get("sub")
-    if sub_value is None:
-        return None
-    
-    # 文字列から整数に変換
-    try:
-        user_id = int(sub_value)
-    except (ValueError, TypeError):
-        return None
-    
-    # ユーザー取得
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    
-    if user is None:
-        return None
-    
-    # 非アクティブユーザーでもNoneを返す（エラーを発生させない）
-    if not user.is_active:
-        return None
     
     return user
 
