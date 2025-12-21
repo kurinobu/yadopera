@@ -8,6 +8,8 @@
     </p>
     
     <!-- 円グラフ -->
+    <!-- 円グラフは一時的に非表示（2025-12-21） -->
+    <!--
     <div class="flex items-center justify-center mb-6">
       <svg :width="size" :height="size" class="transform -rotate-90">
         <circle
@@ -35,9 +37,10 @@
         />
       </svg>
     </div>
+    -->
 
     <!-- 凡例 -->
-    <div class="space-y-2">
+    <div class="space-y-2 mt-6">
       <div
         v-for="(item, index) in chartData"
         :key="index"
