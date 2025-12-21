@@ -157,6 +157,16 @@ async def escalate_to_staff(
     エスカレーションを作成し、管理画面の未解決質問リストに表示されます。
     """
     try:
+        # セッション有効期限をチェック（防止策1: started_atベースの固定有効期限）
+        from app.utils.session import is_session_valid
+        is_valid = await is_session_valid(request.session_id, db)
+        
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Session expired: session_id={request.session_id}"
+            )
+        
         # セッションIDから会話を取得
         result = await db.execute(
             select(Conversation).where(

@@ -246,13 +246,26 @@ class ChatService:
         conversation = result.scalar_one_or_none()
         
         if conversation:
-            # 既存の会話を更新
-            conversation.last_activity_at = datetime.utcnow()
-            if location:
-                conversation.location = location
-            logger.debug(f"Existing conversation found: {conversation.id}")
-        else:
-            # 新規会話を作成
+            # セッション有効期限をチェック（防止策1: started_atベースの固定有効期限）
+            from app.utils.session import is_session_valid
+            is_valid = await is_session_valid(session_id, self.db)
+            
+            if not is_valid:
+                # セッションが無効な場合は、既存の会話を無視して新規セッションを作成
+                logger.info(f"Session expired, creating new session: old_session_id={session_id}, facility_id={facility_id}")
+                conversation = None  # 既存の会話を無視
+                # 既存のセッションIDが無効な場合は、新しいセッションIDを生成
+                session_id = str(uuid.uuid4())
+                logger.info(f"Generating new session_id for expired session: new_session_id={session_id}")
+            else:
+                # 既存の会話を更新
+                conversation.last_activity_at = datetime.utcnow()
+                if location:
+                    conversation.location = location
+                logger.debug(f"Existing conversation found: conversation_id={conversation.id}, session_id={session_id}")
+        
+        if not conversation:
+            # 新規会話を作成（既存の会話が存在しない、またはセッションが無効な場合）
             conversation = Conversation(
                 facility_id=facility_id,
                 session_id=session_id,
@@ -265,7 +278,7 @@ class ChatService:
             )
             self.db.add(conversation)
             await self.db.flush()
-            logger.info(f"New conversation created: {conversation.id}, session_id={session_id}")
+            logger.info(f"New conversation created: conversation_id={conversation.id}, session_id={session_id}")
         
         await self.db.commit()
         await self.db.refresh(conversation)
@@ -286,6 +299,14 @@ class ChatService:
         Returns:
             ChatHistoryResponse: 会話履歴、見つからない場合はNone
         """
+        # セッション有効期限をチェック（防止策1: started_atベースの固定有効期限）
+        from app.utils.session import is_session_valid
+        is_valid = await is_session_valid(session_id, self.db)
+        
+        if not is_valid:
+            logger.warning(f"Session expired: session_id={session_id}")
+            return None
+        
         # 会話を検索
         query = select(Conversation).where(Conversation.session_id == session_id)
         if facility_id:
