@@ -93,11 +93,12 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const size = 200
-const center = size / 2
-const radius = 80
-const strokeWidth = 20
-const circumference = 2 * Math.PI * radius
+// 円グラフ用の変数（一時的にコメントアウト、2025-12-21）
+// const size = 200
+// const center = size / 2
+// const radius = 80
+// const strokeWidth = 20
+// const circumference = 2 * Math.PI * radius
 
 const chartData = computed(() => {
   const categories = [
@@ -117,25 +118,26 @@ const total = computed(() => {
   return Object.values(props.data).reduce((sum, val) => sum + val, 0)
 })
 
-const segments = computed(() => {
-  let currentOffset = 0
-  
-  // 値が0より大きいカテゴリのみをフィルタ
-  const validItems = chartData.value.filter((item) => item.value > 0)
-  
-  return validItems.map((item) => {
-    const percentage = total.value > 0 ? item.value / total.value : 0
-    const dashLength = circumference * percentage
-    const offset = circumference - (currentOffset + dashLength)  // 修正: 正しい計算式（円周から累積オフセット+セグメント長を引く）
-    
-    currentOffset += dashLength  // 次のセグメントの開始位置を更新
-    
-    return {
-      color: item.color,
-      offset: offset
-    }
-  })
-})
+// 円グラフ用のsegments computed（一時的にコメントアウト、2025-12-21）
+// const segments = computed(() => {
+//   let currentOffset = 0
+//   
+//   // 値が0より大きいカテゴリのみをフィルタ
+//   const validItems = chartData.value.filter((item) => item.value > 0)
+//   
+//   return validItems.map((item) => {
+//     const percentage = total.value > 0 ? item.value / total.value : 0
+//     const dashLength = circumference * percentage
+//     const offset = circumference - (currentOffset + dashLength)  // 修正: 正しい計算式（円周から累積オフセット+セグメント長を引く）
+//     
+//     currentOffset += dashLength  // 次のセグメントの開始位置を更新
+//     
+//     return {
+//       color: item.color,
+//       offset: offset
+//     }
+//   })
+// })
 </script>
 
 <style scoped>
