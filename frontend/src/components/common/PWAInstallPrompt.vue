@@ -73,6 +73,7 @@
 import { ref, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { usePWA } from '@/composables/usePWA'
+import { updateManifestLink } from '@/utils/manifestGenerator'
 
 const route = useRoute()
 const { isInstallable, isInstalled, install } = usePWA()
@@ -93,32 +94,24 @@ try {
 const handleInstall = async () => {
   isInstalling.value = true
   
-  // 修正案1: インストール前に施設URLを保存（確実に保存するため）
+  // 動的manifestの更新（PWAインストール前に実行）
   try {
-    if (route.path.startsWith('/f/')) {
-      const facilityUrl = route.fullPath
-      localStorage.setItem('last_facility_url', facilityUrl)
-      console.log('[PWA] インストール前: 施設URLを保存しました', facilityUrl)
-    }
+    const facilityId = route.params.facilityId as string
+    updateManifestLink(facilityId)
+    console.log('[PWA] manifestを更新しました:', facilityId)
+    
+    // 少し待機してからインストール処理を実行
+    // （manifestの更新がブラウザに反映されるまでの時間を確保）
+    await new Promise(resolve => setTimeout(resolve, 200))
   } catch (error) {
-    console.warn('[PWA] インストール前: 施設URLの保存に失敗しました', error)
+    console.error('[PWA] manifestの更新に失敗しました:', error)
   }
   
+  // PWAインストール処理
   try {
     const success = await install()
     if (success) {
       isDismissed.value = true
-      
-      // 修正案1: インストール成功時にも再度保存（二重保存で確実性を向上）
-      try {
-        if (route.path.startsWith('/f/')) {
-          const facilityUrl = route.fullPath
-          localStorage.setItem('last_facility_url', facilityUrl)
-          console.log('[PWA] インストール成功: 施設URLを保存しました', facilityUrl)
-        }
-      } catch (error) {
-        console.warn('[PWA] インストール成功: 施設URLの保存に失敗しました', error)
-      }
     }
   } catch (error) {
     console.error('[PWA] インストール失敗:', error)

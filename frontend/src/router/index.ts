@@ -13,55 +13,8 @@ import { isValidFacilityId } from '@/utils/validators'
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
-    name: 'Root',
-    component: () => import('@/views/Error404.vue'), // ダミーコンポーネント（beforeEnterでリダイレクトされるため実行されない）
-    beforeEnter: (_to, _from, next) => {
-      // 修正案3: デバッグ用ログを追加
-      console.log('[PWA] ルートガード開始: PWA起動時のリダイレクト処理')
-      
-      try {
-        // 最後にアクセスした施設URLをlocalStorageから取得
-        const lastFacilityUrl = localStorage.getItem('last_facility_url')
-        console.log('[PWA] localStorageから取得した施設URL:', lastFacilityUrl)
-        
-        if (lastFacilityUrl) {
-          // ホワイトリスト方式: ゲスト側のルート（/f/:facilityId）のみ許可
-          const allowedPattern = /^\/f\/([^\/]+)(\/.*)?$/
-          const match = lastFacilityUrl.match(allowedPattern)
-          
-          if (match) {
-            const facilityId = match[1]
-            console.log('[PWA] 施設IDを抽出:', facilityId)
-            
-            // 施設IDの検証
-            if (isValidFacilityId(facilityId)) {
-              // ゲスト側のルートのみリダイレクト
-              console.log('[PWA] 施設URLにリダイレクト:', lastFacilityUrl)
-              next(lastFacilityUrl)
-            } else {
-              // セキュリティ対策: 不正な施設IDが検出された場合、404エラーページを表示（セキュリティ対策）
-              console.error('[PWA] 不正な施設IDが検出されました:', facilityId)
-              next({ name: 'NotFound' })
-            }
-          } else {
-            // セキュリティ対策: 許可されていないURLが検出された場合、404エラーページを表示（セキュリティ対策）
-            console.error('[PWA] 許可されていないURLが検出されました:', lastFacilityUrl)
-            next({ name: 'NotFound' })
-          }
-        } else {
-          // ⚠️ 想定外の状況: 施設URLが保存されていない（この状況は発生してはいけない）
-          // PWAインストールはゲスト側のルート（/f/:facilityId）でのみ可能なため、インストール時には必ず施設URLが存在するはず
-          // セキュリティ対策として404エラーページを表示（ただし、この状況は発生してはいけない）
-          console.error('[PWA] 施設URLが保存されていません。これは想定外の状況です。')
-          console.error('[PWA] デバッグ情報: localStorageの状態を確認してください。')
-          next({ name: 'NotFound' })
-        }
-      } catch (error) {
-        // セキュリティ対策: localStorageが利用できない場合、404エラーページを表示（セキュリティ対策）
-        console.warn('[PWA] localStorageへのアクセスに失敗しました:', error)
-        next({ name: 'NotFound' })
-      }
-    },
+    name: 'PWABoot',
+    component: () => import('@/views/PWABoot.vue'),
     meta: {
       layout: undefined
     }
