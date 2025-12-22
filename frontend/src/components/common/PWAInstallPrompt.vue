@@ -71,8 +71,10 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { usePWA } from '@/composables/usePWA'
 
+const route = useRoute()
 const { isInstallable, isInstalled, install } = usePWA()
 const isInstalling = ref(false)
 const isDismissed = ref(false)
@@ -94,6 +96,17 @@ const handleInstall = async () => {
     const success = await install()
     if (success) {
       isDismissed.value = true
+      
+      // PWAインストール成功時に、その時点のURL（施設URL）をlocalStorageに保存
+      try {
+        // ゲスト側のルート（/f/:facilityId）にアクセスしている場合のみ保存
+        if (route.path.startsWith('/f/')) {
+          const facilityUrl = route.fullPath
+          localStorage.setItem('last_facility_url', facilityUrl)
+        }
+      } catch (error) {
+        console.warn('Failed to save facility URL to localStorage:', error)
+      }
     }
   } catch (error) {
     console.error('Installation failed:', error)
