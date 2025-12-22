@@ -57,8 +57,9 @@ onMounted(() => {
     }
   }
   
-  // 競合干渉対策2: 管理者が未認証で、localStorageにlast_facility_urlが存在しない場合は/admin/loginにリダイレクト
-  router.replace({ name: 'AdminLogin' })
+  // localStorageにlast_facility_urlが存在しない場合、404エラーページを表示
+  // ゲストはQRコードで読み取った施設独自のURLにアクセスするべき
+  router.replace({ name: 'NotFound' })
 })
 </script>
 
