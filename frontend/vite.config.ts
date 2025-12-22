@@ -40,6 +40,9 @@ export default defineConfig({
         short_name: 'YadOPERA',
         description: '小規模宿泊施設向けAI多言語自動案内システム',
         theme_color: '#ffffff',
+        start_url: '/',
+        scope: '/',
+        display: 'standalone',
         icons: [
           {
             src: 'pwa-192x192.png',
