@@ -35,23 +35,23 @@ const routes: RouteRecordRaw[] = [
             } else {
               // 不正な施設IDの場合は404エラーページを表示
               console.error('PWA起動時: 不正な施設IDが検出されました。', facilityId)
-              next('/:pathMatch(.*)*')
+              next({ name: 'NotFound' })
             }
           } else {
             // 許可されていないURLの場合は404エラーページを表示
             console.error('PWA起動時: 許可されていないURLが検出されました。', lastFacilityUrl)
-            next('/:pathMatch(.*)*')
+            next({ name: 'NotFound' })
           }
         } else {
           // 施設URLがない場合は想定外のエラー（この状況は発生してはいけない）
           // ただし、万が一の場合に備えて404エラーページを表示
           console.error('PWA起動時: 施設URLが保存されていません。これは想定外の状況です。')
-          next('/:pathMatch(.*)*')
+          next({ name: 'NotFound' })
         }
       } catch (error) {
         // localStorageが利用できない場合、404エラーページを表示
         console.warn('Failed to access localStorage:', error)
-        next('/:pathMatch(.*)*')
+        next({ name: 'NotFound' })
       }
     },
     meta: {
