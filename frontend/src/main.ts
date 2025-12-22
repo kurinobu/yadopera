@@ -5,6 +5,11 @@ import App from './App.vue'
 import './style.css'
 import { useThemeStore } from './stores/theme'
 import { useAuthStore } from './stores/auth'
+import { updateManifestLink } from '@/utils/manifestGenerator'
+
+// アプリ起動時に動的manifestを初期化
+// 初期状態では'/'をstart_urlに設定
+updateManifestLink(null)
 
 const app = createApp(App)
 const pinia = createPinia()

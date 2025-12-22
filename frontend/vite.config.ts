@@ -35,28 +35,8 @@ export default defineConfig({
             }
           }
         ]
-      },
-      manifest: {
-        name: 'YadOPERA',
-        short_name: 'YadOPERA',
-        description: '小規模宿泊施設向けAI多言語自動案内システム',
-        theme_color: '#ffffff',
-        start_url: '/',
-        scope: '/',
-        display: 'standalone',
-        icons: [
-          {
-            src: 'pwa-192x192.png',
-            sizes: '192x192',
-            type: 'image/png'
-          },
-          {
-            src: 'pwa-512x512.png',
-            sizes: '512x512',
-            type: 'image/png'
-          }
-        ]
       }
+      // manifestは削除（動的manifestのみを使用）
     })
   ],
   resolve: {
