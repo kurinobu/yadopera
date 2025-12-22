@@ -8,7 +8,6 @@ import type { RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } fro
 import { guestRoutes } from './guest'
 import { adminRoutes } from './admin'
 import { useAuthStore } from '@/stores/auth'
-import { isValidFacilityId } from '@/utils/validators'
 
 const routes: RouteRecordRaw[] = [
   {
