@@ -10,6 +10,14 @@ import { adminRoutes } from './admin'
 import { useAuthStore } from '@/stores/auth'
 
 const routes: RouteRecordRaw[] = [
+  {
+    path: '/',
+    name: 'Root',
+    redirect: '/admin/login',
+    meta: {
+      layout: undefined
+    }
+  },
   ...guestRoutes,
   ...adminRoutes,
   {
