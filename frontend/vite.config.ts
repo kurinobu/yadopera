@@ -35,8 +35,8 @@ export default defineConfig({
             }
           }
         ]
-      }
-      // manifestは削除（動的manifestのみを使用）
+      },
+      manifest: false  // 静的manifestの生成を無効化（動的manifestのみを使用）
     })
   ],
   resolve: {
