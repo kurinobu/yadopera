@@ -92,36 +92,24 @@ try {
 
 const handleInstall = async () => {
   isInstalling.value = true
-  
-  // 修正案1: インストール前に施設URLを保存（確実に保存するため）
-  try {
-    if (route.path.startsWith('/f/')) {
-      const facilityUrl = route.fullPath
-      localStorage.setItem('last_facility_url', facilityUrl)
-      console.log('[PWA] インストール前: 施設URLを保存しました', facilityUrl)
-    }
-  } catch (error) {
-    console.warn('[PWA] インストール前: 施設URLの保存に失敗しました', error)
-  }
-  
   try {
     const success = await install()
     if (success) {
       isDismissed.value = true
       
-      // 修正案1: インストール成功時にも再度保存（二重保存で確実性を向上）
+      // PWAインストール成功時に、その時点のURL（施設URL）をlocalStorageに保存
       try {
+        // ゲスト側のルート（/f/:facilityId）にアクセスしている場合のみ保存
         if (route.path.startsWith('/f/')) {
           const facilityUrl = route.fullPath
           localStorage.setItem('last_facility_url', facilityUrl)
-          console.log('[PWA] インストール成功: 施設URLを保存しました', facilityUrl)
         }
       } catch (error) {
-        console.warn('[PWA] インストール成功: 施設URLの保存に失敗しました', error)
+        console.warn('Failed to save facility URL to localStorage:', error)
       }
     }
   } catch (error) {
-    console.error('[PWA] インストール失敗:', error)
+    console.error('Installation failed:', error)
   } finally {
     isInstalling.value = false
   }
