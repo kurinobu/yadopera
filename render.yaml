@@ -40,6 +40,9 @@ services:
         value: staging
     routes:
       - type: rewrite
+        source: /
+        destination: /index.html
+      - type: rewrite
         source: /assets/*
         destination: /assets/*
       - type: rewrite
