@@ -1229,7 +1229,7 @@ updated_at TIMESTAMP
 **Document Version**: v0.3.6  
 **Based on**: v0.21 要約定義書  
 **Author**: Air  
-**Last Updated**: 2025-12-21 15時41分32秒  
+**Last Updated**: 2025-12-22 09時18分02秒  
 **Status**: 開発準備完了
 
 ---
