@@ -18,20 +18,6 @@ export default defineConfig({
         // 管理APIは常に最新を取得するため、キャッシュさせない
         runtimeCaching: [
           {
-            // ナビゲーションリクエスト（HTMLの読み込み）に対する明示的なキャッシュ戦略
-            // PWAインストール後の起動時にも確実にindex.htmlを返すため
-            urlPattern: ({ request }) => request.mode === 'navigate',
-            handler: 'NetworkFirst',
-            options: {
-              cacheName: 'html-cache',
-              expiration: {
-                maxEntries: 50,
-                maxAgeSeconds: 60 * 60 * 24 * 7 // 7日間
-              },
-              networkTimeoutSeconds: 3
-            }
-          },
-          {
             urlPattern: /\/api\/v1\/admin\/.*$/,
             handler: 'NetworkOnly',
             method: 'GET'
