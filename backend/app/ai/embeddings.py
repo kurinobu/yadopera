@@ -1,11 +1,12 @@
 """
-埋め込みベクトル生成
+埋め込みベクトル生成（インテントベース構造対応）
 """
 
 import logging
 from typing import List
 from app.ai.openai_client import OpenAIClient
 from app.models.faq import FAQ
+from app.models.faq_translation import FAQTranslation
 
 logger = logging.getLogger(__name__)
 
@@ -47,47 +48,72 @@ async def generate_embedding(text: str) -> List[float]:
         return []
 
 
-async def generate_faq_embedding(faq: FAQ) -> List[float]:
+async def generate_faq_embedding(faq_translation: FAQTranslation) -> List[float]:
     """
-    FAQの埋め込みベクトル生成（保存時自動実行、v0.3詳細化）
+    FAQ翻訳の埋め込みベクトル生成（保存時自動実行、インテントベース構造対応）
     質問と回答を結合して埋め込み生成
     
     Args:
-        faq: FAQモデルインスタンス
+        faq_translation: FAQTranslationモデルインスタンス
     
     Returns:
         埋め込みベクトル（1536次元）、エラー時は空リスト
+    
+    Note:
+        - 新しい構造では、埋め込みベクトルは翻訳ごとに生成される
+        - `FAQTranslation.question`と`FAQTranslation.answer`を結合して埋め込み生成
     """
-    if not faq:
-        logger.error("FAQ object is None")
+    if not faq_translation:
+        logger.error("FAQTranslation object is None")
         return []
     
-    if not faq.question or not faq.answer:
+    if not faq_translation.question or not faq_translation.answer:
         logger.warning(
-            f"FAQ has empty question or answer: faq_id={faq.id if hasattr(faq, 'id') else 'unknown'}, question={bool(faq.question)}, answer={bool(faq.answer)}"
+            f"FAQTranslation has empty question or answer: "
+            f"translation_id={faq_translation.id if hasattr(faq_translation, 'id') else 'unknown'}, "
+            f"faq_id={faq_translation.faq_id if hasattr(faq_translation, 'faq_id') else 'unknown'}, "
+            f"language={faq_translation.language if hasattr(faq_translation, 'language') else 'unknown'}, "
+            f"question={bool(faq_translation.question)}, answer={bool(faq_translation.answer)}"
         )
         return []
     
     try:
         # 質問と回答を結合して埋め込み生成
-        combined_text = f"{faq.question} {faq.answer}"
+        combined_text = f"{faq_translation.question} {faq_translation.answer}"
         logger.debug(
-            f"Generating FAQ embedding: faq_id={faq.id if hasattr(faq, 'id') else 'unknown'}, combined_text_length={len(combined_text)}"
+            f"Generating FAQ translation embedding: "
+            f"translation_id={faq_translation.id if hasattr(faq_translation, 'id') else 'unknown'}, "
+            f"faq_id={faq_translation.faq_id if hasattr(faq_translation, 'faq_id') else 'unknown'}, "
+            f"language={faq_translation.language if hasattr(faq_translation, 'language') else 'unknown'}, "
+            f"combined_text_length={len(combined_text)}"
         )
         embedding = await generate_embedding(combined_text)
         if embedding and len(embedding) > 0:
-            logger.info(f"FAQ embedding generated successfully: faq_id={faq.id if hasattr(faq, 'id') else 'unknown'}, embedding_length={len(embedding)}")
+            logger.info(
+                f"FAQ translation embedding generated successfully: "
+                f"translation_id={faq_translation.id if hasattr(faq_translation, 'id') else 'unknown'}, "
+                f"faq_id={faq_translation.faq_id if hasattr(faq_translation, 'faq_id') else 'unknown'}, "
+                f"language={faq_translation.language if hasattr(faq_translation, 'language') else 'unknown'}, "
+                f"embedding_length={len(embedding)}"
+            )
         else:
-            logger.warning(f"Failed to generate FAQ embedding (empty result): faq_id={faq.id if hasattr(faq, 'id') else 'unknown'}")
+            logger.warning(
+                f"Failed to generate FAQ translation embedding (empty result): "
+                f"translation_id={faq_translation.id if hasattr(faq_translation, 'id') else 'unknown'}, "
+                f"faq_id={faq_translation.faq_id if hasattr(faq_translation, 'faq_id') else 'unknown'}, "
+                f"language={faq_translation.language if hasattr(faq_translation, 'language') else 'unknown'}"
+            )
         return embedding
     except Exception as e:
         logger.error(
-            f"Error generating FAQ embedding: {str(e)}",
+            f"Error generating FAQ translation embedding: {str(e)}",
             exc_info=True,
             extra={
-                "faq_id": faq.id if hasattr(faq, 'id') else 'unknown',
-                "question": faq.question[:100] if faq.question else None,
-                "answer": faq.answer[:100] if faq.answer else None,
+                "translation_id": faq_translation.id if hasattr(faq_translation, 'id') else 'unknown',
+                "faq_id": faq_translation.faq_id if hasattr(faq_translation, 'faq_id') else 'unknown',
+                "language": faq_translation.language if hasattr(faq_translation, 'language') else 'unknown',
+                "question": faq_translation.question[:100] if faq_translation.question else None,
+                "answer": faq_translation.answer[:100] if faq_translation.answer else None,
                 "error": str(e)
             }
         )

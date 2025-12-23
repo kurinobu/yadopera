@@ -56,29 +56,12 @@
                       優先度: {{ faq.priority }}
                     </span>
                   </div>
-                  <!-- 翻訳リストを表示（インテントベース構造対応） -->
-                  <div v-if="faq.translations && faq.translations.length > 0" class="space-y-2">
-                    <div
-                      v-for="translation in faq.translations"
-                      :key="translation.id"
-                      class="border-l-2 border-blue-500 pl-3"
-                    >
-                      <div class="flex items-center space-x-2 mb-1">
-                        <span class="text-xs font-medium text-gray-500 dark:text-gray-400">
-                          {{ getLanguageLabel(translation.language) }}
-                        </span>
-                      </div>
-                      <p class="text-sm font-medium text-gray-900 dark:text-white mb-1">
-                        Q: {{ translation.question }}
-                      </p>
-                      <p class="text-sm text-gray-700 dark:text-gray-300">
-                        A: {{ translation.answer }}
-                      </p>
-                    </div>
-                  </div>
-                  <div v-else class="text-sm text-gray-500 dark:text-gray-400">
-                    翻訳がありません
-                  </div>
+                  <p class="text-sm font-medium text-gray-900 dark:text-white mb-1">
+                    Q: {{ faq.question }}
+                  </p>
+                  <p class="text-sm text-gray-700 dark:text-gray-300">
+                    A: {{ faq.answer }}
+                  </p>
                 </div>
                 <div class="ml-4 flex-shrink-0 flex items-center space-x-2">
                   <button
@@ -160,16 +143,6 @@ const getCategoryBadgeClass = (category: FAQCategory): string => {
     trouble: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
   }
   return classes[category]
-}
-
-const getLanguageLabel = (language: string): string => {
-  const labels: Record<string, string> = {
-    'en': '英語',
-    'ja': '日本語',
-    'zh-TW': '繁体字中国語',
-    'fr': 'フランス語'
-  }
-  return labels[language] || language
 }
 
 const handleEdit = (faq: FAQ) => {

@@ -1,30 +1,82 @@
 <template>
   <form @submit.prevent="handleSubmit" class="space-y-4">
-    <Input
-      v-model="formData.question"
-      type="textarea"
-      label="質問文"
-      placeholder="例: What is the WiFi password?"
-      :required="true"
-      :maxlength="200"
-      :rows="3"
-      hint="200文字以内推奨"
-      :error="errors.question"
-      @blur="validateQuestion"
-    />
+    <!-- 翻訳リスト（インテントベース構造対応） -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+        翻訳 <span class="text-red-500">*</span>
+        <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">
+          （最低1つの言語が必要です）
+        </span>
+      </label>
+      <div
+        v-for="(translation, index) in formData.translations"
+        :key="index"
+        class="mb-4 p-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800"
+      >
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            言語 {{ index + 1 }}
+          </label>
+          <button
+            v-if="formData.translations.length > 1"
+            type="button"
+            @click="removeTranslation(index)"
+            class="text-xs text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+          >
+            削除
+          </button>
+        </div>
+        
+        <div class="mb-3">
+          <label class="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+            言語
+          </label>
+          <select
+            v-model="translation.language"
+            class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="en">英語</option>
+            <option value="ja">日本語</option>
+            <option value="zh-TW">繁体字中国語</option>
+            <option value="fr">フランス語</option>
+          </select>
+        </div>
 
-    <Input
-      v-model="formData.answer"
-      type="textarea"
-      label="回答文"
-      placeholder="例: The WiFi password is guest2024. The SSID is TokyoGuesthouse_WiFi."
-      :required="true"
-      :maxlength="200"
-      :rows="4"
-      hint="200文字以内推奨"
-      :error="errors.answer"
-      @blur="validateAnswer"
-    />
+        <Input
+          v-model="translation.question"
+          type="textarea"
+          :label="`質問文 (${translation.language})`"
+          :placeholder="`例: What is the WiFi password?`"
+          :required="true"
+          :maxlength="500"
+          :rows="3"
+          hint="500文字以内"
+          :error="errors[`translation_${index}_question`]"
+          @blur="() => validateTranslationQuestion(index)"
+        />
+
+        <Input
+          v-model="translation.answer"
+          type="textarea"
+          :label="`回答文 (${translation.language})`"
+          :placeholder="`例: The WiFi password is guest2024.`"
+          :required="true"
+          :maxlength="2000"
+          :rows="4"
+          hint="2000文字以内"
+          :error="errors[`translation_${index}_answer`]"
+          @blur="() => validateTranslationAnswer(index)"
+        />
+      </div>
+      
+      <button
+        type="button"
+        @click="addTranslation"
+        class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+      >
+        + 翻訳を追加
+      </button>
+    </div>
 
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -73,17 +125,20 @@
       </p>
     </div>
 
+    <!-- intent_key（オプション、通常は自動生成） -->
     <div>
       <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-        言語
+        インテントキー
+        <span class="text-xs text-gray-500 dark:text-gray-400 ml-2">
+          （オプション、自動生成される場合は省略可能）
+        </span>
       </label>
-      <select
-        v-model="formData.language"
+      <input
+        v-model="formData.intent_key"
+        type="text"
+        placeholder="例: basic_checkout_time（自動生成される場合は空欄）"
         class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-      >
-        <option value="en">英語</option>
-        <option value="ja">日本語</option>
-      </select>
+      />
     </div>
 
     <div class="flex items-center justify-end space-x-3 pt-4">
@@ -108,7 +163,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import Input from '@/components/common/Input.vue'
-import type { FAQ, FAQCreate, FAQCategory } from '@/types/faq'
+import type { FAQ, FAQCreate, FAQCategory, FAQTranslationCreate } from '@/types/faq'
 
 interface Props {
   faq?: FAQ | null
@@ -123,33 +178,57 @@ const emit = defineEmits<{
 
 const isEditMode = computed(() => !!props.faq)
 
-const formData = ref<Omit<FAQCreate, 'category'> & { category: FAQCategory | ''; language: string }>({
+const formData = ref<{
+  category: FAQCategory | ''
+  intent_key?: string
+  translations: FAQTranslationCreate[]
+  priority: number
+  is_active?: boolean
+}>({
   category: '',
-  language: 'en',
-  question: '',
-  answer: '',
-  priority: 3
+  intent_key: undefined,
+  translations: [
+    {
+      language: 'en',
+      question: '',
+      answer: ''
+    }
+  ],
+  priority: 3,
+  is_active: true
 })
 
-const errors = ref<Partial<Record<keyof FAQCreate, string>>>({})
+const errors = ref<Record<string, string>>({})
 
 // 編集モード時にフォームデータを初期化
 watch(() => props.faq, (faq) => {
   if (faq) {
+    // 編集モード: FAQのtranslationsからフォームデータを初期化
     formData.value = {
       category: faq.category,
-      language: faq.language,
-      question: faq.question,
-      answer: faq.answer,
-      priority: faq.priority
+      intent_key: faq.intent_key,
+      translations: faq.translations.map(trans => ({
+        language: trans.language,
+        question: trans.question,
+        answer: trans.answer
+      })),
+      priority: faq.priority,
+      is_active: faq.is_active
     }
   } else {
+    // 新規作成モード: デフォルト値で初期化
     formData.value = {
       category: '',
-      language: 'en',
-      question: '',
-      answer: '',
-      priority: 3
+      intent_key: undefined,
+      translations: [
+        {
+          language: 'en',
+          question: '',
+          answer: ''
+        }
+      ],
+      priority: 3,
+      is_active: true
     }
   }
   errors.value = {}
@@ -157,38 +236,72 @@ watch(() => props.faq, (faq) => {
 
 const isValid = computed(() => {
   return (
-    formData.value.question.trim().length > 0 &&
-    formData.value.answer.trim().length > 0 &&
     formData.value.category !== '' &&
+    formData.value.translations.length > 0 &&
+    formData.value.translations.every(trans => 
+      trans.question.trim().length > 0 &&
+      trans.answer.trim().length > 0
+    ) &&
     formData.value.priority >= 1 &&
     formData.value.priority <= 5 &&
     Object.keys(errors.value).length === 0
   )
 })
 
-const validateQuestion = () => {
-  if (formData.value.question.trim().length === 0) {
-    errors.value.question = '質問文を入力してください'
-  } else if (formData.value.question.length > 200) {
-    errors.value.question = '質問文は200文字以内で入力してください'
+const validateTranslationQuestion = (index: number) => {
+  const translation = formData.value.translations[index]
+  if (!translation) return
+  
+  const key = `translation_${index}_question`
+  if (translation.question.trim().length === 0) {
+    errors.value[key] = '質問文を入力してください'
+  } else if (translation.question.length > 500) {
+    errors.value[key] = '質問文は500文字以内で入力してください'
   } else {
-    delete errors.value.question
+    delete errors.value[key]
   }
 }
 
-const validateAnswer = () => {
-  if (formData.value.answer.trim().length === 0) {
-    errors.value.answer = '回答文を入力してください'
-  } else if (formData.value.answer.length > 200) {
-    errors.value.answer = '回答文は200文字以内で入力してください'
+const validateTranslationAnswer = (index: number) => {
+  const translation = formData.value.translations[index]
+  if (!translation) return
+  
+  const key = `translation_${index}_answer`
+  if (translation.answer.trim().length === 0) {
+    errors.value[key] = '回答文を入力してください'
+  } else if (translation.answer.length > 2000) {
+    errors.value[key] = '回答文は2000文字以内で入力してください'
   } else {
-    delete errors.value.answer
+    delete errors.value[key]
+  }
+}
+
+const addTranslation = () => {
+  formData.value.translations.push({
+    language: 'en',
+    question: '',
+    answer: ''
+  })
+}
+
+const removeTranslation = (index: number) => {
+  if (formData.value.translations.length > 1) {
+    formData.value.translations.splice(index, 1)
+    // エラーも削除
+    Object.keys(errors.value).forEach(key => {
+      if (key.startsWith(`translation_${index}_`)) {
+        delete errors.value[key]
+      }
+    })
   }
 }
 
 const handleSubmit = () => {
-  validateQuestion()
-  validateAnswer()
+  // すべての翻訳をバリデーション
+  formData.value.translations.forEach((_, index) => {
+    validateTranslationQuestion(index)
+    validateTranslationAnswer(index)
+  })
   
   if (formData.value.category === '') {
     errors.value.category = 'カテゴリを選択してください'
@@ -196,14 +309,25 @@ const handleSubmit = () => {
     delete errors.value.category
   }
 
+  if (formData.value.translations.length === 0) {
+    errors.value.translations = '最低1つの翻訳が必要です'
+  } else {
+    delete errors.value.translations
+  }
+
   if (isValid.value && formData.value.category !== '') {
-    emit('submit', {
+    const submitData: FAQCreate = {
       category: formData.value.category as FAQCategory,
-      language: formData.value.language,
-      question: formData.value.question.trim(),
-      answer: formData.value.answer.trim(),
-      priority: formData.value.priority
-    })
+      intent_key: formData.value.intent_key || undefined,
+      translations: formData.value.translations.map(trans => ({
+        language: trans.language,
+        question: trans.question.trim(),
+        answer: trans.answer.trim()
+      })),
+      priority: formData.value.priority,
+      is_active: formData.value.is_active
+    }
+    emit('submit', submitData)
   }
 }
 

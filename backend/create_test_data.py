@@ -24,6 +24,8 @@ from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.session_token import SessionToken  # noqa: F401
 from app.models.faq import FAQ  # noqa: F401
+from app.models.faq_translation import FAQTranslation
+from app.services.faq_service import normalize_question, generate_intent_key
 from app.models.faq_suggestion import FAQSuggestion  # noqa: F401
 from app.models.escalation import Escalation
 from app.models.escalation_schedule import EscalationSchedule  # noqa: F401
@@ -394,34 +396,46 @@ async def create_test_data():
             
             created_faqs = {}
             for faq_data in faq_categories:
-                # 既存のFAQを確認
+                # 既存のFAQを確認（インテントベース構造対応）
+                intent_key = generate_intent_key(faq_data["category"], faq_data["question"])
                 faq_result = await session.execute(
                     select(FAQ).where(
                         FAQ.facility_id == test_facility.id,
                         FAQ.category == faq_data["category"],
-                        FAQ.question == faq_data["question"]
+                        FAQ.intent_key == intent_key
                     ).limit(1)
                 )
                 existing_faq = faq_result.scalar_one_or_none()
                 
                 if existing_faq:
                     created_faqs[faq_data["category"]] = existing_faq
-                    print(f"  ✅ 既存のFAQを使用します: category={faq_data['category']}, id={existing_faq.id}")
+                    print(f"  ✅ 既存のFAQを使用します: category={faq_data['category']}, id={existing_faq.id}, intent_key={intent_key}")
                 else:
+                    # FAQ（インテント）を作成
                     faq = FAQ(
                         facility_id=test_facility.id,
                         category=faq_data["category"],
-                        language="en",
-                        question=faq_data["question"],
-                        answer=faq_data["answer"],
+                        intent_key=intent_key,
                         priority=1,
                         is_active=True,
                         created_by=test_user.id
                     )
                     session.add(faq)
                     await session.flush()
+                    
+                    # FAQTranslation（英語版）を作成
+                    faq_translation = FAQTranslation(
+                        faq_id=faq.id,
+                        language="en",
+                        question=faq_data["question"],
+                        answer=faq_data["answer"],
+                        embedding=None  # テストデータでは埋め込みベクトルは生成しない（必要に応じて後で生成可能）
+                    )
+                    session.add(faq_translation)
+                    await session.flush()
+                    
                     created_faqs[faq_data["category"]] = faq
-                    print(f"  ✅ FAQを作成しました: category={faq_data['category']}, id={faq.id}")
+                    print(f"  ✅ FAQを作成しました: category={faq_data['category']}, id={faq.id}, intent_key={intent_key}, translation_id={faq_translation.id}")
             
             # カテゴリ別内訳用の会話とメッセージを作成（過去7日以内）
             category_conversations_data = [
@@ -521,6 +535,15 @@ async def create_test_data():
                 
                 # AI応答メッセージを作成（matched_faq_idsを含む）
                 faq = created_faqs[data["category"]]
+                # FAQTranslation（英語版）を取得
+                translation_result = await session.execute(
+                    select(FAQTranslation).where(
+                        FAQTranslation.faq_id == faq.id,
+                        FAQTranslation.language == "en"
+                    ).limit(1)
+                )
+                faq_translation = translation_result.scalar_one_or_none()
+                
                 assistant_message_result = await session.execute(
                     select(Message).where(
                         Message.conversation_id == conversation.id,
@@ -530,10 +553,12 @@ async def create_test_data():
                 existing_assistant_message = assistant_message_result.scalar_one_or_none()
                 
                 if not existing_assistant_message:
+                    # FAQTranslationから回答を取得
+                    answer_text = faq_translation.answer if faq_translation else "Answer not available"
                     assistant_message = Message(
                         conversation_id=conversation.id,
                         role=MessageRole.ASSISTANT.value,
-                        content=faq.answer,
+                        content=answer_text,
                         ai_confidence=Decimal("0.9"),
                         matched_faq_ids=[faq.id],  # カテゴリ別内訳用
                         created_at=datetime.utcnow() - timedelta(days=data["days_ago"]) + timedelta(minutes=1)

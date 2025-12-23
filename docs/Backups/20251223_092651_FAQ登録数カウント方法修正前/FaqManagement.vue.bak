@@ -332,12 +332,7 @@ const handleEdit = (faq: FAQ) => {
 }
 
 const handleDelete = async (faq: FAQ) => {
-  // 最初の翻訳の質問文を取得（削除確認メッセージ用）
-  const questionText = faq.translations && faq.translations.length > 0
-    ? faq.translations[0].question
-    : `FAQ ID: ${faq.id}`
-  
-  if (!confirm(`FAQ「${questionText}」を削除しますか？`)) {
+  if (!confirm(`FAQ「${faq.question}」を削除しますか？`)) {
     return
   }
   
@@ -348,10 +343,7 @@ const handleDelete = async (faq: FAQ) => {
     // FAQ一覧を再取得
     await fetchFaqs()
     // 成功メッセージ（オプション）
-    const questionText = faq.translations && faq.translations.length > 0
-      ? faq.translations[0].question
-      : `FAQ ID: ${faq.id}`
-    console.log(`FAQ「${questionText}」を削除しました`)
+    console.log(`FAQ「${faq.question}」を削除しました`)
   } catch (err: any) {
     console.error('Failed to delete FAQ:', err)
     // エラーメッセージをユーザーフレンドリーに変換

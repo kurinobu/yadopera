@@ -199,7 +199,6 @@ class DashboardService:
                 faq_ids.update(msg.matched_faq_ids)
         
         # FAQを取得してカテゴリを集計
-        # 注意: FAQ.idでカウントしているため、インテント単位で1件としてカウントされる（言語に関係なく）
         if faq_ids:
             faqs_result = await self.db.execute(
                 select(FAQ)
@@ -210,7 +209,6 @@ class DashboardService:
             faqs = faqs_result.scalars().all()
             
             # カテゴリ別に集計（各メッセージの最初のマッチしたFAQのカテゴリをカウント）
-            # FAQ.idでカウントしているため、インテント単位で1件としてカウントされる
             category_counts = {"basic": 0, "facilities": 0, "location": 0, "trouble": 0}
             faq_category_map = {faq.id: faq.category for faq in faqs}
             

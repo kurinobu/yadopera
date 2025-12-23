@@ -8,7 +8,6 @@ from typing import List, Optional
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from sqlalchemy.orm import selectinload
 from app.ai.embeddings import generate_embedding
 from app.ai.vector_search import search_similar_faqs
 from app.ai.openai_client import OpenAIClient
@@ -73,16 +72,6 @@ class RAGChatEngine:
                 db=self.db
             )
             
-            # Step 2.5: FAQのtranslationsを読み込む（インテントベース構造対応）
-            if similar_faqs:
-                faq_ids = [faq.id for faq in similar_faqs]
-                faqs_with_translations_result = await self.db.execute(
-                    select(FAQ)
-                    .where(FAQ.id.in_(faq_ids))
-                    .options(selectinload(FAQ.translations))
-                )
-                similar_faqs = faqs_with_translations_result.scalars().all()
-            
             # Step 3: コンテキスト構築
             facility = await self._get_facility_info(facility_id)
             if not facility:
@@ -90,7 +79,7 @@ class RAGChatEngine:
                 # エラーレスポンスを返す（後で実装）
                 raise ValueError(f"Facility not found: {facility_id}")
             
-            context = self._build_context(facility, similar_faqs, message, language)
+            context = self._build_context(facility, similar_faqs, message)
             
             # Step 4: GPT-4o-mini回答生成
             ai_response = await self.openai_client.generate_response(
@@ -188,47 +177,24 @@ class RAGChatEngine:
         self,
         facility: Facility,
         similar_faqs: List[FAQ],
-        question: str,
-        language: str = "en"
+        question: str
     ) -> str:
         """
-        コンテキスト構築（約600トークン、インテントベース構造対応）
+        コンテキスト構築（約600トークン、v0.3詳細化）
         
         Args:
             facility: 施設情報
-            similar_faqs: 類似FAQリスト（インテント単位）
+            similar_faqs: 類似FAQリスト
             question: ゲストの質問
-            language: ゲストの言語コード（デフォルト: "en"）
         
         Returns:
             str: 構築されたコンテキスト
         """
         # 関連FAQ Top 3（約300トークン）
-        # FAQから適切な言語の翻訳を取得
-        faq_context_parts = []
-        for faq in similar_faqs[:3]:
-            # FAQのtranslationsから適切な言語の翻訳を取得
-            # 言語が一致するものを優先し、なければ最初の翻訳を使用
-            translation = None
-            if hasattr(faq, 'translations') and faq.translations:
-                # 言語が一致する翻訳を探す
-                for trans in faq.translations:
-                    if trans.language == language:
-                        translation = trans
-                        break
-                # 一致する言語がない場合は最初の翻訳を使用
-                if not translation:
-                    translation = faq.translations[0]
-            
-            if translation:
-                faq_context_parts.append(f"Q: {translation.question}\nA: {translation.answer}")
-            else:
-                # 翻訳が見つからない場合（リレーションシップが読み込まれていない可能性）
-                logger.warning(f"FAQ translation not found for faq_id={faq.id}, language={language}")
-                # フォールバック: 空のFAQとして扱う
-                faq_context_parts.append("Q: [Translation not available]\nA: [Translation not available]")
-        
-        faq_context = "\n".join(faq_context_parts) if faq_context_parts else "No relevant FAQs found."
+        faq_context = "\n".join([
+            f"Q: {faq.question}\nA: {faq.answer}"
+            for faq in similar_faqs[:3]
+        ]) if similar_faqs else "No relevant FAQs found."
         
         # 施設基本情報（約150トークン）
         facility_info = f"""

@@ -1,5 +1,5 @@
 """
-pgvector検索実装（インテントベース構造対応）
+pgvector検索実装
 """
 
 import logging
@@ -8,10 +8,8 @@ from decimal import Decimal
 from sqlalchemy import select, func, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import joinedload
 from pgvector.sqlalchemy import Vector
 from app.models.faq import FAQ
-from app.models.faq_translation import FAQTranslation
 from app.models.question_pattern import QuestionPattern
 
 logger = logging.getLogger(__name__)
@@ -25,7 +23,7 @@ async def search_similar_faqs(
     db: AsyncSession = None
 ) -> List[FAQ]:
     """
-    pgvectorで類似FAQ検索（エラーハンドリング付き、インテントベース構造対応）
+    pgvectorで類似FAQ検索（エラーハンドリング付き、v0.3詳細化）
     コサイン類似度を使用
     
     Args:
@@ -36,11 +34,7 @@ async def search_similar_faqs(
         db: データベースセッション
     
     Returns:
-        類似FAQリスト（閾値以上の類似度のもののみ、インテント単位で重複排除）、エラー時は空リスト
-    
-    Note:
-        - `faq_translations`テーブルから検索
-        - 同じ`faq_id`の`FAQTranslation`をグループ化して返す（インテント単位で1件）
+        類似FAQリスト（閾値以上の類似度のもののみ）、エラー時は空リスト
     """
     if not db:
         logger.error("Database session is required")
@@ -57,54 +51,35 @@ async def search_similar_faqs(
         embedding_vector = cast(embedding, Vector(1536))
         
         # コサイン類似度で検索（1 - コサイン距離 = 類似度）
-        # faq_translationsテーブルから検索（埋め込みベクトルは翻訳ごとに保存されている）
-        # FAQとFAQTranslationをJOINして、FAQ.is_activeもチェック
+        # pgvectorのcosine_distance関数を使用
         query = select(
-            FAQTranslation,
             FAQ,
-            (1 - func.cosine_distance(FAQTranslation.embedding, embedding_vector)).label('similarity')
-        ).join(
-            FAQ, FAQTranslation.faq_id == FAQ.id
+            (1 - func.cosine_distance(FAQ.embedding, embedding_vector)).label('similarity')
         ).where(
             FAQ.facility_id == facility_id,
             FAQ.is_active == True,
-            FAQTranslation.embedding.isnot(None)  # 埋め込みベクトルが存在するもののみ
+            FAQ.embedding.isnot(None)  # 埋め込みベクトルが存在するもののみ
         ).order_by(
-            func.cosine_distance(FAQTranslation.embedding, embedding_vector).asc()
-        ).limit(top_k * 5)  # 同じfaq_idの重複を考慮して多めに取得
+            func.cosine_distance(FAQ.embedding, embedding_vector).asc()
+        ).limit(top_k)
         
         result = await db.execute(query)
         results = result.all()
         
-        # 閾値以上の類似度のFAQTranslationを取得し、同じfaq_idのものをグループ化
-        # 同じfaq_idの場合は、最も高い類似度のものを使用
-        faq_similarities = {}  # {faq_id: (faq, max_similarity)}
-        
-        for faq_translation, faq, similarity in results:
+        # 閾値以上の類似度のFAQのみ返す
+        similar_faqs = []
+        for faq, similarity in results:
             if similarity >= threshold:
-                faq_id = faq.id
-                # 既に同じfaq_idが存在する場合は、より高い類似度のものを保持
-                if faq_id not in faq_similarities or similarity > faq_similarities[faq_id][1]:
-                    faq_similarities[faq_id] = (faq, similarity)
-        
-        # FAQリストを作成（類似度の降順でソート）
-        similar_faqs = [
-            faq for faq, _ in sorted(
-                faq_similarities.values(),
-                key=lambda x: x[1],
-                reverse=True
-            )
-        ][:top_k]  # top_k件まで返す
+                similar_faqs.append(faq)
         
         logger.debug(
-            f"Vector search completed: {len(similar_faqs)}/{len(faq_similarities)} unique FAQs above threshold (from {len(results)} translation results)",
+            f"Vector search completed: {len(similar_faqs)}/{len(results)} FAQs above threshold",
             extra={
                 "facility_id": facility_id,
                 "top_k": top_k,
                 "threshold": threshold,
                 "found_count": len(similar_faqs),
-                "unique_faq_count": len(faq_similarities),
-                "total_translation_results": len(results)
+                "total_results": len(results)
             }
         )
         

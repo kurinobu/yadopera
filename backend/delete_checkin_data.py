@@ -20,6 +20,7 @@ from app.models.facility import Facility
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.faq import FAQ
+from app.models.faq_translation import FAQTranslation
 from app.models.faq_suggestion import FAQSuggestion
 from app.models.escalation import Escalation
 from app.models.overnight_queue import OvernightQueue
@@ -306,29 +307,46 @@ async def delete_checkin_data():
             print(f"  ✅ {deleted_counts['faq_suggestions']}件のFAQ提案を削除しました")
             
             # ========================================================================
-            # 6. FAQの削除
+            # 6. FAQの削除（インテントベース構造対応）
             # ========================================================================
             print("\n" + "=" * 80)
             print("6. FAQの削除")
             print("=" * 80)
             
-            # 全てのパターンで検索
+            # 全てのパターンで検索（インテントベース構造対応: FAQTranslationから検索）
             all_checkin_faqs = []
             for pattern in FORBIDDEN_PATTERNS:
-                faqs_result = await session.execute(
-                    select(FAQ).where(
+                # FAQTranslationから検索して、関連するFAQを取得
+                translations_result = await session.execute(
+                    select(FAQTranslation).join(FAQ).where(
                         FAQ.facility_id == test_facility.id,
-                        FAQ.question.ilike(f"%{pattern}%")
+                        FAQTranslation.question.ilike(f"%{pattern}%")
                     )
                 )
-                faqs = faqs_result.scalars().all()
-                all_checkin_faqs.extend(faqs)
+                translations = translations_result.scalars().all()
+                # FAQ IDを取得
+                faq_ids = {trans.faq_id for trans in translations}
+                # FAQを取得
+                if faq_ids:
+                    faqs_result = await session.execute(
+                        select(FAQ).where(FAQ.id.in_(faq_ids))
+                    )
+                    faqs = faqs_result.scalars().all()
+                    all_checkin_faqs.extend(faqs)
             
             # 重複を除去
             unique_faqs = {f.id: f for f in all_checkin_faqs}.values()
             
             for faq in unique_faqs:
-                print(f"  ❌ FAQを削除します: id={faq.id}, question=\"{faq.question[:50]}...\"")
+                # FAQTranslationを取得（ログ用）
+                translation_result = await session.execute(
+                    select(FAQTranslation).where(
+                        FAQTranslation.faq_id == faq.id
+                    ).limit(1)
+                )
+                translation = translation_result.scalar_one_or_none()
+                question_text = translation.question[:50] if translation else f"FAQ ID: {faq.id}"
+                print(f"  ❌ FAQを削除します: id={faq.id}, question=\"{question_text}...\"")
                 await session.delete(faq)
                 deleted_counts["faqs"] += 1
             

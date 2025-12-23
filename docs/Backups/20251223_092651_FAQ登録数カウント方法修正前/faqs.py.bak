@@ -39,7 +39,6 @@ async def get_faqs(
             )
         
         # FAQサービスでFAQ一覧取得
-        # FAQService.get_faqs()はインテント単位でFAQを返すため、len(faqs)で正しくカウントされる
         faq_service = FAQService(db)
         faqs = await faq_service.get_faqs(
             facility_id=facility_id,
@@ -47,7 +46,6 @@ async def get_faqs(
             is_active=is_active
         )
         
-        # totalはインテント単位でカウント（言語に関係なく、FAQ.idをカウント）
         return FAQListResponse(faqs=faqs, total=len(faqs))
     
     except HTTPException:
@@ -67,19 +65,16 @@ async def create_faq(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    FAQ作成（埋め込みベクトル自動生成、インテントベース構造）
+    FAQ作成（埋め込みベクトル自動生成）
     
     - **category**: カテゴリ（basic/facilities/location/trouble）
-    - **intent_key**: インテント識別キー（オプション、自動生成される場合は省略可能）
-    - **translations**: 翻訳リスト（最低1つの言語が必要）
-      - **language**: 言語コード（en/ja/zh-TW/fr）
-      - **question**: 質問文（1-500文字）
-      - **answer**: 回答文（1-2000文字）
+    - **language**: 言語コード（デフォルト: "en"）
+    - **question**: 質問文（1-500文字）
+    - **answer**: 回答文（1-2000文字）
     - **priority**: 優先度（1-5、デフォルト: 1）
     - **is_active**: 有効/無効（デフォルト: true）
     
     JWT認証必須。FAQ作成時に埋め込みベクトルが自動生成されます。
-    インテント単位で1件としてカウントされます（複数言語対応しても1件）。
     """
     try:
         # ユーザーが所属する施設IDを取得
@@ -124,20 +119,17 @@ async def update_faq(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    FAQ更新（埋め込みベクトル自動再生成、インテントベース構造）
+    FAQ更新（埋め込みベクトル自動再生成）
     
     - **faq_id**: FAQ ID（パスパラメータ）
-    - **category**: カテゴリ（basic/facilities/location/trouble、オプション）
-    - **intent_key**: インテント識別キー（オプション）
-    - **translations**: 翻訳リスト（オプション）
-      - **language**: 言語コード（en/ja/zh-TW/fr）
-      - **question**: 質問文（1-500文字）
-      - **answer**: 回答文（1-2000文字）
-    - **priority**: 優先度（1-5、オプション）
-    - **is_active**: 有効/無効（オプション）
+    - **category**: カテゴリ（basic/facilities/location/trouble）
+    - **language**: 言語コード
+    - **question**: 質問文（1-500文字）
+    - **answer**: 回答文（1-2000文字）
+    - **priority**: 優先度（1-5）
+    - **is_active**: 有効/無効
     
     JWT認証必須。FAQ更新時に埋め込みベクトルが自動再生成されます。
-    インテント単位で1件としてカウントされます（複数言語対応しても1件）。
     """
     try:
         # ユーザーが所属する施設IDを取得

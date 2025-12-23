@@ -17,7 +17,7 @@ from app.models.guest_feedback import GuestFeedback
 from app.models.escalation import Escalation
 from app.models.processed_feedback import ProcessedFeedback
 from app.schemas.faq_suggestion import FAQSuggestionResponse, ApproveSuggestionRequest
-from app.schemas.faq import FAQRequest, FAQTranslationRequest
+from app.schemas.faq import FAQRequest
 from app.ai.openai_client import OpenAIClient
 from app.services.faq_service import FAQService
 
@@ -516,32 +516,22 @@ Language: {language}"""
             if not answer:
                 raise ValueError(f"Answer is required: suggestion_id={suggestion_id}")
             
-            # FAQRequestを新しい構造（インテントベース）に修正
-            # translationsリストに1つの翻訳を含める
             faq_request = FAQRequest(
                 category=category,
-                intent_key=None,  # 自動生成される
-                translations=[
-                    FAQTranslationRequest(
-                        language=suggestion.language,
-                        question=question,
-                        answer=answer
-                    )
-                ],
+                language=suggestion.language,
+                question=question,
+                answer=answer,
                 priority=priority,
                 is_active=True
             )
-            # ログメッセージ用に最初の翻訳を取得
-            first_translation = faq_request.translations[0] if faq_request.translations else None
             logger.info(
-                f"FAQ request created: category={faq_request.category}, language={first_translation.language if first_translation else 'unknown'}, priority={faq_request.priority}, question_length={len(first_translation.question) if first_translation else 0}, answer_length={len(first_translation.answer) if first_translation else 0}, translations_count={len(faq_request.translations)}",
+                f"FAQ request created: category={faq_request.category}, language={faq_request.language}, priority={faq_request.priority}, question_length={len(faq_request.question)}, answer_length={len(faq_request.answer)}",
                 extra={
                     "category": faq_request.category,
-                    "language": first_translation.language if first_translation else None,
+                    "language": faq_request.language,
                     "priority": faq_request.priority,
-                    "question_length": len(first_translation.question) if first_translation else 0,
-                    "answer_length": len(first_translation.answer) if first_translation else 0,
-                    "translations_count": len(faq_request.translations)
+                    "question_length": len(faq_request.question),
+                    "answer_length": len(faq_request.answer)
                 }
             )
             
