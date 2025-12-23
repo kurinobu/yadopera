@@ -153,3 +153,4 @@ curl -I https://yadopera-frontend-staging.onrender.com/ | grep -i "http/"
 **状態**: ✅ **再デプロイトリガー完了**
 
 **重要**: デプロイ完了後、SPAのルーティングと静的ファイルのContent-Typeの両方を確認してください。
+

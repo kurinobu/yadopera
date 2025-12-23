@@ -166,3 +166,4 @@ curl -s "https://yadopera-frontend-staging.onrender.com/assets/index-iHuDpMpx.js
 **次のアクション**:
 - メインのJavaScriptバンドル（`index-iHuDpMpx.js`）の内容を確認
 - 新しいデバッグログが含まれているか検証
+

@@ -191,3 +191,4 @@ src/views/guest/Welcome.vue(50,28): error TS2307: Cannot find module '@/composab
 
 **コミット・プッシュ完了日時**: 2025年12月19日 11時41分35秒  
 **状態**: ✅ **コミット・プッシュ完了**
+

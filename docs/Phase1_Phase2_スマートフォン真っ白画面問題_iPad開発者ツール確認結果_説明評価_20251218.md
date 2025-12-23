@@ -374,3 +374,4 @@ TypeError: 'text/html' is not a valid JavaScript MIME type.
 **重要**: 指示があるまで修正を実施しません。説明と評価のみです。
 
 **最優先の修正**: Rewrite Ruleを修正して、静的ファイルを除外する必要があります。
+

@@ -337,3 +337,4 @@ yadopera-redis      Up 13 hours (healthy)
 
 **重要**: ブラウザでの動作確認を推奨します。実際のユーザー体験を確認するために、Docker環境で`http://localhost:5173/admin/login`にアクセスして、FAQ自動学習UIの動作を確認してください。
 
+

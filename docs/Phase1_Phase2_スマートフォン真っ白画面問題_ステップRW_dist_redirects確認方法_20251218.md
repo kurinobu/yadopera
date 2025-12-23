@@ -285,3 +285,4 @@ curl -I https://yadopera-frontend-staging.onrender.com/registerSW.js 2>&1 | grep
 
 **作成日時**: 2025年12月18日 15時25分00秒  
 **状態**: 📋 **確認方法説明完了**
+

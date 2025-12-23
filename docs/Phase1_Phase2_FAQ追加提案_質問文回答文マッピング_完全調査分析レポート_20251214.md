@@ -325,3 +325,4 @@ language = question_language if question_language else conversation_language
 **調査完了日**: 2025年12月14日  
 **次回**: 修正指示を待つ
 
+

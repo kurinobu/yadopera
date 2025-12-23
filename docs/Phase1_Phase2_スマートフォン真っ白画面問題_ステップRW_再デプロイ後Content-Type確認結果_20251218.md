@@ -111,3 +111,4 @@ curl -I https://yadopera-frontend-staging.onrender.com/assets/index-B6VbyiWR.js 
 
 **作成日時**: 2025年12月18日 15時50分00秒  
 **状態**: 📋 **確認中**
+

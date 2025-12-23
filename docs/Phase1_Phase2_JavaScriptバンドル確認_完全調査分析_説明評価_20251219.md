@@ -177,3 +177,4 @@ curl -s "https://yadopera-frontend-staging.onrender.com/assets/Welcome-K6zHy5qi.
 **次のアクション**:
 - `Welcome-K6zHy5qi.js`の内容を確認
 - 新しいデバッグログが含まれているか検証
+

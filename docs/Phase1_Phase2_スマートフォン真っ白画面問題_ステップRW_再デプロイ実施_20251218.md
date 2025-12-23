@@ -127,3 +127,4 @@ curl -I https://yadopera-frontend-staging.onrender.com/assets/index-B6VbyiWR.js 
 **状態**: ✅ **再デプロイトリガー完了**
 
 **重要**: デプロイ完了後、静的ファイルのContent-Typeを再確認してください。
+

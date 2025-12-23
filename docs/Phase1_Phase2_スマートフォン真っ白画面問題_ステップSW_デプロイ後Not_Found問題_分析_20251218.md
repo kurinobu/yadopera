@@ -309,3 +309,4 @@ routes:
 **状態**: 🔴 **重大問題発見 - SPAのRewrite Ruleが機能していない**
 
 **重要**: Render.comダッシュボードでRewrite Ruleを再設定する必要があります。ただし、これにより静的ファイルのContent-Type問題が再発する可能性があります。
+
