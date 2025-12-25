@@ -1,0 +1,13 @@
+"""
+AI関連モジュール
+"""
+
+from app.ai.openai_client import OpenAIClient
+from app.ai.embeddings import generate_embedding, generate_faq_embedding
+
+__all__ = [
+    "OpenAIClient",
+    "generate_embedding",
+    "generate_faq_embedding",
+]
+

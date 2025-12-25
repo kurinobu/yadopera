@@ -1,0 +1,77 @@
+/**
+ * 認証状態管理
+ */
+
+import { defineStore } from 'pinia'
+import { ref, computed } from 'vue'
+import { authApi } from '@/api/auth'
+import type { User } from '@/types/auth'
+
+export const useAuthStore = defineStore('auth', () => {
+  // State
+  const user = ref<User | null>(null)
+  const token = ref<string | null>(null)
+  const isAuthenticated = computed(() => !!token.value && !!user.value)
+
+  // Actions
+  function setUser(userData: User | null) {
+    user.value = userData
+  }
+
+  function setToken(tokenValue: string | null) {
+    token.value = tokenValue
+    try {
+      if (tokenValue) {
+        localStorage.setItem('auth_token', tokenValue)
+      } else {
+        localStorage.removeItem('auth_token')
+      }
+    } catch (error) {
+      // localStorageが利用できない場合、メモリのみに保存
+      console.warn('Failed to access localStorage, token stored in memory only:', error)
+    }
+  }
+
+  function login(userData: User, tokenValue: string) {
+    setUser(userData)
+    setToken(tokenValue)
+  }
+
+  function logout() {
+    setUser(null)
+    setToken(null)
+  }
+
+  async function initAuth() {
+    try {
+      const storedToken = localStorage.getItem('auth_token')
+      if (storedToken) {
+        token.value = storedToken
+        try {
+          // トークンからユーザー情報を取得
+          const userData = await authApi.getCurrentUser()
+          setUser(userData)
+        } catch (error) {
+          // トークンが無効な場合、ログアウト
+          console.error('Failed to get current user:', error)
+          logout()
+        }
+      }
+    } catch (error) {
+      // localStorageが利用できない場合、認証情報なしで続行
+      console.warn('Failed to access localStorage, continuing without auth:', error)
+    }
+  }
+
+  return {
+    user,
+    token,
+    isAuthenticated,
+    setUser,
+    setToken,
+    login,
+    logout,
+    initAuth
+  }
+})
+

@@ -1,0 +1,17 @@
+"""
+API v1 ルーター統合
+全APIエンドポイントを統合して管理
+"""
+
+from fastapi import APIRouter
+from app.api.v1 import auth, session, facility, chat
+
+# API v1 ルーター作成
+api_router = APIRouter()
+
+# 各ルーターを統合
+api_router.include_router(auth.router, tags=["auth"])
+api_router.include_router(session.router, tags=["session"])
+api_router.include_router(facility.router, tags=["facility"])
+api_router.include_router(chat.router, tags=["chat"])
+

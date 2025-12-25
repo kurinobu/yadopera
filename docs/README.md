@@ -46,8 +46,9 @@ Phase 0（準備期間）関連のドキュメント
 要約定義書
 
 - `やどぺら v0.1 要約定義書.md` - v0.1要約定義書
-- `やどぺら v0.2 要約定義書.md` - v0.2要約定義書
-- `yadopera_v02_summary.md` - v0.2要約（英語版）
+- `yadopera-v01-summary.md` - v0.1要約定義書
+- `yadopera-v02-summary.md` - v0.2要約定義書
+- `yadopera-v03-summary.md` - v0.3要約定義書（デフォルト）
 - `yadopera-v03-summary.md` - v0.3要約（最新、英語版）
 
 ### Contracts/
@@ -82,4 +83,5 @@ Phase 0（準備期間）関連のドキュメント
 **Author**: Air  
 **Last Updated**: 2025-11-26  
 **Status**: ドキュメント整理完了
+
 

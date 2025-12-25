@@ -1,0 +1,49 @@
+yadopera-backend  | INFO:     Will watch for changes in these directories: ['/app']
+yadopera-backend  | INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
+yadopera-backend  | INFO:     Started reloader process [1] using WatchFiles
+yadopera-backend  | INFO:     Started server process [8]
+yadopera-backend  | INFO:     Waiting for application startup.
+yadopera-backend  | INFO:     Application startup complete.
+yadopera-backend  | INFO:     192.168.65.1:19636 - "GET /health HTTP/1.1" 200 OK
+yadopera-backend  | 2025-12-13 13:12:30,186 INFO sqlalchemy.engine.Engine select pg_catalog.version()
+yadopera-backend  | 2025-12-13 13:12:30,186 INFO sqlalchemy.engine.Engine [raw sql] ()
+yadopera-backend  | 2025-12-13 13:12:30,187 INFO sqlalchemy.engine.Engine select current_schema()
+yadopera-backend  | 2025-12-13 13:12:30,187 INFO sqlalchemy.engine.Engine [raw sql] ()
+yadopera-backend  | 2025-12-13 13:12:30,187 INFO sqlalchemy.engine.Engine show standard_conforming_strings
+yadopera-backend  | 2025-12-13 13:12:30,188 INFO sqlalchemy.engine.Engine [raw sql] ()
+yadopera-backend  | 2025-12-13 13:12:30,188 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+yadopera-backend  | 2025-12-13 13:12:30,208 INFO sqlalchemy.engine.Engine SELECT users.id, users.facility_id, users.email, users.password_hash, users.role, users.full_name, users.is_active, users.last_login_at, users.password_reset_token, users.password_reset_expires, users.created_at, users.updated_at 
+yadopera-backend  | FROM users 
+yadopera-backend  | WHERE users.email = $1::VARCHAR
+yadopera-backend  | 2025-12-13 13:12:30,208 INFO sqlalchemy.engine.Engine [generated in 0.00013s] ('test@example.com',)
+yadopera-backend  | (trapped) error reading bcrypt version
+yadopera-backend  | Traceback (most recent call last):
+yadopera-backend  |   File "/usr/local/lib/python3.11/site-packages/passlib/handlers/bcrypt.py", line 620, in _load_backend_mixin
+yadopera-backend  |     version = _bcrypt.__about__.__version__
+yadopera-backend  |               ^^^^^^^^^^^^^^^^^
+yadopera-backend  | AttributeError: module 'bcrypt' has no attribute '__about__'
+yadopera-backend  | 2025-12-13 13:12:30,465 INFO sqlalchemy.engine.Engine UPDATE users SET last_login_at=$1::TIMESTAMP WITH TIME ZONE, updated_at=now() WHERE users.id = $2::INTEGER
+yadopera-backend  | 2025-12-13 13:12:30,465 INFO sqlalchemy.engine.Engine [generated in 0.00012s] (datetime.datetime(2025, 12, 13, 13, 12, 30, 463999), 1)
+yadopera-backend  | 2025-12-13 13:12:30,471 INFO sqlalchemy.engine.Engine COMMIT
+yadopera-backend  | 2025-12-13 13:12:30,472 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+yadopera-backend  | 2025-12-13 13:12:30,473 INFO sqlalchemy.engine.Engine SELECT users.id, users.facility_id, users.email, users.password_hash, users.role, users.full_name, users.is_active, users.last_login_at, users.password_reset_token, users.password_reset_expires, users.created_at, users.updated_at 
+yadopera-backend  | FROM users 
+yadopera-backend  | WHERE users.id = $1::INTEGER
+yadopera-backend  | 2025-12-13 13:12:30,473 INFO sqlalchemy.engine.Engine [generated in 0.00007s] (1,)
+yadopera-backend  | 2025-12-13 13:12:30,475 INFO sqlalchemy.engine.Engine ROLLBACK
+yadopera-backend  | INFO:     192.168.65.1:36501 - "POST /api/v1/auth/login HTTP/1.1" 200 OK
+yadopera-backend  | 2025-12-13 13:12:50,693 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+yadopera-backend  | 2025-12-13 13:12:50,694 INFO sqlalchemy.engine.Engine SELECT users.id, users.facility_id, users.email, users.password_hash, users.role, users.full_name, users.is_active, users.last_login_at, users.password_reset_token, users.password_reset_expires, users.created_at, users.updated_at 
+yadopera-backend  | FROM users 
+yadopera-backend  | WHERE users.email = $1::VARCHAR
+yadopera-backend  | 2025-12-13 13:12:50,694 INFO sqlalchemy.engine.Engine [cached since 20.49s ago] ('test@example.com',)
+yadopera-backend  | 2025-12-13 13:12:50,989 INFO sqlalchemy.engine.Engine UPDATE users SET last_login_at=$1::TIMESTAMP WITH TIME ZONE, updated_at=now() WHERE users.id = $2::INTEGER
+yadopera-backend  | 2025-12-13 13:12:50,989 INFO sqlalchemy.engine.Engine [cached since 20.52s ago] (datetime.datetime(2025, 12, 13, 13, 12, 50, 988792), 1)
+yadopera-backend  | 2025-12-13 13:12:50,989 INFO sqlalchemy.engine.Engine COMMIT
+yadopera-backend  | 2025-12-13 13:12:50,991 INFO sqlalchemy.engine.Engine BEGIN (implicit)
+yadopera-backend  | 2025-12-13 13:12:50,991 INFO sqlalchemy.engine.Engine SELECT users.id, users.facility_id, users.email, users.password_hash, users.role, users.full_name, users.is_active, users.last_login_at, users.password_reset_token, users.password_reset_expires, users.created_at, users.updated_at 
+yadopera-backend  | FROM users 
+yadopera-backend  | WHERE users.id = $1::INTEGER
+yadopera-backend  | 2025-12-13 13:12:50,991 INFO sqlalchemy.engine.Engine [cached since 20.52s ago] (1,)
+yadopera-backend  | 2025-12-13 13:12:50,991 INFO sqlalchemy.engine.Engine ROLLBACK
+yadopera-backend  | INFO:     192.168.65.1:32940 - "POST /api/v1/auth/login HTTP/1.1" 200 OK

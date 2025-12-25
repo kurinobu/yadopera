@@ -1,0 +1,42 @@
+/**
+ * ダークモードスタイル
+ * Tailwind CSSのdark:クラスと組み合わせて使用
+ */
+
+/* ダークモード時のスクロールバー */
+.dark ::-webkit-scrollbar {
+  background-color: #1f2937;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background-color: #4b5563;
+  border-radius: 0.5rem;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background-color: #6b7280;
+}
+
+/* ダークモード時の選択テキスト */
+.dark ::selection {
+  background-color: #3b82f6;
+  color: #ffffff;
+}
+
+/* ダークモード時のフォーカスリング */
+.dark *:focus-visible {
+  outline-color: #3b82f6;
+}
+
+/* スムーズなテーマ切り替え */
+html {
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* ダークモード時の背景色 */
+.dark body {
+  background-color: #111827;
+  color: #f9fafb;
+}
+
+

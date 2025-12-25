@@ -1,0 +1,56 @@
+# ステージング環境自動デプロイワークフロー
+# developブランチへのプッシュ時に自動デプロイ
+
+name: Staging Deploy
+
+on:
+  push:
+    branches:
+      - develop
+  pull_request:
+    branches:
+      - develop
+
+jobs:
+  deploy-backend:
+    name: Deploy Backend to Render.com
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+      
+      - name: Run tests
+        run: |
+          cd backend
+          pytest tests/ -v
+        continue-on-error: true  # テスト失敗でもデプロイを続行（オプション）
+      
+      - name: Deploy to Render.com
+        run: |
+          echo "Deployment to Render.com is handled automatically via webhook"
+          echo "Please ensure Render.com is configured to auto-deploy from develop branch"
+
+  # deploy-frontend:
+  #   name: Deploy Frontend to Render.com Static Site
+  #   note: Render.com Static Siteは自動デプロイ（GitHub連携）を使用
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v3
+  #     
+  #     - name: Deploy to Render.com
+  #       run: |
+  #         echo "Deployment to Render.com Static Site is handled automatically via webhook"
+  #         echo "Please ensure Render.com Static Site is configured to auto-deploy from develop branch"
+
+

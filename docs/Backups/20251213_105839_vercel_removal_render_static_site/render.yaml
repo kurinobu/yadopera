@@ -1,0 +1,31 @@
+# Render.com設定ファイル（ステージング環境）
+# 参考: https://render.com/docs/yaml-spec
+
+services:
+  - type: web
+    name: yadopera-backend-staging
+    env: python
+    region: tokyo
+    plan: pro
+    buildCommand: pip install -r requirements.txt && alembic upgrade head
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        sync: false  # Railway Hobbyから取得
+      - key: REDIS_URL
+        sync: false  # Railway Hobbyから取得
+      - key: OPENAI_API_KEY
+        sync: false  # 手動設定
+      - key: SECRET_KEY
+        generateValue: true  # 自動生成
+      - key: CORS_ORIGINS
+        value: https://yadopera-frontend-staging.vercel.app,http://localhost:5173
+      - key: ENVIRONMENT
+        value: staging
+      - key: DEBUG
+        value: "False"
+      - key: LOG_LEVEL
+        value: INFO
+    healthCheckPath: /api/v1/health
+
+

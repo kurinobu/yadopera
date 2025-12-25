@@ -1,0 +1,10 @@
+"""
+AI関連モジュール
+"""
+
+from app.ai.openai_client import OpenAIClient
+
+__all__ = [
+    "OpenAIClient",
+]
+

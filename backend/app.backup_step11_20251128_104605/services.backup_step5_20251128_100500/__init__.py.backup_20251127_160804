@@ -1,0 +1,11 @@
+"""
+サービス層
+ビジネスロジック
+"""
+
+from app.services.escalation_service import EscalationService
+
+__all__ = [
+    "EscalationService",
+]
+

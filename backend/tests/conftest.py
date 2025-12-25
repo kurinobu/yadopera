@@ -1,0 +1,398 @@
+"""
+pytest設定ファイル
+テスト用のフィクスチャを定義
+"""
+
+import os
+import pytest
+import asyncio
+from fastapi.testclient import TestClient
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+from sqlalchemy import text
+
+from app.main import app
+from app.database import Base, get_db
+from app.core.security import hash_password
+from unittest.mock import AsyncMock, MagicMock, patch
+
+
+# 環境変数でPostgreSQLテスト環境を有効化
+USE_POSTGRES_TEST = os.getenv("USE_POSTGRES_TEST", "false").lower() == "true"
+
+# 環境変数でOpenAI APIモックの使用を制御（ハイブリッドアプローチ）
+# デフォルト: モックを使用（高速・低コスト）
+# USE_OPENAI_MOCK=false: 実際のAPIを使用（統合テスト用）
+USE_OPENAI_MOCK = os.getenv("USE_OPENAI_MOCK", "true").lower() == "true"
+
+# テスト用データベースURL
+if USE_POSTGRES_TEST:
+    # PostgreSQL + pgvectorテスト環境
+    # 環境変数TEST_DATABASE_URLが設定されている場合はそれを使用（ステージング環境用）
+    # 設定されていない場合はローカルのPostgreSQLを使用
+    TEST_DATABASE_URL = os.getenv(
+        "TEST_DATABASE_URL",
+        "postgresql+asyncpg://yadopera_user:yadopera_password@localhost:5433/yadopera_test"
+    )
+else:
+    # SQLiteテスト環境（デフォルト）
+    TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
+
+# テスト用エンジン作成
+if USE_POSTGRES_TEST:
+    # PostgreSQL用エンジン設定
+    test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        pool_size=5,
+        max_overflow=0,
+        pool_pre_ping=True,
+        echo=False,
+    )
+else:
+    # SQLite用エンジン設定
+    test_engine = create_async_engine(
+        TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        echo=False,
+    )
+
+# テスト用セッション作成
+# Event loopエラーを防ぐため、適切な設定を使用
+TestSessionLocal = async_sessionmaker(
+    test_engine,
+    class_=AsyncSession,
+    expire_on_commit=False,
+    autocommit=False,
+    autoflush=False,
+)
+
+# テスト終了時のクリーンアップ
+@pytest.fixture(scope="session", autouse=True)
+async def cleanup_test_engine():
+    """
+    テスト終了時にエンジンをクリーンアップ
+    Event loopエラーを防ぐため、適切なタイミングでエンジンをクローズ
+    """
+    yield
+    # すべてのテストが終了した後にエンジンをクローズ
+    try:
+        await test_engine.dispose()
+    except Exception:
+        pass  # エンジンのクローズエラーは無視
+
+
+@pytest.fixture(scope="function")
+async def db_session():
+    """
+    テスト用データベースセッション
+    各テスト関数ごとに新しいセッションを作成
+    Event loopエラーを防ぐため、接続の管理を改善
+    """
+    # セットアップ: テーブル作成
+    # ステージング環境（TEST_DATABASE_URLが設定されている場合）ではテーブル作成をスキップ
+    # ローカル環境（TEST_DATABASE_URLが未設定）ではテーブルを作成
+    if USE_POSTGRES_TEST:
+        # PostgreSQL環境: pgvector拡張有効化 + テーブル作成
+        try:
+            async with test_engine.begin() as conn:
+                # pgvector拡張有効化
+                await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+                # テーブル作成（ステージング環境では既に存在する可能性があるため、エラーを無視）
+                try:
+                    await conn.run_sync(Base.metadata.create_all)
+                except Exception:
+                    # テーブルが既に存在する場合は無視（ステージング環境）
+                    pass
+        except Exception:
+            # 接続エラーを無視（既にテーブルが存在する場合など）
+            pass
+    else:
+        # SQLite環境: テーブル作成（ARRAY型エラーを適切に処理）
+        # 根本解決: SQLite環境ではPostgreSQL固有の型（ARRAY型）が使用できないため、
+        # テーブル作成時にエラーが発生する可能性がある
+        # エラーが発生した場合は、PostgreSQL環境を使用する必要があることを示す
+        try:
+            async with test_engine.begin() as conn:
+                # テーブル作成を確実に実行（SQLite環境では毎回テーブルを作成）
+                await conn.run_sync(Base.metadata.create_all)
+        except Exception as e:
+            # ARRAY型エラーの場合、PostgreSQL環境を使用する必要があることを示す
+            if "ARRAY" in str(e) or "UnsupportedCompilationError" in str(type(e).__name__):
+                pytest.skip(
+                    f"SQLite does not support ARRAY type. "
+                    f"Please use PostgreSQL test environment by setting USE_POSTGRES_TEST=true. "
+                    f"Error: {e}"
+                )
+            else:
+                # その他のエラーは再発生
+                raise
+    
+    # セッション作成とクリーンアップ
+    session = None
+    try:
+        session = TestSessionLocal()
+        yield session
+    finally:
+        # セッションの明示的なクローズとロールバック
+        # イベントループが閉じられる前にクローズする
+        if session:
+            try:
+                # 未コミットのトランザクションをロールバック
+                await session.rollback()
+            except (Exception, RuntimeError):
+                pass  # ロールバックエラーは無視（既にコミット済みまたはロールバック済みの場合、またはイベントループが閉じられている場合）
+            finally:
+                try:
+                    await session.close()
+                except (Exception, RuntimeError):
+                    pass  # クローズエラーは無視（イベントループが閉じられている場合など）
+    
+    # テスト後のクリーンアップ: テーブル削除
+    # ステージング環境（TEST_DATABASE_URLが設定されている場合）ではテーブル削除をスキップ
+    # ローカル環境（TEST_DATABASE_URLが未設定）ではテーブルを削除
+    if not os.getenv("TEST_DATABASE_URL"):
+        # ローカル環境のみテーブル削除を実行
+        try:
+            if USE_POSTGRES_TEST:
+                # PostgreSQL環境: テーブル削除（データベースは保持）
+                async with test_engine.begin() as cleanup_conn:
+                    await cleanup_conn.run_sync(Base.metadata.drop_all)
+            else:
+                # SQLite環境: テーブル削除
+                async with test_engine.begin() as cleanup_conn:
+                    await cleanup_conn.run_sync(Base.metadata.drop_all)
+        except (Exception, RuntimeError):
+            # クリーンアップエラーは無視（テーブルが存在しない場合やイベントループが閉じられている場合など）
+            pass
+
+
+@pytest.fixture(scope="function")
+async def client(db_session):
+    """
+    テスト用FastAPIクライアント（非同期）
+    Event loopエラーを回避するため、AsyncClientを使用
+    
+    使用方法:
+        @pytest.mark.asyncio
+        async def test_something(client):
+            response = await client.post("/api/v1/endpoint", json={...})
+            assert response.status_code == 200
+    """
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    async with AsyncClient(app=app, base_url="http://test") as test_client:
+        yield test_client
+    
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def auth_headers(client, test_user):
+    """
+    認証済みヘッダー
+    すべてのテストで使用可能な認証トークンを提供
+    """
+    login_response = await client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "test@example.com",
+            "password": "testpassword123"
+        }
+    )
+    access_token = login_response.json()["access_token"]
+    return {"Authorization": f"Bearer {access_token}"}
+
+
+@pytest.fixture(scope="function")
+def sync_client(db_session):
+    """
+    テスト用FastAPIクライアント（同期・非推奨）
+    後方互換性のため残すが、新規テストでは使用しない
+    
+    注意: このフィクスチャはEvent loopエラーが発生する可能性があります。
+    新規テストでは必ず`client`フィクスチャ（AsyncClient）を使用してください。
+    """
+    async def override_get_db():
+        yield db_session
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    with TestClient(app) as test_client:
+        yield test_client
+    
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+async def test_facility(db_session: AsyncSession):
+    """
+    テスト用施設データ
+    トランザクション内で作成し、テスト終了時にロールバックで削除
+    
+    ステージング環境では既存のテストデータを削除してから作成
+    """
+    from app.models.facility import Facility
+    from sqlalchemy import select, delete
+    
+    # ステージング環境（TEST_DATABASE_URLが設定されている場合）では既存データを削除
+    if os.getenv("TEST_DATABASE_URL"):
+        # 既存のテストデータを検索して削除
+        result = await db_session.execute(
+            select(Facility).where(
+                (Facility.slug == "test-hotel") | (Facility.email == "test@example.com")
+            )
+        )
+        existing_facilities = result.scalars().all()
+        for existing_facility in existing_facilities:
+            await db_session.delete(existing_facility)
+        # 削除をコミット（既存データの削除は永続化、新しいトランザクションを開始）
+        await db_session.commit()
+    
+    facility = Facility(
+        name="Test Hotel",
+        slug="test-hotel",
+        email="test@example.com",
+        phone="090-1234-5678",
+        address="Test Address",
+        is_active=True,
+    )
+    db_session.add(facility)
+    # commit()を削除: トランザクション内でデータを作成し、テスト終了時にrollback()で削除
+    # flush()でIDを取得（外部キー制約で必要）
+    await db_session.flush()
+    await db_session.refresh(facility)
+    return facility
+
+
+@pytest.fixture
+async def test_user(db_session: AsyncSession, test_facility):
+    """
+    テスト用ユーザーデータ
+    トランザクション内で作成し、テスト終了時にロールバックで削除
+    
+    ステージング環境では既存のテストデータを削除してから作成
+    """
+    from app.models.user import User
+    from sqlalchemy import select
+    
+    # ステージング環境（TEST_DATABASE_URLが設定されている場合）では既存データを削除
+    if os.getenv("TEST_DATABASE_URL"):
+        # 既存のテストデータを検索して削除
+        result = await db_session.execute(
+            select(User).where(User.email == "test@example.com")
+        )
+        existing_users = result.scalars().all()
+        for existing_user in existing_users:
+            await db_session.delete(existing_user)
+        # 削除をコミット（既存データの削除は永続化、新しいトランザクションを開始）
+        await db_session.commit()
+    
+    user = User(
+        facility_id=test_facility.id,
+        email="test@example.com",
+        password_hash=hash_password("testpassword123"),
+        full_name="Test User",
+        role="staff",
+        is_active=True,
+    )
+    db_session.add(user)
+    # commit()を削除: トランザクション内でデータを作成し、テスト終了時にrollback()で削除
+    # flush()でIDを取得（外部キー制約で必要）
+    await db_session.flush()
+    await db_session.refresh(user)
+    return user
+
+
+# ============================================================================
+# OpenAI API モックフィクスチャ（ハイブリッドアプローチ）
+# ============================================================================
+
+@pytest.fixture
+def mock_openai_client():
+    """
+    OpenAI APIクライアントのモックフィクスチャ
+    ハイブリッドアプローチ: デフォルトでモックを使用、統合テストで実際のAPIを使用可能
+    
+    Returns:
+        AsyncMock: OpenAI APIクライアントのモック
+    """
+    mock_client = AsyncMock()
+    
+    # デフォルトのモック動作
+    mock_client.generate_response = AsyncMock(
+        return_value="This is a mock AI response."
+    )
+    mock_client.generate_embedding = AsyncMock(
+        return_value=[0.1] * 1536  # 1536次元の埋め込みベクトル
+    )
+    
+    return mock_client
+
+
+@pytest.fixture
+def mock_embedding():
+    """
+    埋め込みベクトルのモックフィクスチャ
+    
+    Returns:
+        List[float]: 1536次元の埋め込みベクトル
+    """
+    return [0.1] * 1536
+
+
+@pytest.fixture
+def mock_openai_patch(mock_openai_client):
+    """
+    OpenAI APIクライアントのパッチコンテキストマネージャー
+    テストで明示的に使用する場合のフィクスチャ
+    
+    Usage:
+        def test_something(mock_openai_patch):
+            with mock_openai_patch:
+                # テストコード
+                pass
+    """
+    if not USE_OPENAI_MOCK:
+        # 実際のAPIを使用する場合、パッチを返さない
+        from contextlib import nullcontext
+        return nullcontext()
+    
+    # モックを適用するモジュールのリスト
+    modules_to_patch = [
+        'app.ai.engine.OpenAIClient',
+        'app.ai.embeddings.OpenAIClient',
+        'app.ai.openai_client.OpenAIClient',
+    ]
+    
+    # 複数のパッチを組み合わせたコンテキストマネージャー
+    from contextlib import ExitStack
+    
+    class MultiPatch:
+        def __init__(self, modules, mock_client):
+            self.modules = modules
+            self.mock_client = mock_client
+            self.patches = []
+            self.stack = ExitStack()
+        
+        def __enter__(self):
+            for module_path in self.modules:
+                try:
+                    patch_obj = patch(module_path, return_value=self.mock_client)
+                    self.patches.append(patch_obj)
+                    self.stack.enter_context(patch_obj)
+                except (ImportError, AttributeError):
+                    pass
+            return self
+        
+        def __exit__(self, *args):
+            self.stack.close()
+            return False
+    
+    return MultiPatch(modules_to_patch, mock_openai_client)
+
