@@ -46,7 +46,14 @@ async def get_facilities(
                 detail="Facility not found"
             )
         
-        return [FacilityResponse.from_orm(facility)]
+        # timeオブジェクトを文字列に変換
+        facility_data = {
+            **facility.__dict__,
+            "check_in_time": facility.check_in_time.strftime("%H:%M") if facility.check_in_time else None,
+            "check_out_time": facility.check_out_time.strftime("%H:%M") if facility.check_out_time else None,
+        }
+        
+        return [FacilityResponse(**facility_data)]
         
     except Exception as e:
         raise HTTPException(
