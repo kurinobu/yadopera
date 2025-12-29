@@ -8,7 +8,7 @@ from typing import Optional, List
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQListResponse
+from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQListResponse, BulkFAQCreateResponse
 from app.services.faq_service import FAQService
 
 router = APIRouter(prefix="/admin/faqs", tags=["admin", "faqs"])
@@ -220,4 +220,58 @@ async def delete_faq(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting FAQ: {str(e)}"
         )
+
+
+@router.post("/bulk", response_model=BulkFAQCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_bulk_faqs(
+    faq_requests: List[FAQRequest],
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    FAQ一括作成（プリセット投入用、埋め込みベクトル自動生成、インテントベース構造）
+    
+    - **faq_requests**: FAQ作成リクエストのリスト
+      - **category**: カテゴリ（basic/facilities/location/trouble）
+      - **intent_key**: インテント識別キー（オプション、自動生成される場合は省略可能）
+      - **translations**: 翻訳リスト（最低1つの言語が必要）
+        - **language**: 言語コード（en/ja/zh-TW/fr）
+        - **question**: 質問文（1-500文字）
+        - **answer**: 回答文（1-2000文字）
+      - **priority**: 優先度（1-5、デフォルト: 1）
+      - **is_active**: 有効/無効（デフォルト: true）
+    
+    JWT認証必須。一括で複数FAQを作成します。作成に失敗したFAQはスキップされ、ログに記録されます。
+    """
+    try:
+        # ユーザーが所属する施設IDを取得
+        facility_id = current_user.facility_id
+        if not facility_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not associated with any facility"
+            )
+        
+        # FAQサービスで一括作成
+        faq_service = FAQService(db)
+        created_faqs = await faq_service.bulk_create_faqs(
+            facility_id=facility_id,
+            faq_requests=faq_requests,
+            user_id=current_user.id
+        )
+        
+        return BulkFAQCreateResponse(
+            created_count=len(created_faqs),
+            faqs=created_faqs
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        # その他のエラー
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating bulk FAQs: {str(e)}"
+        )
+
 

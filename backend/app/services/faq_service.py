@@ -353,6 +353,55 @@ class FAQService:
             updated_at=faq.updated_at
         )
     
+    async def bulk_create_faqs(
+        self,
+        facility_id: int,
+        faq_requests: List[FAQRequest],
+        user_id: int
+    ) -> List[FAQResponse]:
+        """
+        FAQ一括作成（埋め込みベクトル自動生成、インテントベース構造）
+        
+        Args:
+            facility_id: 施設ID
+            faq_requests: FAQ作成リクエストリスト
+            user_id: 作成者ID
+        
+        Returns:
+            List[FAQResponse]: 作成されたFAQリスト（translationsを含む）
+        """
+        created_faqs = []
+        
+        for request in faq_requests:
+            try:
+                # 個別のcreate_faqを呼び出し
+                faq_response = await self.create_faq(
+                    facility_id=facility_id,
+                    request=request,
+                    user_id=user_id
+                )
+                created_faqs.append(faq_response)
+                logger.info(f"Bulk FAQ creation: created faq_id={faq_response.id}, intent_key={faq_response.intent_key}")
+            except ValueError as e:
+                logger.warning(f"Bulk FAQ creation: skipped due to validation error: {str(e)}")
+                # 一括作成なので、エラーがあっても続行（ログに記録）
+                continue
+            except Exception as e:
+                logger.error(f"Bulk FAQ creation: unexpected error: {str(e)}", exc_info=True)
+                # 予期せぬエラーは続行
+                continue
+        
+        logger.info(
+            f"Bulk FAQ creation completed: facility_id={facility_id}, requested={len(faq_requests)}, created={len(created_faqs)}",
+            extra={
+                "facility_id": facility_id,
+                "requested_count": len(faq_requests),
+                "created_count": len(created_faqs)
+            }
+        )
+        
+        return created_faqs
+    
     async def update_faq(
         self,
         faq_id: int,

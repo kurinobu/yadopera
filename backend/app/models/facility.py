@@ -29,7 +29,7 @@ class Facility(Base):
     local_info = Column(Text)
     languages = Column(ARRAY(String), default=["en"])
     timezone = Column(String(50), default="Asia/Tokyo")
-    subscription_plan = Column(String(50), default="small")  # 'small', 'standard', 'premium'
+    subscription_plan = Column(String(50), default="small")  # 'free', 'mini', 'small', 'standard', 'premium'
     monthly_question_limit = Column(Integer, default=200)
     staff_absence_periods = Column(JSON, default=[])  # スタッフ不在時間帯（JSON配列）
     icon_url = Column(String(255), nullable=True)  # アイコンURL（Phase 1では任意）

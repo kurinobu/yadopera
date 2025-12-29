@@ -3,7 +3,7 @@
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -52,7 +52,7 @@ class FacilityResponse(BaseModel):
     local_info: Optional[str] = None
     languages: List[str] = Field(default_factory=list)
     timezone: str = "Asia/Tokyo"
-    subscription_plan: str = "small"
+    subscription_plan: Literal["free", "mini", "small", "standard", "premium"] = "small"
     monthly_question_limit: int = 200
     is_active: bool = True
     created_at: datetime
