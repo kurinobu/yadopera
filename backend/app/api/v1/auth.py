@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.api.deps import get_current_user
-from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, UserResponse, PasswordChangeRequest, PasswordChangeResponse
+from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, UserResponse, PasswordChangeRequest, PasswordChangeResponse, FacilityRegisterRequest
 from app.services.auth_service import AuthService
 from app.models.user import User
 from app.core.security import hash_password, verify_password
@@ -28,6 +28,24 @@ async def login(
     成功時はJWTアクセストークンを返却
     """
     return await AuthService.login(db, login_data)
+
+
+@router.post("/register", response_model=LoginResponse)
+async def register_facility(
+    request: FacilityRegisterRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    施設登録
+    
+    - **email**: 施設管理者メールアドレス
+    - **password**: パスワード（最小8文字）
+    - **facility_name**: 施設名
+    - **subscription_plan**: 料金プラン（デフォルト: small）
+    
+    成功時は施設・ユーザー作成、FAQ自動投入、JWTアクセストークンを返却
+    """
+    return await AuthService.register_facility(db, request)
 
 
 @router.get("/me", response_model=UserResponse)

@@ -3,7 +3,7 @@
  */
 
 import apiClient from './axios'
-import type { LoginRequest, LoginResponse, User } from '@/types/auth'
+import type { LoginRequest, RegisterRequest, LoginResponse, User } from '@/types/auth'
 import type { PasswordChangeRequest } from '@/types/facility'
 
 export const authApi = {
@@ -12,6 +12,14 @@ export const authApi = {
    */
   async login(data: LoginRequest): Promise<LoginResponse> {
     const response = await apiClient.post<LoginResponse>('/auth/login', data)
+    return response.data
+  },
+
+  /**
+   * 施設登録
+   */
+  async register(data: RegisterRequest): Promise<LoginResponse> {
+    const response = await apiClient.post<LoginResponse>('/auth/register', data)
     return response.data
   },
 

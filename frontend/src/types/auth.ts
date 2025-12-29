@@ -16,6 +16,13 @@ export interface LoginRequest {
   password: string
 }
 
+export interface RegisterRequest {
+  email: string
+  password: string
+  facility_name: string
+  subscription_plan?: string
+}
+
 export interface LoginResponse {
   access_token: string
   token_type: string

@@ -15,6 +15,15 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/admin/Register.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: false
+    }
+  },
+  {
     path: '/admin',
     redirect: '/admin/dashboard',
     meta: {
