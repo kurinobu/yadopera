@@ -13,7 +13,7 @@ pgvector==0.2.4
 # Authentication
 python-jose[cryptography]==3.3.0
 passlib[bcrypt]==1.7.4
-bcrypt==4.1.2  # bcrypt 5.0.0とpasslib 1.7.4の互換性問題を回避
+bcrypt==3.2.2  # bcrypt 4.xとpasslib 1.7.4の互換性問題を回避
 python-dotenv==1.0.0
 
 # OpenAI
