@@ -166,8 +166,8 @@ const fetchHistory = async () => {
 // FAQ一覧取得
 const fetchFaqs = async () => {
   try {
-    const data = await faqApi.getFaqs()
-    faqs.value = data
+    const response = await faqApi.getFaqs()
+    faqs.value = response.faqs
   } catch (err: any) {
     console.error('Failed to fetch FAQs:', err)
   }
