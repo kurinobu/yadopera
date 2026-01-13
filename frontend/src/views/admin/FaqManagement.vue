@@ -214,13 +214,6 @@ const fetchFaqs = async () => {
       const startTime = Date.now()
       
       const poll = async () => {
-        if (Date.now() - startTime > maxPollTime) {
-          // タイムアウト: 現在の件数を表示
-          console.log('⏱️ ポーリングタイムアウト: 現在の件数を表示', total)
-          loading.value = false
-          return
-        }
-        
         try {
           const newResponse = await faqApi.getFaqs()
           const newData = newResponse.faqs
@@ -232,6 +225,27 @@ const fetchFaqs = async () => {
             total: newTotal,
             is_initializing: newIsInitializing
           })
+          
+          // ポーリング中にFAQ数が増えた場合は、即座にUIを更新
+          if (newTotal > faqs.value.length) {
+            console.log('📊 FAQ数が増加: UIを更新', {
+              previous: faqs.value.length,
+              current: newTotal
+            })
+            faqs.value = newData
+          }
+          
+          // タイムアウトチェック（ポーリング結果取得後）
+          if (Date.now() - startTime > maxPollTime) {
+            // タイムアウト: 最後に取得したデータを表示
+            console.log('⏱️ ポーリングタイムアウト: 最後に取得したデータを表示', {
+              total: newTotal,
+              count: newData.length
+            })
+            faqs.value = newData
+            loading.value = false
+            return
+          }
           
           if (!newIsInitializing && newTotal >= expectedCount) {
             // 完了: 最新のデータを表示
