@@ -182,10 +182,13 @@ const lowRatedAnswers = ref<LowRatedAnswer[]>([])
 
 // データ取得
 const fetchFaqs = async () => {
+  console.log('🚀 fetchFaqs: 開始')
   try {
     loading.value = true
     error.value = null
+    console.log('📡 fetchFaqs: API呼び出し前')
     const response = await faqApi.getFaqs()
+    console.log('📡 fetchFaqs: API呼び出し成功', response)
     const data = response.faqs
     const isInitializing = response.is_initializing
     const total = response.total
@@ -207,8 +210,17 @@ const fetchFaqs = async () => {
     
     // バックグラウンド処理が進行中の場合、または期待値未満の場合はポーリングを開始
     // 修正2: isInitializingがFalseでも、total < 20の場合はポーリングを開始（二重の安全策）
-    if ((isInitializing && total < 20) || (!isInitializing && total < 20)) {
-      const expectedCount = 20
+    const expectedCount = 20  // 条件チェック前に定義
+    console.log('🔍 ポーリング条件チェック:', {
+      isInitializing,
+      total,
+      expectedCount,
+      condition1: isInitializing && total < expectedCount,
+      condition2: !isInitializing && total < expectedCount,
+      shouldPoll: (isInitializing && total < expectedCount) || (!isInitializing && total < expectedCount)
+    })
+    
+    if ((isInitializing && total < expectedCount) || (!isInitializing && total < expectedCount)) {
       const pollInterval = 2000 // 2秒ごとにポーリング
       const maxPollTime = 30000 // 最大30秒
       const startTime = Date.now()
@@ -259,6 +271,11 @@ const fetchFaqs = async () => {
         } catch (err: any) {
           // エラー: 現在の件数を表示
           console.error('❌ ポーリングエラー:', err)
+          console.error('❌ ポーリングエラー: エラー詳細', {
+            message: err.message,
+            stack: err.stack,
+            response: err.response
+          })
           loading.value = false
         }
       }
@@ -272,10 +289,20 @@ const fetchFaqs = async () => {
       setTimeout(poll, pollInterval)
     } else {
       // 通常の表示
+      console.log('⏭️ ポーリング不要: 通常の表示', {
+        isInitializing,
+        total,
+        expectedCount
+      })
       loading.value = false
     }
   } catch (err: any) {
     console.error('❌ FAQ取得失敗:', err)
+    console.error('❌ FAQ取得失敗: エラー詳細', {
+      message: err.message,
+      stack: err.stack,
+      response: err.response
+    })
     error.value = err.response?.data?.detail || 'FAQ一覧の取得に失敗しました'
     loading.value = false
   }
@@ -363,11 +390,21 @@ const scrollToSection = async (targetId?: string) => {
 
 // コンポーネントマウント時にデータ取得
 onMounted(async () => {
-  await fetchFaqs()
-  await fetchUnresolvedQuestions()
-  await fetchLowRatedAnswers()
-  // ハッシュフラグメントに基づいてスクロール
-  await scrollToSection()
+  console.log('🚀 FaqManagement: onMounted開始')
+  try {
+    await fetchFaqs()
+    await fetchUnresolvedQuestions()
+    await fetchLowRatedAnswers()
+    // ハッシュフラグメントに基づいてスクロール
+    await scrollToSection()
+    console.log('✅ FaqManagement: onMounted完了')
+  } catch (err: any) {
+    console.error('❌ FaqManagement: onMountedエラー', err)
+    console.error('❌ FaqManagement: onMountedエラー詳細', {
+      message: err.message,
+      stack: err.stack
+    })
+  }
 })
 
 // ルートのハッシュが変更されたときにもスクロール
