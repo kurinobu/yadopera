@@ -5,11 +5,14 @@ FAQ管理APIエンドポイント
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
+from datetime import datetime, timezone, timedelta
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
+from app.models.facility import Facility
 from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQListResponse, BulkFAQCreateResponse
 from app.services.faq_service import FAQService
+from app.core.plan_limits import get_initial_faq_count
 
 router = APIRouter(prefix="/admin/faqs", tags=["admin", "faqs"])
 
@@ -47,8 +50,21 @@ async def get_faqs(
             is_active=is_active
         )
         
+        # 施設情報を取得して、バックグラウンド処理が進行中かどうかを判定
+        facility = await db.get(Facility, facility_id)
+        is_initializing = False
+        
+        if facility:
+            time_since_creation = datetime.now(timezone.utc) - facility.created_at
+            expected_count = get_initial_faq_count(facility.subscription_plan)
+            actual_count = len(faqs)
+            
+            # 施設作成から30秒以内で、期待値と一致しない場合は進行中とみなす
+            if time_since_creation < timedelta(seconds=30) and actual_count < expected_count:
+                is_initializing = True
+        
         # totalはインテント単位でカウント（言語に関係なく、FAQ.idをカウント）
-        return FAQListResponse(faqs=faqs, total=len(faqs))
+        return FAQListResponse(faqs=faqs, total=len(faqs), is_initializing=is_initializing)
     
     except HTTPException:
         raise

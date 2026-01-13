@@ -2,7 +2,7 @@
 認証APIエンドポイント
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
@@ -34,6 +34,7 @@ async def login(
 @router.post("/register", response_model=LoginResponse)
 async def register_facility(
     request: FacilityRegisterRequest,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -44,10 +45,11 @@ async def register_facility(
     - **facility_name**: 施設名
     - **subscription_plan**: 料金プラン（デフォルト: small）
     
-    成功時は施設・ユーザー作成、FAQ自動投入、JWTアクセストークンを返却
+    成功時は施設・ユーザー作成、JWTアクセストークンを返却
+    FAQ自動投入はバックグラウンドで実行されます
     """
     try:
-        return await AuthService.register_facility(db, request)
+        return await AuthService.register_facility(db, request, background_tasks)
     except IntegrityError as e:
         # データベース制約違反のハンドリング
         error_str = str(e.orig) if hasattr(e, 'orig') else str(e)

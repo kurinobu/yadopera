@@ -15,8 +15,12 @@ from app.schemas.auth import LoginRequest, LoginResponse, UserResponse, Facility
 from app.schemas.faq import FAQRequest
 from app.services.faq_service import FAQService
 from app.data.faq_presets import FAQ_PRESETS
-from fastapi import HTTPException, status
+from app.core.plan_limits import filter_faq_presets_by_plan
+from fastapi import HTTPException, status, BackgroundTasks
 from typing import Optional
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -172,20 +176,20 @@ class AuthService:
         return {"message": "Logged out successfully"}
     
     @staticmethod
-    async def register_facility(
+    async def register_facility_sync(
         db: AsyncSession,
         request: FacilityRegisterRequest
     ) -> LoginResponse:
         """
-        施設登録処理
+        施設登録処理（同期部分：施設・ユーザー作成のみ）
         
         Args:
             db: データベースセッション
             request: 施設登録リクエスト
-            
+        
         Returns:
-            ログインレスポンス（自動ログイン）
-            
+            ログインレスポンス（JWTトークン含む）
+        
         Raises:
             HTTPException: 登録失敗時
         """
@@ -200,8 +204,6 @@ class AuthService:
                 detail="Email already registered"
             )
         
-        # トランザクション開始
-        # async with db.begin():
         # 施設作成
         facility = Facility(
             name=request.facility_name,
@@ -224,37 +226,10 @@ class AuthService:
         db.add(user)
         await db.flush()  # user_idを取得
         
-        # FAQ自動投入
-        try:
-            # プリセットFAQをFAQRequestに変換
-            faq_requests = []
-            for preset in FAQ_PRESETS:
-                faq_request = FAQRequest(
-                    category=preset["category"],
-                    intent_key=preset["intent_key"],
-                    translations=[
-                        {
-                            "language": t["language"],
-                            "question": t["question"],
-                            "answer": t["answer"]
-                        } for t in preset["translations"]
-                    ],
-                    priority=preset["priority"],
-                    is_active=True
-                )
-                faq_requests.append(faq_request)
-            
-            await FAQService(db).bulk_create_faqs(facility.id, faq_requests, user.id)
-        except Exception as e:
-            # FAQ投入失敗時はロールバック
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Failed to create FAQs: {str(e)}"
-            )
-        
+        # コミット（施設・ユーザー作成を確定）
         await db.commit()
         
-        # コミット完了後、JWTトークン生成
+        # JWTトークン生成
         access_token = create_access_token(
             data={"sub": str(user.id), "email": user.email}
         )
@@ -273,4 +248,145 @@ class AuthService:
                 is_active=user.is_active,
             )
         )
+
+    @staticmethod
+    async def register_facility_async_faqs(
+        facility_id: int,
+        user_id: int,
+        subscription_plan: str
+    ):
+        """
+        FAQ自動投入処理（バックグラウンド実行）
+        
+        Args:
+            facility_id: 施設ID
+            user_id: ユーザーID
+            subscription_plan: 料金プラン
+        """
+        from app.database import AsyncSessionLocal
+        from app.data.faq_presets import FAQ_PRESETS
+        from app.schemas.faq import FAQRequest
+        from app.core.cache import delete_cache_pattern
+        
+        # 新しいデータベースセッションを作成
+        async with AsyncSessionLocal() as db:
+            try:
+                # 料金プランに基づいてFAQプリセットをフィルタ
+                filtered_presets = filter_faq_presets_by_plan(
+                    FAQ_PRESETS,
+                    subscription_plan
+                )
+                
+                # プリセットFAQをFAQRequestに変換
+                faq_requests = []
+                for preset in filtered_presets:
+                    faq_request = FAQRequest(
+                        category=preset["category"],
+                        intent_key=preset["intent_key"],
+                        translations=[
+                            {
+                                "language": t["language"],
+                                "question": t["question"],
+                                "answer": t["answer"]
+                            } for t in preset["translations"]
+                        ],
+                        priority=preset["priority"],
+                        is_active=True
+                    )
+                    faq_requests.append(faq_request)
+                
+                # FAQ一括作成
+                await FAQService(db).bulk_create_faqs(facility_id, faq_requests, user_id)
+                await db.commit()
+                
+                # キャッシュを無効化（FAQ作成後、最新のデータが取得されるようにする）
+                try:
+                    deleted_count = await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
+                    logger.info(
+                        f"FAQ cache invalidated: {deleted_count} keys deleted "
+                        f"(facility_id={facility_id})"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to invalidate FAQ cache: facility_id={facility_id}, "
+                        f"error={str(e)}",
+                        exc_info=True
+                    )
+                    # エラーが発生しても処理は続行（キャッシュは次回のリクエストで更新される）
+                
+                logger.info(
+                    f"Background FAQ creation completed: facility_id={facility_id}, "
+                    f"plan={subscription_plan}, count={len(faq_requests)}"
+                )
+                
+                # バックグラウンド処理完了後、5秒待ってから再度キャッシュを無効化
+                # これにより、バックグラウンド処理完了直後に取得されたキャッシュも無効化される
+                import asyncio
+                await asyncio.sleep(5)
+                
+                try:
+                    deleted_count = await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
+                    logger.info(
+                        f"FAQ cache invalidated (delayed): {deleted_count} keys deleted "
+                        f"(facility_id={facility_id})"
+                    )
+                except Exception as e:
+                    logger.warning(
+                        f"Failed to invalidate FAQ cache (delayed): facility_id={facility_id}, "
+                        f"error={str(e)}",
+                        exc_info=True
+                    )
+                    # エラーが発生しても処理は続行
+            except Exception as e:
+                logger.error(
+                    f"Background FAQ creation failed: facility_id={facility_id}, "
+                    f"plan={subscription_plan}, error={str(e)}",
+                    exc_info=True
+                )
+                # エラーが発生してもロールバックは不要（既に施設・ユーザーは作成済み）
+
+    @staticmethod
+    async def register_facility(
+        db: AsyncSession,
+        request: FacilityRegisterRequest,
+        background_tasks: Optional[BackgroundTasks] = None
+    ) -> LoginResponse:
+        """
+        施設登録処理（FAQ自動投入は非同期で実行）
+        
+        Args:
+            db: データベースセッション
+            request: 施設登録リクエスト
+            background_tasks: バックグラウンドタスク（オプション）
+        
+        Returns:
+            ログインレスポンス（JWTトークン含む）
+        
+        Raises:
+            HTTPException: 登録失敗時
+        """
+        # 施設・ユーザー作成（同期処理）
+        response = await AuthService.register_facility_sync(db, request)
+        
+        # FAQ自動投入をバックグラウンドで実行
+        if background_tasks:
+            # FastAPIのBackgroundTasksは非同期関数を直接実行できる
+            background_tasks.add_task(
+                AuthService.register_facility_async_faqs,
+                response.user.facility_id,
+                response.user.id,
+                request.subscription_plan
+            )
+        else:
+            # バックグラウンドタスクが利用できない場合は同期的に実行（後方互換性）
+            logger.warning(
+                "BackgroundTasks not available, running FAQ creation synchronously"
+            )
+            await AuthService.register_facility_async_faqs(
+                response.user.facility_id,
+                response.user.id,
+                request.subscription_plan
+            )
+        
+        return response
 

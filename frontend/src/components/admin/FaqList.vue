@@ -113,7 +113,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import type { FAQ, FAQCategory } from '@/types/faq'
 
 interface Props {
@@ -131,6 +131,20 @@ const selectedCategory = ref<FAQCategory | ''>('')
 
 const categories: FAQCategory[] = ['basic', 'facilities', 'location', 'trouble']
 
+// デバッグログ: props.faqsの変更を監視
+watch(() => props.faqs, (newFaqs) => {
+  console.log('📋 FaqList: props.faqs received:', {
+    count: newFaqs.length,
+    categories: {
+      basic: newFaqs.filter(f => f.category === 'basic').length,
+      facilities: newFaqs.filter(f => f.category === 'facilities').length,
+      location: newFaqs.filter(f => f.category === 'location').length,
+      trouble: newFaqs.filter(f => f.category === 'trouble').length,
+    },
+    faqs: newFaqs.map(f => ({ id: f.id, category: f.category, intent_key: f.intent_key }))
+  })
+}, { immediate: true })
+
 const filteredFaqs = computed(() => {
   if (!selectedCategory.value) {
     return props.faqs
@@ -139,7 +153,9 @@ const filteredFaqs = computed(() => {
 })
 
 const getFaqsByCategory = (category: FAQCategory): FAQ[] => {
-  return filteredFaqs.value.filter(faq => faq.category === category)
+  const result = props.faqs.filter(faq => faq.category === category)
+  console.log(`🔍 getFaqsByCategory(${category}):`, result.length, '件')
+  return result
 }
 
 const getCategoryLabel = (category: FAQCategory): string => {

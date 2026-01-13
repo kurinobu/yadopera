@@ -185,12 +185,79 @@ const fetchFaqs = async () => {
   try {
     loading.value = true
     error.value = null
-    const data = await faqApi.getFaqs()
+    const response = await faqApi.getFaqs()
+    const data = response.faqs
+    const isInitializing = response.is_initializing
+    const total = response.total
+    
+    console.log('✅ FAQ取得成功:', {
+      count: data.length,
+      total: total,
+      is_initializing: isInitializing,
+      categories: {
+        basic: data.filter(f => f.category === 'basic').length,
+        facilities: data.filter(f => f.category === 'facilities').length,
+        location: data.filter(f => f.category === 'location').length,
+        trouble: data.filter(f => f.category === 'trouble').length,
+      },
+      data: data
+    })
+    
     faqs.value = data
+    
+    // バックグラウンド処理が進行中の場合、ポーリングを開始
+    if (isInitializing && total < 20) {
+      const expectedCount = 20
+      const pollInterval = 2000 // 2秒ごとにポーリング
+      const maxPollTime = 30000 // 最大30秒
+      const startTime = Date.now()
+      
+      const poll = async () => {
+        if (Date.now() - startTime > maxPollTime) {
+          // タイムアウト: 現在の件数を表示
+          console.log('⏱️ ポーリングタイムアウト: 現在の件数を表示', total)
+          loading.value = false
+          return
+        }
+        
+        try {
+          const newResponse = await faqApi.getFaqs()
+          const newData = newResponse.faqs
+          const newTotal = newResponse.total
+          const newIsInitializing = newResponse.is_initializing
+          
+          console.log('🔄 ポーリング結果:', {
+            count: newData.length,
+            total: newTotal,
+            is_initializing: newIsInitializing
+          })
+          
+          if (!newIsInitializing && newTotal >= expectedCount) {
+            // 完了: 最新のデータを表示
+            console.log('✅ バックグラウンド処理完了: 最新のデータを表示', newTotal)
+            faqs.value = newData
+            loading.value = false
+          } else {
+            // まだ進行中: 再度ポーリング
+            setTimeout(poll, pollInterval)
+          }
+        } catch (err: any) {
+          // エラー: 現在の件数を表示
+          console.error('❌ ポーリングエラー:', err)
+          loading.value = false
+        }
+      }
+      
+      // 初回ポーリングを開始
+      console.log('🔄 バックグラウンド処理進行中: ポーリングを開始')
+      setTimeout(poll, pollInterval)
+    } else {
+      // 通常の表示
+      loading.value = false
+    }
   } catch (err: any) {
-    console.error('Failed to fetch FAQs:', err)
+    console.error('❌ FAQ取得失敗:', err)
     error.value = err.response?.data?.detail || 'FAQ一覧の取得に失敗しました'
-  } finally {
     loading.value = false
   }
 }

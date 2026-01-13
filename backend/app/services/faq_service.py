@@ -176,6 +176,22 @@ class FAQService:
                 )
             )
         
+        # バックグラウンド処理が完了しているか確認
+        # 施設作成から30秒以内の場合、バックグラウンド処理が完了していない可能性がある
+        from app.models.facility import Facility
+        from datetime import datetime, timezone, timedelta
+        
+        facility = await self.db.get(Facility, facility_id)
+        if facility:
+            time_since_creation = datetime.now(timezone.utc) - facility.created_at
+            # 施設作成から30秒以内の場合、キャッシュを保存しない（バックグラウンド処理が完了していない可能性がある）
+            if time_since_creation < timedelta(seconds=30):
+                logger.debug(
+                    f"Skipping cache save for recently created facility: "
+                    f"facility_id={facility_id}, time_since_creation={time_since_creation.total_seconds():.2f}s"
+                )
+                return faq_responses
+        
         # キャッシュに保存（辞書形式で保存）
         faq_dicts = [faq.model_dump() for faq in faq_responses]
         await set_cache(cache_key_str, faq_dicts, FAQ_CACHE_TTL)
