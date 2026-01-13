@@ -205,8 +205,9 @@ const fetchFaqs = async () => {
     
     faqs.value = data
     
-    // バックグラウンド処理が進行中の場合、ポーリングを開始
-    if (isInitializing && total < 20) {
+    // バックグラウンド処理が進行中の場合、または期待値未満の場合はポーリングを開始
+    // 修正2: isInitializingがFalseでも、total < 20の場合はポーリングを開始（二重の安全策）
+    if ((isInitializing && total < 20) || (!isInitializing && total < 20)) {
       const expectedCount = 20
       const pollInterval = 2000 // 2秒ごとにポーリング
       const maxPollTime = 30000 // 最大30秒
@@ -249,7 +250,11 @@ const fetchFaqs = async () => {
       }
       
       // 初回ポーリングを開始
-      console.log('🔄 バックグラウンド処理進行中: ポーリングを開始')
+      console.log('🔄 バックグラウンド処理進行中または期待値未満: ポーリングを開始', {
+        isInitializing,
+        total,
+        expectedCount
+      })
       setTimeout(poll, pollInterval)
     } else {
       // 通常の表示
