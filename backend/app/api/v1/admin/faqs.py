@@ -59,8 +59,12 @@ async def get_faqs(
             expected_count = get_initial_faq_count(facility.subscription_plan)
             actual_count = len(faqs)
             
-            # 施設作成から30秒以内で、期待値と一致しない場合は進行中とみなす
-            if time_since_creation < timedelta(seconds=30) and actual_count < expected_count:
+            # 施設作成から60秒以内で、期待値と一致しない場合は進行中とみなす
+            # ステージング環境での処理時間を考慮して60秒に拡張
+            if time_since_creation < timedelta(seconds=60) and actual_count < expected_count:
+                is_initializing = True
+            # 期待値未満の場合は常に進行中とみなす（より確実）
+            elif actual_count < expected_count:
                 is_initializing = True
         
         # totalはインテント単位でカウント（言語に関係なく、FAQ.idをカウント）
