@@ -4,6 +4,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, UserResponse, PasswordChangeRequest, PasswordChangeResponse, FacilityRegisterRequest
@@ -45,7 +46,35 @@ async def register_facility(
     
     成功時は施設・ユーザー作成、FAQ自動投入、JWTアクセストークンを返却
     """
-    return await AuthService.register_facility(db, request)
+    try:
+        return await AuthService.register_facility(db, request)
+    except IntegrityError as e:
+        # データベース制約違反のハンドリング
+        error_str = str(e.orig) if hasattr(e, 'orig') else str(e)
+        if "idx_facilities_slug" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="施設の登録に失敗しました。同じ施設名が既に登録されている可能性があります。"
+            )
+        elif "idx_facilities_email" in error_str or "email" in error_str.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="このメールアドレスは既に登録されています。"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="施設の登録中にエラーが発生しました。"
+            )
+    except HTTPException:
+        # HTTPExceptionはそのまま再発生
+        raise
+    except Exception as e:
+        # その他の例外
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"予期しないエラーが発生しました: {str(e)}"
+        )
 
 
 @router.get("/me", response_model=UserResponse)

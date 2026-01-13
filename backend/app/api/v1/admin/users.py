@@ -11,7 +11,7 @@ from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.facility import Facility
 from app.models.faq import FAQ
-from app.schemas.user import UserResponse
+from app.schemas.auth import UserResponse
 
 router = APIRouter(prefix="/admin/users", tags=["admin", "users"])
 

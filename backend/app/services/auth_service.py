@@ -25,21 +25,44 @@ class AuthService:
     """
     
     @staticmethod
-    def _generate_slug(name: str) -> str:
+    async def _generate_unique_slug(db: AsyncSession, base_name: str) -> str:
         """
-        施設名からslugを生成
+        URLセーフなユニークslugを生成
         
         Args:
-            name: 施設名
-            
+            db: データベースセッション
+            base_name: 施設名
+        
         Returns:
-            slug
+            str: ユニークなslug
         """
+        import uuid
         import re
-        # 小文字に変換、記号を除去、空白をハイフンに
-        slug = re.sub(r'[^\w\s-]', '', name.lower())
-        slug = re.sub(r'[\s_]+', '-', slug)
-        return slug.strip('-')
+        
+        # 施設名を英数字に変換（日本語は削除）
+        slug_base = re.sub(r'[^\w\s-]', '', base_name.lower())
+        slug_base = re.sub(r'[-\s]+', '-', slug_base).strip('-')
+        
+        # 英数字が存在しない場合はデフォルト値を使用
+        if not slug_base or len(slug_base) < 1:
+            slug_base = "facility"
+        
+        # 最大20文字に制限
+        slug_base = slug_base[:20]
+        
+        # UUIDの先頭8文字を付与
+        unique_id = str(uuid.uuid4())[:8]
+        slug = f"{slug_base}-{unique_id}"
+        
+        # 念のため重複チェック（UUID使用時はほぼ不要だが安全のため）
+        result = await db.execute(
+            select(Facility).where(Facility.slug == slug)
+        )
+        if result.scalar_one_or_none() is not None:
+            # 万が一重複した場合はUUID全体を使用
+            slug = f"{slug_base}-{str(uuid.uuid4())}"
+        
+        return slug
     
     @staticmethod
     async def authenticate_user(
@@ -182,7 +205,7 @@ class AuthService:
         # 施設作成
         facility = Facility(
             name=request.facility_name,
-            slug=AuthService._generate_slug(request.facility_name),
+            slug=await AuthService._generate_unique_slug(db, request.facility_name),
             email=request.email,
             subscription_plan=request.subscription_plan
         )
