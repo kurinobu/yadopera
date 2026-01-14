@@ -16,15 +16,32 @@
         <slot />
       </main>
     </div>
+
+    <!-- ヘルプボタン（全ページ共通） -->
+    <HelpButton />
+
+    <!-- ヘルプモーダル -->
+    <HelpModal />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Sidebar from '@/components/admin/Sidebar.vue'
 import Header from '@/components/admin/Header.vue'
+import HelpButton from '@/components/help/HelpButton.vue'
+import HelpModal from '@/components/help/HelpModal.vue'
+import { useHelpStore } from '@/stores/help'
 
 const isMobileMenuOpen = ref(false)
+const helpStore = useHelpStore()
+
+onMounted(async () => {
+  // 初回FAQデータ読み込み
+  if (helpStore.faqs.length === 0) {
+    await helpStore.fetchFaqs()
+  }
+})
 </script>
 
 <style scoped>
