@@ -675,9 +675,15 @@ class DashboardService:
                 if user_messages:
                     message = user_messages[0].content[:200]  # 200文字まで
             
+            # session_idを取得
+            session_id = ""
+            if escalation.conversation:
+                session_id = escalation.conversation.session_id
+            
             unresolved_list.append(UnresolvedEscalation(
                 id=escalation.id,
                 conversation_id=escalation.conversation_id,
+                session_id=session_id,
                 created_at=escalation.created_at,
                 message=message
             ))

@@ -105,6 +105,7 @@ class UnresolvedEscalation(BaseModel):
     """未解決エスカレーション"""
     id: int = Field(..., description="エスカレーションID")
     conversation_id: int = Field(..., description="会話ID")
+    session_id: str = Field(..., description="セッションID")
     created_at: datetime = Field(..., description="作成日時")
     message: str = Field(..., description="ゲストメッセージ")
 

@@ -90,6 +90,7 @@ export interface EscalationsSummary {
 export interface UnresolvedEscalation {
   id: number
   conversation_id: number
+  session_id: string
   created_at: string
   message: string
 }

@@ -52,7 +52,7 @@ const router = useRouter()
 const handleClick = (escalation: UnresolvedEscalation) => {
   router.push({
     name: 'ConversationDetail',
-    params: { session_id: `conv_${escalation.conversation_id}` }
+    params: { session_id: escalation.session_id }
   })
 }
 
