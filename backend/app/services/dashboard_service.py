@@ -385,7 +385,7 @@ class DashboardService:
             low_rated_answers=low_rated_answers
         )
     
-    async def get_monthly_usage(self, facility_id: int) -> MonthlyUsageResponse:
+    async def get_monthly_usage(self, facility_id: int) -> Optional[MonthlyUsageResponse]:
         """
         今月の質問数/プラン上限を取得
         
@@ -393,112 +393,121 @@ class DashboardService:
             facility_id: 施設ID
         
         Returns:
-            MonthlyUsageResponse: 月次利用状況
+            MonthlyUsageResponse: 月次利用状況（エラー時はNone）
         """
-        # 施設情報を取得
-        facility_result = await self.db.execute(
-            select(Facility).where(Facility.id == facility_id)
-        )
-        facility = facility_result.scalar_one_or_none()
-        if not facility:
-            raise ValueError(f"Facility not found: {facility_id}")
-        
-        # JSTタイムゾーン取得
-        jst = pytz.timezone('Asia/Tokyo')
-        
-        # 今月の開始時刻（JST）
-        now_jst = datetime.now(jst)
-        month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        
-        # 今月の終了時刻（JST）
-        if month_start_jst.month == 12:
-            month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
-        else:
-            month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
-        
-        # UTCに変換
-        month_start_utc = month_start_jst.astimezone(pytz.UTC)
-        month_end_utc = month_end_jst.astimezone(pytz.UTC)
-        
-        # 今月の質問数を集計
-        questions_result = await self.db.execute(
-            select(func.count(Message.id))
-            .join(Conversation, Message.conversation_id == Conversation.id)
-            .where(
-                Conversation.facility_id == facility_id,
-                Message.role == MessageRole.USER.value,
-                Message.created_at >= month_start_utc,
-                Message.created_at <= month_end_utc
+        try:
+            # 施設情報を取得
+            facility_result = await self.db.execute(
+                select(Facility).where(Facility.id == facility_id)
             )
-        )
-        current_month_questions = questions_result.scalar() or 0
-        
-        # プラン情報を取得
-        plan_type = facility.plan_type or 'Free'
-        plan_limit = facility.monthly_question_limit
-        
-        # プラン種別に応じた正しいデフォルト値を定義
-        plan_limits = {
-            'Free': 30,
-            'Mini': None,  # 無制限
-            'Small': 200,
-            'Standard': 500,
-            'Premium': 1000
-        }
-        
-        # プラン種別に応じた正しいデフォルト値を強制適用
-        # plan_limitがNoneの場合、またはプラン種別に応じた正しい値と一致しない場合に適用
-        expected_limit = plan_limits.get(plan_type, 30)
-        if plan_limit is None or plan_limit != expected_limit:
-            plan_limit = expected_limit
-        
-        # 使用率、残り質問数、超過質問数を計算
-        usage_percentage = None
-        remaining_questions = None
-        overage_questions = 0
-        status = "normal"
-        
-        if plan_type == 'Mini':
-            # Miniプラン: 上限なし（従量課金のみ）
-            overage_questions = current_month_questions
-            status = "normal"
-        elif plan_limit is not None:
-            # 上限があるプラン
-            # Freeプランの場合は30件超過でfaq_only
-            if plan_type == 'Free' and current_month_questions > 30:
-                overage_questions = current_month_questions - 30
-                usage_percentage = 100.0
-                remaining_questions = 0
-                status = "faq_only"
-            elif current_month_questions > plan_limit:
-                overage_questions = current_month_questions - plan_limit
-                usage_percentage = 100.0
-                remaining_questions = 0
-                status = "overage"
+            facility = facility_result.scalar_one_or_none()
+            if not facility:
+                logger.warning(f"Facility not found: {facility_id}")
+                return None  # ValueErrorではなくNoneを返す
+            
+            # JSTタイムゾーン取得
+            jst = pytz.timezone('Asia/Tokyo')
+            
+            # 今月の開始時刻（JST）
+            now_jst = datetime.now(jst)
+            month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # 今月の終了時刻（JST）
+            if month_start_jst.month == 12:
+                month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
             else:
-                usage_percentage = (current_month_questions / plan_limit * 100) if plan_limit > 0 else 0.0
-                remaining_questions = plan_limit - current_month_questions
-                
-                # ステータス判定
-                if usage_percentage >= 91:
-                    status = "warning"
-                else:
-                    status = "normal"
-        else:
-            # plan_limitがNULLの場合（通常は発生しないが念のため）
+                month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
+            
+            # UTCに変換
+            month_start_utc = month_start_jst.astimezone(pytz.UTC)
+            month_end_utc = month_end_jst.astimezone(pytz.UTC)
+            
+            # 今月の質問数を集計
+            questions_result = await self.db.execute(
+                select(func.count(Message.id))
+                .join(Conversation, Message.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Message.role == MessageRole.USER.value,
+                    Message.created_at >= month_start_utc,
+                    Message.created_at <= month_end_utc
+                )
+            )
+            current_month_questions = questions_result.scalar() or 0
+            
+            # プラン情報を取得
+            plan_type = facility.plan_type or 'Free'
+            plan_limit = facility.monthly_question_limit
+            
+            # プラン種別に応じた正しいデフォルト値を定義
+            plan_limits = {
+                'Free': 30,
+                'Mini': None,  # 無制限
+                'Small': 200,
+                'Standard': 500,
+                'Premium': 1000
+            }
+            
+            # プラン種別に応じた正しいデフォルト値を強制適用
+            # plan_limitがNoneの場合、またはプラン種別に応じた正しい値と一致しない場合に適用
+            expected_limit = plan_limits.get(plan_type, 30)
+            if plan_limit is None or plan_limit != expected_limit:
+                plan_limit = expected_limit
+            
+            # 使用率、残り質問数、超過質問数を計算
+            usage_percentage = None
+            remaining_questions = None
+            overage_questions = 0
             status = "normal"
+            
+            if plan_type == 'Mini':
+                # Miniプラン: 上限なし（従量課金のみ）
+                overage_questions = current_month_questions
+                status = "normal"
+            elif plan_limit is not None:
+                # 上限があるプラン
+                # Freeプランの場合は30件超過でfaq_only
+                if plan_type == 'Free' and current_month_questions > 30:
+                    overage_questions = current_month_questions - 30
+                    usage_percentage = 100.0
+                    remaining_questions = 0
+                    status = "faq_only"
+                elif current_month_questions > plan_limit:
+                    overage_questions = current_month_questions - plan_limit
+                    usage_percentage = 100.0
+                    remaining_questions = 0
+                    status = "overage"
+                else:
+                    usage_percentage = (current_month_questions / plan_limit * 100) if plan_limit > 0 else 0.0
+                    remaining_questions = plan_limit - current_month_questions
+                    
+                    # ステータス判定
+                    if usage_percentage >= 91:
+                        status = "warning"
+                    else:
+                        status = "normal"
+            else:
+                # plan_limitがNULLの場合（通常は発生しないが念のため）
+                status = "normal"
+            
+            return MonthlyUsageResponse(
+                current_month_questions=current_month_questions,
+                plan_type=plan_type,
+                plan_limit=plan_limit,
+                usage_percentage=usage_percentage,
+                remaining_questions=remaining_questions,
+                overage_questions=overage_questions,
+                status=status
+            )
         
-        return MonthlyUsageResponse(
-            current_month_questions=current_month_questions,
-            plan_type=plan_type,
-            plan_limit=plan_limit,
-            usage_percentage=usage_percentage,
-            remaining_questions=remaining_questions,
-            overage_questions=overage_questions,
-            status=status
-        )
+        except Exception as e:
+            logger.error(
+                f"Error getting monthly usage for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return None  # エラー時はNoneを返す
     
-    async def get_ai_automation(self, facility_id: int) -> AiAutomationResponse:
+    async def get_ai_automation(self, facility_id: int) -> Optional[AiAutomationResponse]:
         """
         AI自動応答数・自動化率を取得
         
@@ -506,93 +515,101 @@ class DashboardService:
             facility_id: 施設ID
         
         Returns:
-            AiAutomationResponse: AI自動応答統計
+            AiAutomationResponse: AI自動応答統計（エラー時はNone）
         """
-        # JSTタイムゾーン取得
-        jst = pytz.timezone('Asia/Tokyo')
-        
-        # 今月の開始時刻（JST）
-        now_jst = datetime.now(jst)
-        month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        
-        # 今月の終了時刻（JST）
-        if month_start_jst.month == 12:
-            month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
-        else:
-            month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
-        
-        # UTCに変換
-        month_start_utc = month_start_jst.astimezone(pytz.UTC)
-        month_end_utc = month_end_jst.astimezone(pytz.UTC)
-        
-        # 今月の総質問数
-        total_questions_result = await self.db.execute(
-            select(func.count(Message.id))
-            .join(Conversation, Message.conversation_id == Conversation.id)
-            .where(
-                Conversation.facility_id == facility_id,
-                Message.role == MessageRole.USER.value,
-                Message.created_at >= month_start_utc,
-                Message.created_at <= month_end_utc
-            )
-        )
-        total_questions = total_questions_result.scalar() or 0
-        
-        # エスカレーションされた会話IDを取得
-        escalated_conversation_ids_result = await self.db.execute(
-            select(Escalation.conversation_id)
-            .join(Conversation, Escalation.conversation_id == Conversation.id)
-            .where(
-                Conversation.facility_id == facility_id,
-                Escalation.created_at >= month_start_utc,
-                Escalation.created_at <= month_end_utc
-            )
-        )
-        escalated_conversation_ids = [row[0] for row in escalated_conversation_ids_result.all()]
-        
-        # エスカレーションされなかった会話IDを取得
-        all_conversations_result = await self.db.execute(
-            select(Conversation.id)
-            .where(
-                Conversation.facility_id == facility_id,
-                Conversation.started_at >= month_start_utc,
-                Conversation.started_at <= month_end_utc
-            )
-        )
-        all_conversation_ids = [row[0] for row in all_conversations_result.all()]
-        
-        if escalated_conversation_ids:
-            non_escalated_conversation_ids = [cid for cid in all_conversation_ids if cid not in escalated_conversation_ids]
-        else:
-            # エスカレーションがなければすべての会話が対象
-            non_escalated_conversation_ids = all_conversation_ids
-        
-        # AI自動応答数 = エスカレーションされなかった会話のAI自動応答メッセージ数
-        ai_responses = 0
-        if non_escalated_conversation_ids:
-            ai_responses_result = await self.db.execute(
+        try:
+            # JSTタイムゾーン取得
+            jst = pytz.timezone('Asia/Tokyo')
+            
+            # 今月の開始時刻（JST）
+            now_jst = datetime.now(jst)
+            month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # 今月の終了時刻（JST）
+            if month_start_jst.month == 12:
+                month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
+            else:
+                month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
+            
+            # UTCに変換
+            month_start_utc = month_start_jst.astimezone(pytz.UTC)
+            month_end_utc = month_end_jst.astimezone(pytz.UTC)
+            
+            # 今月の総質問数
+            total_questions_result = await self.db.execute(
                 select(func.count(Message.id))
+                .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
-                    Message.conversation_id.in_(non_escalated_conversation_ids),
-                    Message.role == MessageRole.ASSISTANT.value,
+                    Conversation.facility_id == facility_id,
+                    Message.role == MessageRole.USER.value,
                     Message.created_at >= month_start_utc,
                     Message.created_at <= month_end_utc
                 )
             )
-            ai_responses = ai_responses_result.scalar() or 0
+            total_questions = total_questions_result.scalar() or 0
+            
+            # エスカレーションされた会話IDを取得
+            escalated_conversation_ids_result = await self.db.execute(
+                select(Escalation.conversation_id)
+                .join(Conversation, Escalation.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Escalation.created_at >= month_start_utc,
+                    Escalation.created_at <= month_end_utc
+                )
+            )
+            escalated_conversation_ids = [row[0] for row in escalated_conversation_ids_result.all()]
+            
+            # エスカレーションされなかった会話IDを取得
+            all_conversations_result = await self.db.execute(
+                select(Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Conversation.started_at >= month_start_utc,
+                    Conversation.started_at <= month_end_utc
+                )
+            )
+            all_conversation_ids = [row[0] for row in all_conversations_result.all()]
+            
+            if escalated_conversation_ids:
+                non_escalated_conversation_ids = [cid for cid in all_conversation_ids if cid not in escalated_conversation_ids]
+            else:
+                # エスカレーションがなければすべての会話が対象
+                non_escalated_conversation_ids = all_conversation_ids
+            
+            # AI自動応答数 = エスカレーションされなかった会話のAI自動応答メッセージ数
+            ai_responses = 0
+            if non_escalated_conversation_ids:
+                ai_responses_result = await self.db.execute(
+                    select(func.count(Message.id))
+                    .where(
+                        Message.conversation_id.in_(non_escalated_conversation_ids),
+                        Message.role == MessageRole.ASSISTANT.value,
+                        Message.created_at >= month_start_utc,
+                        Message.created_at <= month_end_utc
+                    )
+                )
+                ai_responses = ai_responses_result.scalar() or 0
+            
+            # 自動化率計算
+            automation_rate = 0.0
+            if total_questions > 0:
+                automation_rate = (ai_responses / total_questions * 100) if total_questions > 0 else 0.0
+            
+            return AiAutomationResponse(
+                ai_responses=ai_responses,
+                total_questions=total_questions,
+                automation_rate=round(automation_rate, 1)
+            )
         
-        # 自動化率計算
-        automation_rate = 0.0
-        if total_questions > 0:
-            automation_rate = (ai_responses / total_questions * 100) if total_questions > 0 else 0.0
-        
-        return AiAutomationResponse(
-            ai_responses=ai_responses,
-            total_questions=total_questions,
-            automation_rate=round(automation_rate, 1)
-        )
+        except Exception as e:
+            logger.error(
+                f"Error getting AI automation for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return None  # エラー時はNoneを返す
     
-    async def get_escalations_summary(self, facility_id: int) -> EscalationsSummaryResponse:
+    async def get_escalations_summary(self, facility_id: int) -> Optional[EscalationsSummaryResponse]:
         """
         エスカレーション統計を取得
         
@@ -600,46 +617,54 @@ class DashboardService:
             facility_id: 施設ID
         
         Returns:
-            EscalationsSummaryResponse: エスカレーション統計
+            EscalationsSummaryResponse: エスカレーション統計（エラー時はNone）
         """
-        # JSTタイムゾーン取得
-        jst = pytz.timezone('Asia/Tokyo')
-        
-        # 今月の開始時刻（JST）
-        now_jst = datetime.now(jst)
-        month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        
-        # 今月の終了時刻（JST）
-        if month_start_jst.month == 12:
-            month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
-        else:
-            month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
-        
-        # UTCに変換
-        month_start_utc = month_start_jst.astimezone(pytz.UTC)
-        month_end_utc = month_end_jst.astimezone(pytz.UTC)
-        
-        # 今月のエスカレーション数を集計
-        escalations_result = await self.db.execute(
-            select(Escalation)
-            .join(Conversation, Escalation.conversation_id == Conversation.id)
-            .where(
-                Conversation.facility_id == facility_id,
-                Escalation.created_at >= month_start_utc,
-                Escalation.created_at <= month_end_utc
+        try:
+            # JSTタイムゾーン取得
+            jst = pytz.timezone('Asia/Tokyo')
+            
+            # 今月の開始時刻（JST）
+            now_jst = datetime.now(jst)
+            month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            # 今月の終了時刻（JST）
+            if month_start_jst.month == 12:
+                month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
+            else:
+                month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
+            
+            # UTCに変換
+            month_start_utc = month_start_jst.astimezone(pytz.UTC)
+            month_end_utc = month_end_jst.astimezone(pytz.UTC)
+            
+            # 今月のエスカレーション数を集計
+            escalations_result = await self.db.execute(
+                select(Escalation)
+                .join(Conversation, Escalation.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Escalation.created_at >= month_start_utc,
+                    Escalation.created_at <= month_end_utc
+                )
             )
-        )
-        escalations = escalations_result.scalars().all()
+            escalations = escalations_result.scalars().all()
+            
+            total = len(escalations)
+            unresolved = sum(1 for e in escalations if e.resolved_at is None)
+            resolved = total - unresolved
+            
+            return EscalationsSummaryResponse(
+                total=total,
+                unresolved=unresolved,
+                resolved=resolved
+            )
         
-        total = len(escalations)
-        unresolved = sum(1 for e in escalations if e.resolved_at is None)
-        resolved = total - unresolved
-        
-        return EscalationsSummaryResponse(
-            total=total,
-            unresolved=unresolved,
-            resolved=resolved
-        )
+        except Exception as e:
+            logger.error(
+                f"Error getting escalations summary for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return None  # エラー時はNoneを返す
     
     async def get_unresolved_escalations(self, facility_id: int, limit: int = 10) -> List[UnresolvedEscalation]:
         """
