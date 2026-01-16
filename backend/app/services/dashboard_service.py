@@ -652,41 +652,56 @@ class DashboardService:
         Returns:
             List[UnresolvedEscalation]: 未解決エスカレーションリスト
         """
-        # 未解決エスカレーションを取得
-        escalations_result = await self.db.execute(
-            select(Escalation)
-            .join(Conversation, Escalation.conversation_id == Conversation.id)
-            .where(
-                Conversation.facility_id == facility_id,
-                Escalation.resolved_at.is_(None)
+        try:
+            # 未解決エスカレーションを取得
+            escalations_result = await self.db.execute(
+                select(Escalation)
+                .join(Conversation, Escalation.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Escalation.resolved_at.is_(None)
+                )
+                .order_by(Escalation.created_at.desc())
+                .limit(limit)
+                .options(selectinload(Escalation.conversation).selectinload(Conversation.messages))
             )
-            .order_by(Escalation.created_at.desc())
-            .limit(limit)
-            .options(selectinload(Escalation.conversation).selectinload(Conversation.messages))
-        )
-        escalations = escalations_result.scalars().all()
-        
-        unresolved_list: List[UnresolvedEscalation] = []
-        for escalation in escalations:
-            # ゲストメッセージを取得（最初のユーザーメッセージ）
-            message = ""
-            if escalation.conversation and escalation.conversation.messages:
-                user_messages = [m for m in escalation.conversation.messages if m.role == MessageRole.USER.value]
-                if user_messages:
-                    message = user_messages[0].content[:200]  # 200文字まで
+            escalations = escalations_result.scalars().all()
             
-            # session_idを取得
-            session_id = ""
-            if escalation.conversation:
-                session_id = escalation.conversation.session_id
+            unresolved_list: List[UnresolvedEscalation] = []
+            for escalation in escalations:
+                # ゲストメッセージを取得（最初のユーザーメッセージ）
+                message = ""
+                if escalation.conversation and escalation.conversation.messages:
+                    user_messages = [m for m in escalation.conversation.messages if m.role == MessageRole.USER.value]
+                    if user_messages:
+                        message = user_messages[0].content[:200]  # 200文字まで
+                
+                # session_idを取得（安全に）
+                session_id = ""
+                if escalation.conversation and escalation.conversation.session_id:
+                    session_id = escalation.conversation.session_id
+                else:
+                    # conversationが存在しない、またはsession_idがNoneの場合は空文字列
+                    logger.warning(
+                        f"Conversation or session_id not found for escalation {escalation.id} "
+                        f"(conversation_id={escalation.conversation_id})"
+                    )
+                    session_id = ""
+                
+                unresolved_list.append(UnresolvedEscalation(
+                    id=escalation.id,
+                    conversation_id=escalation.conversation_id,
+                    session_id=session_id,
+                    created_at=escalation.created_at,
+                    message=message
+                ))
             
-            unresolved_list.append(UnresolvedEscalation(
-                id=escalation.id,
-                conversation_id=escalation.conversation_id,
-                session_id=session_id,
-                created_at=escalation.created_at,
-                message=message
-            ))
+            return unresolved_list
         
-        return unresolved_list
+        except Exception as e:
+            logger.error(
+                f"Error getting unresolved escalations for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return []  # エラー時は空のリストを返す
 
