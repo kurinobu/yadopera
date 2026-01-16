@@ -126,8 +126,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
 import Loading from '@/components/common/Loading.vue'
 import { chatApi } from '@/api/chat'
 import { faqApi } from '@/api/faq'
@@ -137,9 +138,13 @@ import type { FAQ, FAQCategory } from '@/types/faq'
 
 const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
 
 // パラメータからsession_idを取得
 const sessionId = route.params.session_id as string
+
+// facility_idを取得
+const facilityId = computed(() => authStore.user?.facility_id)
 
 // データ状態
 const loading = ref(true)
@@ -153,7 +158,7 @@ const fetchHistory = async () => {
     loading.value = true
     error.value = null
     
-    const data = await chatApi.getHistory(sessionId)
+    const data = await chatApi.getHistory(sessionId, facilityId.value)
     history.value = data
   } catch (err: any) {
     console.error('Failed to fetch conversation history:', err)
