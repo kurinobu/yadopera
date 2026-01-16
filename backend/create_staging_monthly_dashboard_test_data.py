@@ -63,24 +63,39 @@ async def create_staging_monthly_dashboard_test_data():
             }
         }
         
-        # プラン別に最新の施設を取得
+        # メールアドレスでユーザーを検索して施設を取得
         test_facilities = {}
-        for plan_type, config in test_plans.items():
+        test_emails = {
+            'Free': 'test31@example.com',
+            'Mini': 'test41@example.com',
+            'Small': 'test51@example.com',
+            'Standard': 'test61@example.com',
+            'Premium': 'test71@example.com'
+        }
+        
+        for plan_type, email in test_emails.items():
+            user_result = await session.execute(
+                select(User).where(User.email == email).limit(1)
+            )
+            user = user_result.scalar_one_or_none()
+            
+            if not user:
+                print(f"  ⚠️ {plan_type}プラン: ユーザーが見つかりません ({email})")
+                continue
+            
             facility_result = await session.execute(
-                select(Facility)
-                .where(Facility.plan_type == plan_type)
-                .order_by(Facility.id.desc())
-                .limit(1)
+                select(Facility).where(Facility.id == user.facility_id)
             )
             facility = facility_result.scalar_one_or_none()
+            
             if facility:
                 test_facilities[facility.id] = {
                     'plan': plan_type,
-                    'test_cases': config['test_cases']
+                    'test_cases': test_plans[plan_type]['test_cases']
                 }
-                print(f"  ✅ {plan_type}プラン: Facility ID {facility.id} ({facility.name})")
+                print(f"  ✅ {plan_type}プラン: Facility ID {facility.id} ({facility.name}, Email: {email})")
             else:
-                print(f"  ⚠️ {plan_type}プランの施設が見つかりません")
+                print(f"  ⚠️ {plan_type}プラン: 施設が見つかりません (Facility ID: {user.facility_id})")
         
         print("=" * 80)
         print("ステージング環境：月次ダッシュボード統計テスト用データ作成")
