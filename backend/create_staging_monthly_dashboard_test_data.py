@@ -33,66 +33,75 @@ async def create_staging_monthly_dashboard_test_data():
         # UTCに変換
         month_start_utc = month_start_jst.astimezone(pytz.UTC)
         
-        # テストユーザーと施設のマッピング（test32, test42, test52, test62, test72）
-        test_users = {
-            'test32@example.com': {
-                'plan': 'Free',
+        # テスト施設IDと設定のマッピング
+        # 注意: 実際の施設IDは新規登録時に自動生成されるため、プラン別に最新の施設を自動検出
+        test_plans = {
+            'Free': {
                 'test_cases': [
                     {'name': 'Freeプラン（30件以内）', 'question_count': 15, 'ai_responses': 10, 'escalations': 2}
                 ]
             },
-            'test42@example.com': {
-                'plan': 'Mini',
+            'Mini': {
                 'test_cases': [
                     {'name': 'Miniプラン', 'question_count': 50, 'ai_responses': 40, 'escalations': 5}
                 ]
             },
-            'test52@example.com': {
-                'plan': 'Small',
+            'Small': {
                 'test_cases': [
                     {'name': 'Smallプラン（上限内）', 'question_count': 100, 'ai_responses': 80, 'escalations': 10}
                 ]
             },
-            'test62@example.com': {
-                'plan': 'Standard',
+            'Standard': {
                 'test_cases': [
                     {'name': 'Standardプラン', 'question_count': 300, 'ai_responses': 250, 'escalations': 15}
                 ]
             },
-            'test72@example.com': {
-                'plan': 'Premium',
+            'Premium': {
                 'test_cases': [
                     {'name': 'Premiumプラン', 'question_count': 600, 'ai_responses': 550, 'escalations': 10}
                 ]
             }
         }
         
+        # プラン別に最新の施設を取得
+        test_facilities = {}
+        for plan_type, config in test_plans.items():
+            facility_result = await session.execute(
+                select(Facility)
+                .where(Facility.plan_type == plan_type)
+                .order_by(Facility.id.desc())
+                .limit(1)
+            )
+            facility = facility_result.scalar_one_or_none()
+            if facility:
+                test_facilities[facility.id] = {
+                    'plan': plan_type,
+                    'test_cases': config['test_cases']
+                }
+                print(f"  ✅ {plan_type}プラン: Facility ID {facility.id} ({facility.name})")
+            else:
+                print(f"  ⚠️ {plan_type}プランの施設が見つかりません")
+        
         print("=" * 80)
         print("ステージング環境：月次ダッシュボード統計テスト用データ作成")
         print("=" * 80)
+        print("\nプラン別の最新施設を検出中...")
         
-        for email, config in test_users.items():
-            print(f"\n[{email}] {config['plan']}プラン")
+        for facility_id, config in test_facilities.items():
+            print(f"\n[Facility ID: {facility_id}] {config['plan']}プラン")
             print("-" * 80)
             
-            # ユーザーと施設を取得
-            user_result = await session.execute(select(User).where(User.email == email).limit(1))
-            user = user_result.scalar_one_or_none()
-            
-            if not user:
-                print(f"  ❌ ユーザーが見つかりません: {email}")
-                continue
-            
+            # 施設を直接取得
             facility_result = await session.execute(
-                select(Facility).where(Facility.id == user.facility_id)
+                select(Facility).where(Facility.id == facility_id)
             )
             facility = facility_result.scalar_one_or_none()
             
             if not facility:
-                print(f"  ❌ 施設が見つかりません: Facility ID {user.facility_id}")
+                print(f"  ❌ 施設が見つかりません: Facility ID {facility_id}")
                 continue
             
-            print(f"  ✅ 施設: {facility.name} (ID: {facility.id}, Plan: {facility.plan_type})")
+            print(f"  ✅ 施設: {facility.name} (ID: {facility.id}, Plan: {facility.plan_type}, Email: {facility.email})")
             
             # 既存の今月のデータを削除
             existing_conv_result = await session.execute(
@@ -120,11 +129,16 @@ async def create_staging_monthly_dashboard_test_data():
                 
                 for i in range(test_case['question_count']):
                     # 会話を作成
+                    session_id = f"test-session-{facility.id}-{i}-{uuid.uuid4().hex[:8]}"
                     conversation = Conversation(
                         facility_id=facility.id,
-                        session_id=f"test-session-{facility.id}-{i}-{uuid.uuid4().hex[:8]}",
-                        started_at=month_start_utc + timedelta(hours=i),
-                        language="ja"
+                        session_id=session_id,
+                        guest_language="ja",
+                        location="entrance",
+                        started_at=month_start_utc + timedelta(hours=i % 24),
+                        last_activity_at=month_start_utc + timedelta(hours=i % 24, minutes=5),
+                        is_escalated=(i < test_case['escalations']),
+                        total_messages=2
                     )
                     session.add(conversation)
                     await session.flush()
@@ -134,8 +148,7 @@ async def create_staging_monthly_dashboard_test_data():
                         conversation_id=conversation.id,
                         role=MessageRole.USER.value,
                         content=f"テスト質問 {i+1}",
-                        created_at=month_start_utc + timedelta(hours=i, minutes=1),
-                        language="ja"
+                        created_at=month_start_utc + timedelta(hours=i % 24, minutes=1)
                     )
                     session.add(user_message)
                     await session.flush()
@@ -146,8 +159,7 @@ async def create_staging_monthly_dashboard_test_data():
                             conversation_id=conversation.id,
                             role=MessageRole.ASSISTANT.value,
                             content=f"テスト回答 {i+1}",
-                            created_at=month_start_utc + timedelta(hours=i, minutes=2),
-                            language="ja"
+                            created_at=month_start_utc + timedelta(hours=i % 24, minutes=2)
                         )
                         session.add(ai_message)
                     
@@ -157,12 +169,12 @@ async def create_staging_monthly_dashboard_test_data():
                         escalation = Escalation(
                             facility_id=facility.id,
                             conversation_id=conversation.id,
-                            guest_message=f"テスト質問 {i+1}",
                             trigger_type="low_confidence",
                             ai_confidence=0.5,
-                            created_at=month_start_utc + timedelta(hours=i, minutes=3),
-                            resolved_at=None,
-                            language="ja"
+                            escalation_mode="normal",
+                            notification_channels=["email"],
+                            created_at=month_start_utc + timedelta(hours=i % 24, minutes=3),
+                            resolved_at=None
                         )
                         session.add(escalation)
                 
