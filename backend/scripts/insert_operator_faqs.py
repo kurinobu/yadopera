@@ -17,7 +17,6 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import select, func
 
-from app.core.config import settings
 from app.models.operator_help import OperatorFaq, OperatorFaqTranslation
 
 # ロギング設定
@@ -631,8 +630,18 @@ async def insert_operator_faqs():
     """
     宿泊事業者向けFAQ初期データ投入
     """
-    # DB接続
-    database_url = settings.database_url
+    # DB接続（環境変数DATABASE_URLから取得、なければsettingsから取得）
+    database_url = os.getenv("DATABASE_URL")
+    if not database_url:
+        try:
+            from app.core.config import settings
+            database_url = settings.database_url
+        except Exception as e:
+            print(f"❌ エラー: DATABASE_URLが設定されていません: {e}")
+            print("環境変数DATABASE_URLを設定してください:")
+            print("  export DATABASE_URL='postgresql://postgres:password@host:port/database'")
+            sys.exit(1)
+    
     if database_url.startswith("postgresql://"):
         async_database_url = database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
     else:
