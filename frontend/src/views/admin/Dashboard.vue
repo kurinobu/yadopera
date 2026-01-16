@@ -26,8 +26,56 @@
 
     <!-- ダッシュボードコンテンツ -->
     <template v-else-if="dashboardData">
+      <!-- 月次統計セクション（最優先表示エリア） -->
+      <section v-if="monthlyUsage || aiAutomation || escalationsSummary" class="space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900 dark:text-white">
+            今月の利用状況
+          </h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            月次統計とコスト情報
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <!-- カード1: 今月の質問数 / プラン上限 -->
+          <MonthlyUsageCard 
+            v-if="monthlyUsage" 
+            :data="monthlyUsage" 
+          />
+          
+          <!-- カード2: 今月のAI自動応答数 -->
+          <AiAutomationCard 
+            v-if="aiAutomation" 
+            :data="aiAutomation" 
+          />
+          
+          <!-- カード3: 今月のエスカレーション数 -->
+          <EscalationsSummaryCard 
+            v-if="escalationsSummary" 
+            :data="escalationsSummary" 
+          />
+        </div>
+        
+        <!-- カード8: 未解決のエスカレーション -->
+        <UnresolvedListCard 
+          v-if="unresolvedEscalations" 
+          :escalations="unresolvedEscalations" 
+        />
+      </section>
+      
       <!-- 週次サマリー統計カード -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <section class="space-y-6">
+        <div>
+          <h2 class="text-xl font-bold text-gray-900 dark:text-white">
+            その他の統計
+          </h2>
+          <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            週次サマリーとリアルタイム情報
+          </p>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatsCard
           title="総質問数"
           :value="summary.total_questions"
@@ -56,7 +104,8 @@
           :icon="unresolvedIcon"
           color="red"
         />
-      </div>
+        </div>
+      </section>
 
       <!-- カテゴリ別円グラフ -->
       <CategoryChart :data="summary.category_breakdown" />
@@ -90,6 +139,10 @@ import CategoryChart from '@/components/admin/CategoryChart.vue'
 import ChatHistoryList from '@/components/admin/ChatHistoryList.vue'
 import OvernightQueueList from '@/components/admin/OvernightQueueList.vue'
 import FeedbackStats from '@/components/admin/FeedbackStats.vue'
+import MonthlyUsageCard from '@/components/admin/dashboard/MonthlyUsageCard.vue'
+import AiAutomationCard from '@/components/admin/dashboard/AiAutomationCard.vue'
+import EscalationsSummaryCard from '@/components/admin/dashboard/EscalationsSummaryCard.vue'
+import UnresolvedListCard from '@/components/admin/dashboard/UnresolvedListCard.vue'
 import Loading from '@/components/common/Loading.vue'
 import { formatPercentage } from '@/utils/formatters'
 import { dashboardApi } from '@/api/dashboard'
@@ -156,6 +209,11 @@ const feedbackStats = computed(() => dashboardData.value?.feedback_stats || {
   positive_rate: 0,
   low_rated_answers: []
 })
+const monthlyUsage = computed(() => dashboardData.value?.monthly_usage)
+
+const aiAutomation = computed(() => dashboardData.value?.ai_automation)
+const escalationsSummary = computed(() => dashboardData.value?.escalations_summary)
+const unresolvedEscalations = computed(() => dashboardData.value?.unresolved_escalations || [])
 
 // アイコン定義
 const statsIcon = () => h('svg', { class: 'w-6 h-6', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [

@@ -29,8 +29,13 @@ class Facility(Base):
     local_info = Column(Text)
     languages = Column(ARRAY(String), default=["en"])
     timezone = Column(String(50), default="Asia/Tokyo")
-    subscription_plan = Column(String(50), default="small")  # 'free', 'mini', 'small', 'standard', 'premium'
-    monthly_question_limit = Column(Integer, default=200)
+    subscription_plan = Column(String(50), default="small")  # 'free', 'mini', 'small', 'standard', 'premium' (既存、後方互換性のため保持)
+    plan_type = Column(String(20), default='Free', nullable=False)  # 'Free', 'Mini', 'Small', 'Standard', 'Premium'
+    monthly_question_limit = Column(Integer, nullable=True)  # Miniの場合はNULL（無制限）
+    faq_limit = Column(Integer, default=20, nullable=True)  # Premiumの場合はNULL（無制限）
+    language_limit = Column(Integer, default=1, nullable=True)  # Premiumの場合はNULL（無制限）
+    plan_started_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    plan_updated_at = Column(DateTime(timezone=True), nullable=True)
     staff_absence_periods = Column(JSON, default=[])  # スタッフ不在時間帯（JSON配列）
     icon_url = Column(String(255), nullable=True)  # アイコンURL（Phase 1では任意）
     is_active = Column(Boolean, default=True, index=True)
