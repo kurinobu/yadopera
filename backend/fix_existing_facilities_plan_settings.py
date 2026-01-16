@@ -5,6 +5,7 @@
 
 import asyncio
 import sys
+import os
 sys.path.insert(0, '/app')
 
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
@@ -64,7 +65,14 @@ def get_plan_defaults(plan_type: str) -> dict:
 
 async def fix_existing_facilities():
     """既存施設のプラン設定を修正"""
-    engine = create_async_engine(settings.database_url.replace('postgresql://', 'postgresql+asyncpg://'))
+    # 環境変数DATABASE_URLを優先的に使用
+    db_url = os.getenv('DATABASE_URL')
+    if not db_url:
+        db_url = settings.database_url
+    
+    logger.info(f"接続先データベース: {db_url[:60]}..." if len(db_url) > 60 else f"接続先データベース: {db_url}")
+    
+    engine = create_async_engine(db_url.replace('postgresql://', 'postgresql+asyncpg://'))
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:

@@ -5,6 +5,7 @@ test32, test42, test52, test62, test72用のテストデータを作成します
 """
 import asyncio
 import sys
+import os
 from datetime import datetime, timedelta
 import pytz
 import uuid
@@ -21,7 +22,14 @@ from app.core.config import settings
 
 async def create_staging_monthly_dashboard_test_data():
     """ステージング環境用：月次ダッシュボード統計テスト用データを作成"""
-    engine = create_async_engine(settings.database_url.replace('postgresql://', 'postgresql+asyncpg://'))
+    # 環境変数DATABASE_URLを優先的に使用
+    db_url = os.getenv('DATABASE_URL')
+    if not db_url:
+        db_url = settings.database_url
+    
+    print(f"接続先データベース: {db_url[:60]}..." if len(db_url) > 60 else f"接続先データベース: {db_url}")
+    
+    engine = create_async_engine(db_url.replace('postgresql://', 'postgresql+asyncpg://'))
     async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     
     async with async_session() as session:
