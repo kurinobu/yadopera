@@ -23,6 +23,66 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def convert_subscription_plan_to_plan_type(subscription_plan: str) -> str:
+    """
+    subscription_planをplan_typeに変換
+    
+    Args:
+        subscription_plan: 料金プラン（'free', 'mini', 'small', 'standard', 'premium'）
+    
+    Returns:
+        plan_type: プラン種別（'Free', 'Mini', 'Small', 'Standard', 'Premium'）
+    """
+    plan_mapping = {
+        'free': 'Free',
+        'mini': 'Mini',
+        'small': 'Small',
+        'standard': 'Standard',
+        'premium': 'Premium'
+    }
+    return plan_mapping.get(subscription_plan.lower(), 'Free')
+
+
+def get_plan_defaults(plan_type: str) -> dict:
+    """
+    プラン種別に応じたデフォルト値を取得
+    
+    Args:
+        plan_type: プラン種別（'Free', 'Mini', 'Small', 'Standard', 'Premium'）
+    
+    Returns:
+        プラン別デフォルト値（monthly_question_limit, faq_limit, language_limit）
+    """
+    defaults = {
+        'Free': {
+            'monthly_question_limit': 30,
+            'faq_limit': 20,
+            'language_limit': 1
+        },
+        'Mini': {
+            'monthly_question_limit': None,  # 無制限
+            'faq_limit': 20,
+            'language_limit': 1
+        },
+        'Small': {
+            'monthly_question_limit': 200,
+            'faq_limit': 20,
+            'language_limit': 1
+        },
+        'Standard': {
+            'monthly_question_limit': 500,
+            'faq_limit': 20,
+            'language_limit': 1
+        },
+        'Premium': {
+            'monthly_question_limit': 1000,
+            'faq_limit': None,  # 無制限
+            'language_limit': None  # 無制限
+        }
+    }
+    return defaults.get(plan_type, defaults['Free'])
+
+
 class AuthService:
     """
     認証サービス
@@ -204,12 +264,20 @@ class AuthService:
                 detail="Email already registered"
             )
         
+        # プラン情報を変換・設定
+        plan_type = convert_subscription_plan_to_plan_type(request.subscription_plan)
+        plan_defaults = get_plan_defaults(plan_type)
+        
         # 施設作成
         facility = Facility(
             name=request.facility_name,
             slug=await AuthService._generate_unique_slug(db, request.facility_name),
             email=request.email,
-            subscription_plan=request.subscription_plan
+            subscription_plan=request.subscription_plan,
+            plan_type=plan_type,
+            monthly_question_limit=plan_defaults['monthly_question_limit'],
+            faq_limit=plan_defaults['faq_limit'],
+            language_limit=plan_defaults['language_limit']
         )
         db.add(facility)
         await db.flush()  # facility_idを取得
