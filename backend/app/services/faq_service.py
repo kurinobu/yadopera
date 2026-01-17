@@ -5,7 +5,7 @@ FAQ管理のビジネスロジック（インテントベース構造）
 
 import logging
 import re
-from typing import List, Optional
+from typing import List, Optional, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
@@ -198,6 +198,28 @@ class FAQService:
         
         return faq_responses
     
+    async def _get_facility_languages(self, facility_id: int) -> Set[str]:
+        """
+        施設の既存FAQから使用されている言語の一意なリストを取得
+        
+        Args:
+            facility_id: 施設ID
+        
+        Returns:
+            使用されている言語のセット（例: {"ja", "en"}）
+        """
+        # FAQTranslationテーブルから、該当施設のFAQに紐づく翻訳の言語を取得
+        # 有効なFAQ（is_active=True）のみを対象とする
+        query = select(FAQTranslation.language).join(FAQ).where(
+            FAQ.facility_id == facility_id,
+            FAQ.is_active == True
+        ).distinct()
+        
+        result = await self.db.execute(query)
+        languages = {row[0] for row in result.all()}
+        
+        return languages
+    
     async def create_faq(
         self,
         facility_id: int,
@@ -218,6 +240,34 @@ class FAQService:
         # カテゴリバリデーション
         if request.category not in [cat.value for cat in FAQCategory]:
             raise ValueError(f"Invalid category: {request.category}")
+        
+        # 施設情報を取得
+        from app.models.facility import Facility
+        facility = await self.db.get(Facility, facility_id)
+        if not facility:
+            raise ValueError(f"Facility not found: facility_id={facility_id}")
+        
+        # 言語数制限バリデーション（Premiumプランの場合はスキップ）
+        if facility.language_limit is not None:
+            # 既存の言語リストを取得
+            existing_languages = await self._get_facility_languages(facility_id)
+            
+            # 新規登録される言語を取得
+            new_languages = {trans.language for trans in request.translations}
+            
+            # 既存の言語と新規言語を結合
+            all_languages = existing_languages | new_languages
+            
+            # 言語数制限をチェック
+            if len(all_languages) > facility.language_limit:
+                # 新規言語のみを抽出（既存言語は許可）
+                truly_new_languages = new_languages - existing_languages
+                if truly_new_languages:
+                    raise ValueError(
+                        f"プランの言語数制限に達しています（{facility.language_limit}言語）。"
+                        f"既存の言語（{', '.join(sorted(existing_languages))}）を使用するか、"
+                        f"プランをアップグレードしてください。"
+                    )
         
         # intent_keyを生成（指定されていない場合）
         if request.intent_key:
@@ -485,6 +535,36 @@ class FAQService:
         
         # translationsの更新または作成
         if request.translations is not None:
+            # 施設情報を取得
+            from app.models.facility import Facility
+            facility = await self.db.get(Facility, facility_id)
+            if not facility:
+                raise ValueError(f"Facility not found: facility_id={facility_id}")
+            
+            # 言語数制限バリデーション（Premiumプランの場合はスキップ）
+            if facility.language_limit is not None:
+                # 既存の言語リストを取得（更新対象のFAQを除く）
+                existing_languages = await self._get_facility_languages(facility_id)
+                # 更新対象のFAQの既存言語を除外
+                existing_languages = existing_languages - {trans.language for trans in existing_translations.values()}
+                
+                # 更新時に追加される新しい言語を取得
+                new_languages = {trans.language for trans in request.translations}
+                
+                # 既存の言語と新規言語を結合
+                all_languages = existing_languages | new_languages
+                
+                # 言語数制限をチェック
+                if len(all_languages) > facility.language_limit:
+                    # 新規言語のみを抽出（既存言語は許可）
+                    truly_new_languages = new_languages - existing_languages
+                    if truly_new_languages:
+                        raise ValueError(
+                            f"プランの言語数制限に達しています（{facility.language_limit}言語）。"
+                            f"既存の言語（{', '.join(sorted(existing_languages))}）を使用するか、"
+                            f"プランをアップグレードしてください。"
+                        )
+            
             for trans_request in request.translations:
                 if trans_request.language in existing_translations:
                     # 既存の翻訳を更新

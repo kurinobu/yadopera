@@ -548,6 +548,9 @@ const handleSubmitFaq = async (data: FAQCreate) => {
       errorMessage = '保存しようとしたFAQが見つかりませんでした。既に削除されている可能性があります。ページをリロードして最新の状態を確認してください。'
     } else if (detail.includes('does not belong to facility')) {
       errorMessage = 'このFAQは保存できません。権限がない可能性があります。'
+    } else if (detail.includes('言語数制限に達しています') || detail.includes('Language limit reached')) {
+      // 言語数制限エラー: バックエンドからのメッセージをそのまま表示
+      errorMessage = detail
     } else if (detail.includes('Validation error') || detail.includes('validation')) {
       errorMessage = `入力内容に問題があります: ${detail}`
     } else if (detail) {

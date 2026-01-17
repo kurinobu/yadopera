@@ -57,6 +57,10 @@ ERROR_MESSAGES: Dict[str, Dict[str, str]] = {
     "RATE_LIMIT": {
         "en": "Too many requests. Please try again later.",
         "ja": "リクエストが多すぎます。しばらく時間をおいてから再度お試しください。"
+    },
+    "LANGUAGE_LIMIT_EXCEEDED": {
+        "en": "Language limit reached ({language_limit} languages). Please use existing languages or upgrade your plan.",
+        "ja": "プランの言語数制限に達しています（{language_limit}言語）。既存の言語を使用するか、プランをアップグレードしてください。"
     }
 }
 
