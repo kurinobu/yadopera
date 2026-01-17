@@ -14,7 +14,11 @@ export const chatApi = {
    * チャットメッセージ送信
    */
   async sendMessage(data: ChatRequest): Promise<ChatResponse> {
-    const response = await apiClient.post<ChatResponse>('/chat', data)
+    // チャットAPI専用のタイムアウト設定（60秒）
+    // AI応答生成、RAG処理、データベースクエリなど、処理時間が長くなる可能性があるため
+    const response = await apiClient.post<ChatResponse>('/chat', data, {
+      timeout: 60000 // 60秒
+    })
     return response.data
   },
 
@@ -23,7 +27,11 @@ export const chatApi = {
    */
   async getHistory(sessionId: string, facilityId?: number): Promise<ChatHistoryResponse> {
     const params = facilityId ? { facility_id: facilityId } : {}
-    const response = await apiClient.get<ChatHistoryResponse>(`/chat/history/${sessionId}`, { params })
+    // 履歴取得は比較的軽量だが、大量のメッセージがある場合は時間がかかる可能性があるため30秒
+    const response = await apiClient.get<ChatHistoryResponse>(`/chat/history/${sessionId}`, {
+      params,
+      timeout: 30000 // 30秒
+    })
     return response.data
   },
 
