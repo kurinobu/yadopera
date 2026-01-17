@@ -62,7 +62,7 @@ frontend/src/
 │   └── Manual.vue                    # メイン画面
 ├── components/admin/
 │   ├── ManualToc.vue                 # 目次コンポーネント
-│   ├── ManualSection.vue             # セクションコンポーネント
+│   ├── ManualContent.vue             # セクションコンポーネント
 │   └── ManualSearch.vue              # 検索コンポーネント（Phase 3）
 ├── router/
 │   └── admin.ts                      # ルート追加
@@ -375,28 +375,28 @@ code {
 ```
 
 #### ステップ2: メニュー項目追加（15分）
-```vue
-<!-- frontend/src/layouts/AdminLayout.vue のメニュー部分 -->
+```typescript
+// frontend/src/components/admin/Sidebar.vue の navItems 配列に追加
 
-<!-- QRコード発行の下に追加 -->
-<router-link
-  to="/admin/qr-code"
-  class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100"
->
-  <svg>...</svg>
-  QRコード発行
-</router-link>
-
-<!-- 新規追加 -->
-<router-link
-  to="/admin/manual"
-  class="flex items-center px-4 py-3 text-gray-700 hover:bg-gray-100"
->
-  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-  </svg>
-  ご利用マニュアル
-</router-link>
+// ナビゲーションアイテム定義
+const navItems = [
+  // ... 既存の項目 ...
+  {
+    to: '/admin/qr-code',
+    label: 'QRコード発行',
+    icon: () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z' })
+    ])
+  },
+  // 新規追加
+  {
+    to: '/admin/manual',
+    label: 'ご利用マニュアル',
+    icon: () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' })
+    ])
+  }
+]
 ```
 
 #### ステップ3: Manual.vue作成（60分）
@@ -495,7 +495,7 @@ dark: プレフィックスの追加
 />
 ```
 
-#### ステップ12: 動画埋め込み対応（30分）
+#### ステップ12: 動画埋め込み対応（30分）フェーズ４以降へ繰越
 YouTube iframe埋め込み
 
 **Phase 3 合計所要時間: 3-4時間**

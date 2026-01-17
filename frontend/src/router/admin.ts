@@ -67,6 +67,15 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/manual',
+    name: 'AdminManual',
+    component: () => import('@/views/admin/Manual.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/admin/conversations/:session_id',
     name: 'ConversationDetail',
     component: () => import('@/views/admin/ConversationDetail.vue'),
