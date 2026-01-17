@@ -3,7 +3,7 @@
 セッション有効期限の判定を行う
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.models.conversation import Conversation
@@ -49,7 +49,7 @@ async def is_session_valid(
         return False
     
     # 3. started_atから24時間以内かチェック（固定有効期限）
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     session_expires_at = conversation.started_at + timedelta(hours=24)
     
     if now > session_expires_at:

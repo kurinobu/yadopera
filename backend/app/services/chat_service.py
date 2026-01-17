@@ -6,7 +6,7 @@
 import logging
 import uuid
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -127,7 +127,7 @@ class ChatService:
             facility = await self.db.get(Facility, request.facility_id)
             if facility:
                 timezone_str = facility.timezone or 'Asia/Tokyo'
-                utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
+                utc_now = datetime.now(timezone.utc)
                 facility_tz = pytz.timezone(timezone_str)
                 local_now = utc_now.astimezone(facility_tz)
                 
@@ -170,7 +170,7 @@ class ChatService:
                     )
         
         # 会話の最終活動時刻を更新
-        conversation.last_activity_at = datetime.utcnow()
+        conversation.last_activity_at = datetime.now(timezone.utc)
         conversation.total_messages += 2  # ユーザーメッセージ + AI応答
         
         await self.db.commit()
@@ -260,7 +260,7 @@ class ChatService:
                 logger.info(f"Generating new session_id for expired session: new_session_id={session_id}")
             else:
                 # 既存の会話を更新
-                conversation.last_activity_at = datetime.utcnow()
+                conversation.last_activity_at = datetime.now(timezone.utc)
                 if location:
                     conversation.location = location
                 logger.debug(f"Existing conversation found: conversation_id={conversation.id}, session_id={session_id}")
@@ -275,8 +275,8 @@ class ChatService:
                     location=location,
                     user_agent=user_agent,
                     ip_address=ip_address,
-                    started_at=datetime.utcnow(),
-                    last_activity_at=datetime.utcnow()
+                    started_at=datetime.now(timezone.utc),
+                    last_activity_at=datetime.now(timezone.utc)
                 )
                 self.db.add(conversation)
                 await self.db.flush()
@@ -298,7 +298,7 @@ class ChatService:
                 
                 if conversation:
                     # 既存の会話を更新
-                    conversation.last_activity_at = datetime.utcnow()
+                    conversation.last_activity_at = datetime.now(timezone.utc)
                     if location:
                         conversation.location = location
                     logger.info(f"Existing conversation retrieved after duplicate error: conversation_id={conversation.id}, session_id={session_id}")
@@ -313,8 +313,8 @@ class ChatService:
                         location=location,
                         user_agent=user_agent,
                         ip_address=ip_address,
-                        started_at=datetime.utcnow(),
-                        last_activity_at=datetime.utcnow()
+                        started_at=datetime.now(timezone.utc),
+                        last_activity_at=datetime.now(timezone.utc)
                     )
                     self.db.add(conversation)
                     await self.db.flush()
