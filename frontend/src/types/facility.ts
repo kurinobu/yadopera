@@ -11,6 +11,8 @@ export interface Facility {
   check_in_time: string
   check_out_time: string
   wifi_ssid?: string
+  plan_type?: string  // 料金プラン（Free, Mini, Small, Standard, Premium）
+  available_languages?: string[]  // 利用可能言語リスト
 }
 
 export interface TopQuestion {

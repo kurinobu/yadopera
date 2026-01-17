@@ -82,7 +82,7 @@ onMounted(async () => {
     // 現在はfacilityIdをslugとして使用
     const slug = facilityId.value
     
-    const response = await facilityApi.getFacility(slug, location.value)
+    const response = await facilityApi.getFacility(slug, location.value, language.value)
     
     facilityStore.setFacility(response.facility)
     facilityStore.setTopQuestions(response.top_questions)

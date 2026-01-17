@@ -30,6 +30,8 @@ class FacilityPublicResponse(BaseModel):
     check_out_time: Optional[str] = None  # "11:00"形式
     wifi_ssid: Optional[str] = None
     top_questions: List[TopQuestion] = Field(default_factory=list, description="よくある質問TOP3")
+    plan_type: Optional[str] = Field(None, description="料金プラン（Free, Mini, Small, Standard, Premium）")
+    available_languages: List[str] = Field(default_factory=list, description="利用可能言語リスト")
 
     class Config:
         from_attributes = True

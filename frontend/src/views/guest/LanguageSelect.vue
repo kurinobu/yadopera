@@ -44,15 +44,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { SUPPORTED_LANGUAGES } from '@/utils/constants'
 import LanguageCard from '@/components/guest/LanguageCard.vue'
 import Loading from '@/components/common/Loading.vue'
-// import { facilityApi } from '@/api/facility'
-// import { useFacilityStore } from '@/stores/facility'
+import { facilityApi } from '@/api/facility'
+import { useFacilityStore } from '@/stores/facility'
 
 const route = useRoute()
 const router = useRouter()
-// const facilityStore = useFacilityStore()
+const facilityStore = useFacilityStore()
 
 const facilityId = computed(() => route.params.facilityId as string)
-const supportedLanguages = ref(SUPPORTED_LANGUAGES)
+const supportedLanguages = ref<typeof SUPPORTED_LANGUAGES[number][]>([...SUPPORTED_LANGUAGES])
 const selectedLanguage = ref<typeof SUPPORTED_LANGUAGES[number] | null>(null)
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -61,11 +61,35 @@ const error = ref<string | null>(null)
 onMounted(async () => {
   try {
     isLoading.value = true
-    // TODO: facilityIdから施設情報を取得（Week 4で実装）
-    // 現在はfacilityIdをそのまま使用
+    error.value = null
+    
+    // 施設情報を取得
+    const slug = facilityId.value
+    const response = await facilityApi.getFacility(slug)
+    
+    // 施設情報をstoreに保存
+    facilityStore.setFacility(response.facility)
+    facilityStore.setTopQuestions(response.top_questions)
+    
+    // プランに応じた利用可能言語を取得
+    const availableLanguages = response.facility.available_languages || ['en']
+    
+    // SUPPORTED_LANGUAGESから、利用可能な言語のみをフィルタリング
+    const filteredLanguages = SUPPORTED_LANGUAGES.filter(lang => 
+      availableLanguages.includes(lang.code)
+    )
+    
+    // 利用可能な言語がない場合、デフォルトで英語を表示
+    if (filteredLanguages.length === 0) {
+      supportedLanguages.value = [...SUPPORTED_LANGUAGES]
+    } else {
+      supportedLanguages.value = filteredLanguages
+    }
   } catch (err) {
     error.value = '施設情報の取得に失敗しました'
     console.error('Facility fetch error:', err)
+    // エラー時はデフォルトで英語を表示（既存の動作を維持）
+    supportedLanguages.value = [...SUPPORTED_LANGUAGES]
   } finally {
     isLoading.value = false
   }

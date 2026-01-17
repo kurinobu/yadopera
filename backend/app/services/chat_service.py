@@ -10,6 +10,7 @@ from datetime import datetime
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 import pytz
 
 from app.models.conversation import Conversation
@@ -266,19 +267,58 @@ class ChatService:
         
         if not conversation:
             # 新規会話を作成（既存の会話が存在しない、またはセッションが無効な場合）
-            conversation = Conversation(
-                facility_id=facility_id,
-                session_id=session_id,
-                guest_language=language,
-                location=location,
-                user_agent=user_agent,
-                ip_address=ip_address,
-                started_at=datetime.utcnow(),
-                last_activity_at=datetime.utcnow()
-            )
-            self.db.add(conversation)
-            await self.db.flush()
-            logger.info(f"New conversation created: conversation_id={conversation.id}, session_id={session_id}")
+            try:
+                conversation = Conversation(
+                    facility_id=facility_id,
+                    session_id=session_id,
+                    guest_language=language,
+                    location=location,
+                    user_agent=user_agent,
+                    ip_address=ip_address,
+                    started_at=datetime.utcnow(),
+                    last_activity_at=datetime.utcnow()
+                )
+                self.db.add(conversation)
+                await self.db.flush()
+                logger.info(f"New conversation created: conversation_id={conversation.id}, session_id={session_id}")
+            except IntegrityError as e:
+                # セッションIDの重複エラーが発生した場合（並行処理による競合）
+                # 既存の会話を再取得する
+                await self.db.rollback()
+                logger.warning(f"Session ID duplicate detected, retrieving existing conversation: session_id={session_id}, error={e}")
+                
+                # 既存の会話を再取得
+                result = await self.db.execute(
+                    select(Conversation).where(
+                        Conversation.facility_id == facility_id,
+                        Conversation.session_id == session_id
+                    )
+                )
+                conversation = result.scalar_one_or_none()
+                
+                if conversation:
+                    # 既存の会話を更新
+                    conversation.last_activity_at = datetime.utcnow()
+                    if location:
+                        conversation.location = location
+                    logger.info(f"Existing conversation retrieved after duplicate error: conversation_id={conversation.id}, session_id={session_id}")
+                else:
+                    # 既存の会話が見つからない場合は、新しいセッションIDを生成して再試行
+                    logger.error(f"Existing conversation not found after duplicate error, generating new session_id: old_session_id={session_id}")
+                    session_id = str(uuid.uuid4())
+                    conversation = Conversation(
+                        facility_id=facility_id,
+                        session_id=session_id,
+                        guest_language=language,
+                        location=location,
+                        user_agent=user_agent,
+                        ip_address=ip_address,
+                        started_at=datetime.utcnow(),
+                        last_activity_at=datetime.utcnow()
+                    )
+                    self.db.add(conversation)
+                    await self.db.flush()
+                    logger.info(f"New conversation created with new session_id: conversation_id={conversation.id}, session_id={session_id}")
         
         await self.db.commit()
         await self.db.refresh(conversation)

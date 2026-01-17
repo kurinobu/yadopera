@@ -13,8 +13,10 @@ export const facilityApi = {
   /**
    * 施設情報取得（公開）
    */
-  async getFacility(slug: string, location?: string): Promise<FacilityPublicResponse> {
-    const params = location ? { location } : {}
+  async getFacility(slug: string, location?: string, language?: string): Promise<FacilityPublicResponse> {
+    const params: Record<string, string> = {}
+    if (location) params.location = location
+    if (language) params.language = language
     const response = await apiClient.get<FacilityPublicResponse>(`/facility/${slug}`, { params })
     return response.data
   },
