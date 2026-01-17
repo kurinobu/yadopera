@@ -387,7 +387,7 @@ class DashboardService:
     
     async def get_monthly_usage(self, facility_id: int) -> Optional[MonthlyUsageResponse]:
         """
-        今月の質問数/プラン上限を取得
+        今月の質問数/プラン上限を取得（請求期間ベース）
         
         Args:
             facility_id: 施設ID
@@ -407,33 +407,37 @@ class DashboardService:
             
             # JSTタイムゾーン取得
             jst = pytz.timezone('Asia/Tokyo')
-            
-            # 今月の開始時刻（JST）
             now_jst = datetime.now(jst)
-            month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
-            # 今月の終了時刻（JST）
-            if month_start_jst.month == 12:
-                month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
+            # plan_started_atを取得（timezone-awareに変換）
+            plan_started_at = facility.plan_started_at
+            if plan_started_at.tzinfo is None:
+                # naive datetimeの場合はUTCとして扱い、JSTに変換
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
             else:
-                month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
+                # timezone-awareの場合はJSTに変換
+                plan_started_at = plan_started_at.astimezone(jst)
+            
+            # 請求期間を計算
+            from app.utils.billing_period import calculate_billing_period
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
             
             # UTCに変換
-            month_start_utc = month_start_jst.astimezone(pytz.UTC)
-            month_end_utc = month_end_jst.astimezone(pytz.UTC)
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
             
-            # 今月の質問数を集計
+            # 請求期間の質問数を集計
             questions_result = await self.db.execute(
                 select(func.count(Message.id))
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
                     Conversation.facility_id == facility_id,
                     Message.role == MessageRole.USER.value,
-                    Message.created_at >= month_start_utc,
-                    Message.created_at <= month_end_utc
+                    Message.created_at >= billing_start_utc,
+                    Message.created_at <= billing_end_utc
                 )
             )
-            current_month_questions = questions_result.scalar() or 0
+            current_billing_period_questions = questions_result.scalar() or 0
             
             # プラン情報を取得
             plan_type = facility.plan_type or 'Free'
@@ -462,24 +466,24 @@ class DashboardService:
             
             if plan_type == 'Mini':
                 # Miniプラン: 上限なし（従量課金のみ）
-                overage_questions = current_month_questions
+                overage_questions = current_billing_period_questions
                 status = "normal"
             elif plan_limit is not None:
                 # 上限があるプラン
                 # Freeプランの場合は30件超過でfaq_only
-                if plan_type == 'Free' and current_month_questions > 30:
-                    overage_questions = current_month_questions - 30
+                if plan_type == 'Free' and current_billing_period_questions > 30:
+                    overage_questions = current_billing_period_questions - 30
                     usage_percentage = 100.0
                     remaining_questions = 0
                     status = "faq_only"
-                elif current_month_questions > plan_limit:
-                    overage_questions = current_month_questions - plan_limit
+                elif current_billing_period_questions > plan_limit:
+                    overage_questions = current_billing_period_questions - plan_limit
                     usage_percentage = 100.0
                     remaining_questions = 0
                     status = "overage"
                 else:
-                    usage_percentage = (current_month_questions / plan_limit * 100) if plan_limit > 0 else 0.0
-                    remaining_questions = plan_limit - current_month_questions
+                    usage_percentage = (current_billing_period_questions / plan_limit * 100) if plan_limit > 0 else 0.0
+                    remaining_questions = plan_limit - current_billing_period_questions
                     
                     # ステータス判定
                     if usage_percentage >= 91:
@@ -491,7 +495,7 @@ class DashboardService:
                 status = "normal"
             
             return MonthlyUsageResponse(
-                current_month_questions=current_month_questions,
+                current_month_questions=current_billing_period_questions,
                 plan_type=plan_type,
                 plan_limit=plan_limit,
                 usage_percentage=usage_percentage,
@@ -509,7 +513,7 @@ class DashboardService:
     
     async def get_ai_automation(self, facility_id: int) -> Optional[AiAutomationResponse]:
         """
-        AI自動応答数・自動化率を取得
+        AI自動応答数・自動化率を取得（請求期間ベース）
         
         Args:
             facility_id: 施設ID
@@ -518,32 +522,45 @@ class DashboardService:
             AiAutomationResponse: AI自動応答統計（エラー時はNone）
         """
         try:
+            # 施設情報を取得
+            facility_result = await self.db.execute(
+                select(Facility).where(Facility.id == facility_id)
+            )
+            facility = facility_result.scalar_one_or_none()
+            if not facility:
+                logger.warning(f"Facility not found: {facility_id}")
+                return None
+            
             # JSTタイムゾーン取得
             jst = pytz.timezone('Asia/Tokyo')
-            
-            # 今月の開始時刻（JST）
             now_jst = datetime.now(jst)
-            month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
-            # 今月の終了時刻（JST）
-            if month_start_jst.month == 12:
-                month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
+            # plan_started_atを取得（timezone-awareに変換）
+            plan_started_at = facility.plan_started_at
+            if plan_started_at.tzinfo is None:
+                # naive datetimeの場合はUTCとして扱い、JSTに変換
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
             else:
-                month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
+                # timezone-awareの場合はJSTに変換
+                plan_started_at = plan_started_at.astimezone(jst)
+            
+            # 請求期間を計算
+            from app.utils.billing_period import calculate_billing_period
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
             
             # UTCに変換
-            month_start_utc = month_start_jst.astimezone(pytz.UTC)
-            month_end_utc = month_end_jst.astimezone(pytz.UTC)
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
             
-            # 今月の総質問数
+            # 請求期間の総質問数
             total_questions_result = await self.db.execute(
                 select(func.count(Message.id))
                 .join(Conversation, Message.conversation_id == Conversation.id)
                 .where(
                     Conversation.facility_id == facility_id,
                     Message.role == MessageRole.USER.value,
-                    Message.created_at >= month_start_utc,
-                    Message.created_at <= month_end_utc
+                    Message.created_at >= billing_start_utc,
+                    Message.created_at <= billing_end_utc
                 )
             )
             total_questions = total_questions_result.scalar() or 0
@@ -554,8 +571,8 @@ class DashboardService:
                 .join(Conversation, Escalation.conversation_id == Conversation.id)
                 .where(
                     Conversation.facility_id == facility_id,
-                    Escalation.created_at >= month_start_utc,
-                    Escalation.created_at <= month_end_utc
+                    Escalation.created_at >= billing_start_utc,
+                    Escalation.created_at <= billing_end_utc
                 )
             )
             escalated_conversation_ids = [row[0] for row in escalated_conversation_ids_result.all()]
@@ -565,8 +582,8 @@ class DashboardService:
                 select(Conversation.id)
                 .where(
                     Conversation.facility_id == facility_id,
-                    Conversation.started_at >= month_start_utc,
-                    Conversation.started_at <= month_end_utc
+                    Conversation.started_at >= billing_start_utc,
+                    Conversation.started_at <= billing_end_utc
                 )
             )
             all_conversation_ids = [row[0] for row in all_conversations_result.all()]
@@ -585,8 +602,8 @@ class DashboardService:
                     .where(
                         Message.conversation_id.in_(non_escalated_conversation_ids),
                         Message.role == MessageRole.ASSISTANT.value,
-                        Message.created_at >= month_start_utc,
-                        Message.created_at <= month_end_utc
+                        Message.created_at >= billing_start_utc,
+                        Message.created_at <= billing_end_utc
                     )
                 )
                 ai_responses = ai_responses_result.scalar() or 0
@@ -611,7 +628,7 @@ class DashboardService:
     
     async def get_escalations_summary(self, facility_id: int) -> Optional[EscalationsSummaryResponse]:
         """
-        エスカレーション統計を取得
+        エスカレーション統計を取得（請求期間ベース）
         
         Args:
             facility_id: 施設ID
@@ -620,31 +637,44 @@ class DashboardService:
             EscalationsSummaryResponse: エスカレーション統計（エラー時はNone）
         """
         try:
+            # 施設情報を取得
+            facility_result = await self.db.execute(
+                select(Facility).where(Facility.id == facility_id)
+            )
+            facility = facility_result.scalar_one_or_none()
+            if not facility:
+                logger.warning(f"Facility not found: {facility_id}")
+                return None
+            
             # JSTタイムゾーン取得
             jst = pytz.timezone('Asia/Tokyo')
-            
-            # 今月の開始時刻（JST）
             now_jst = datetime.now(jst)
-            month_start_jst = now_jst.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
             
-            # 今月の終了時刻（JST）
-            if month_start_jst.month == 12:
-                month_end_jst = month_start_jst.replace(year=month_start_jst.year + 1, month=1) - timedelta(seconds=1)
+            # plan_started_atを取得（timezone-awareに変換）
+            plan_started_at = facility.plan_started_at
+            if plan_started_at.tzinfo is None:
+                # naive datetimeの場合はUTCとして扱い、JSTに変換
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
             else:
-                month_end_jst = month_start_jst.replace(month=month_start_jst.month + 1) - timedelta(seconds=1)
+                # timezone-awareの場合はJSTに変換
+                plan_started_at = plan_started_at.astimezone(jst)
+            
+            # 請求期間を計算
+            from app.utils.billing_period import calculate_billing_period
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
             
             # UTCに変換
-            month_start_utc = month_start_jst.astimezone(pytz.UTC)
-            month_end_utc = month_end_jst.astimezone(pytz.UTC)
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
             
-            # 今月のエスカレーション数を集計
+            # 請求期間のエスカレーション数を集計
             escalations_result = await self.db.execute(
                 select(Escalation)
                 .join(Conversation, Escalation.conversation_id == Conversation.id)
                 .where(
                     Conversation.facility_id == facility_id,
-                    Escalation.created_at >= month_start_utc,
-                    Escalation.created_at <= month_end_utc
+                    Escalation.created_at >= billing_start_utc,
+                    Escalation.created_at <= billing_end_utc
                 )
             )
             escalations = escalations_result.scalars().all()

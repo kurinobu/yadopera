@@ -27,7 +27,16 @@
 \- AI応答メッセージ（\`role='assistant'\`）  
 \- 管理者メッセージ（エスカレーション対応時の\`role='staff'\`）
 
-\*\*月次集計期間\*\*: 毎月1日 00:00:00 〜 月末 23:59:59（施設のタイムゾーン基準）
+\*\*月次集計期間（請求期間ベース）\*\*: 契約開始日（\`plan_started_at\`）から30日間の請求期間で集計（Stripe統合を見据えた設計）
+
+\*\*請求期間の計算ロジック\*\*:
+- 請求期間は\`plan_started_at\`を基準に、30日間（1ヶ月）ごとに区切られる
+- 現在時刻が含まれる請求期間を自動計算
+- 例: \`plan_started_at = 2026-01-15 10:00:00\`の場合
+  - 1回目の請求期間: 2026-01-15 10:00:00 〜 2026-02-15 09:59:59（JST）
+  - 2回目の請求期間: 2026-02-15 10:00:00 〜 2026-03-15 09:59:59（JST）
+- プラン変更時は\`plan_started_at\`を更新し、新しいプランの開始日から請求期間を計算
+- すべての統計は\*\*日本時間（JST）\*\*基準、データベースはUTC保存、取得時にJST変換
 
 \---
 
@@ -58,8 +67,10 @@ FROM messages m
 JOIN conversations c ON m.conversation\_id \= c.id  
 WHERE c.facility\_id \= :facility\_id  
   AND m.role \= 'user'  
-  AND m.created\_at \>= DATE\_TRUNC('month', CURRENT\_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')  
-  AND m.created\_at \< DATE\_TRUNC('month', CURRENT\_TIMESTAMP AT TIME ZONE 'Asia/Tokyo') \+ INTERVAL '1 month';  
+  AND m.created\_at \>= :billing\_start\_utc  -- 請求期間開始時刻（UTC）
+  AND m.created\_at \<= :billing\_end\_utc;    -- 請求期間終了時刻（UTC）
+  
+-- 請求期間は\`plan_started_at\`から計算（バックエンドで実装）  
 \`\`\`  
 \- \*\*プラン情報取得SQL\*\*:  
 \`\`\`sql  
@@ -125,14 +136,14 @@ SELECT
    JOIN conversations c2 ON m2.conversation\_id \= c2.id  
    WHERE c2.facility\_id \= :facility\_id  
      AND m2.role \= 'user'  
-     AND m2.created\_at \>= DATE\_TRUNC('month', CURRENT\_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')  
-     AND m2.created\_at \< DATE\_TRUNC('month', CURRENT\_TIMESTAMP AT TIME ZONE 'Asia/Tokyo') \+ INTERVAL '1 month'  
+     AND m2.created\_at \>= :billing\_start\_utc  -- 請求期間開始時刻（UTC）
+     AND m2.created\_at \<= :billing\_end\_utc    -- 請求期間終了時刻（UTC）  
   ) as total\_questions  
 FROM conversations c  
 LEFT JOIN escalations e ON c.id \= e.conversation\_id  
 WHERE c.facility\_id \= :facility\_id  
-  AND c.started\_at \>= DATE\_TRUNC('month', CURRENT\_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')  
-  AND c.started\_at \< DATE\_TRUNC('month', CURRENT\_TIMESTAMP AT TIME ZONE 'Asia/Tokyo') \+ INTERVAL '1 month'  
+  AND c.started\_at \>= :billing\_start\_utc  -- 請求期間開始時刻（UTC）
+  AND c.started\_at \<= :billing\_end\_utc    -- 請求期間終了時刻（UTC）  
   AND e.id IS NULL;  \-- エスカレーションされていない会話のみ  
 \`\`\`
 
@@ -176,8 +187,8 @@ SELECT
 FROM escalations e  
 JOIN conversations c ON e.conversation\_id \= c.id  
 WHERE c.facility\_id \= :facility\_id  
-  AND e.created\_at \>= DATE\_TRUNC('month', CURRENT\_TIMESTAMP AT TIME ZONE 'Asia/Tokyo')  
-  AND e.created\_at \< DATE\_TRUNC('month', CURRENT\_TIMESTAMP AT TIME ZONE 'Asia/Tokyo') \+ INTERVAL '1 month';  
+  AND e.created\_at \>= :billing\_start\_utc  -- 請求期間開始時刻（UTC）
+  AND e.created\_at \<= :billing\_end\_utc;    -- 請求期間終了時刻（UTC）  
 \`\`\`
 
 \*\*表示ロジック\*\*:  
@@ -833,19 +844,20 @@ async def get\_dashboard(
     jst \= pytz.timezone('Asia/Tokyo')  
     now \= datetime.now(jst)  
       
-    \# 今月の開始日・終了日  
-    month\_start \= now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)  
-    month\_end \= (month\_start \+ timedelta(days=32)).replace(day=1) \- timedelta(seconds=1)  
+    \# 請求期間を計算（\`plan_started_at\`から30日間）  
+    from app.utils.billing_period import calculate_billing_period  
+    plan_started_at_jst = facility.plan_started_at.astimezone(jst)  
+    billing_start, billing_end = calculate_billing_period(plan_started_at_jst, now)  
       
     \# 施設情報取得  
     facility \= db.query(Facility).filter(Facility.id \== facility\_id).first()  
     if not facility:  
         raise HTTPException(status\_code=404, detail="Facility not found")  
       
-    \# \--- 月次統計 \---  
-    monthly\_usage \= get\_monthly\_usage(db, facility\_id, facility, month\_start, month\_end)  
-    ai\_automation \= get\_ai\_automation(db, facility\_id, month\_start, month\_end)  
-    escalations\_summary \= get\_escalations\_summary(db, facility\_id, month\_start, month\_end)  
+    \# \--- 月次統計（請求期間ベース） \---  
+    monthly\_usage \= get\_monthly\_usage(db, facility\_id, facility, billing\_start, billing\_end)  
+    ai\_automation \= get\_ai\_automation(db, facility\_id, billing\_start, billing\_end)  
+    escalations\_summary \= get\_escalations\_summary(db, facility\_id, billing\_start, billing\_end)  
     estimated\_cost \= calculate\_estimated\_cost(facility.plan\_type, monthly\_usage\['current\_month\_questions'\])  
       
     \# \--- 週次統計 \---  
@@ -1216,7 +1228,9 @@ def test\_dashboard\_success(test\_db, test\_facility):
 
 \---
 
-\*\*Document Version\*\*: v1.0    
+\*\*Document Version\*\*: v1.1    
 \*\*Author\*\*: Claude (Anthropic)    
 \*\*Created\*\*: 2025-01-14    
+\*\*最終更新日\*\*: 2026-01-17    
+\*\*更新内容\*\*: 月次集計期間をカレンダー月ベースから契約開始日ベースの請求期間に変更（Stripe統合を見据えた設計）    
 \*\*Status\*\*: 実装準備完了

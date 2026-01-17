@@ -2,7 +2,7 @@
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
     <div class="flex items-center justify-between mb-4">
       <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-        今月の質問数
+        質問数
       </h3>
       <span :class="planTypeBadgeClass" class="px-3 py-1 text-xs font-semibold rounded-full">
         {{ planTypeLabel }}

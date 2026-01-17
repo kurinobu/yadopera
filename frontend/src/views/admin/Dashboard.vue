@@ -30,27 +30,27 @@
       <section v-if="monthlyUsage || aiAutomation || escalationsSummary" class="space-y-6">
         <div>
           <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-            今月の利用状況
+            利用状況
           </h2>
           <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            月次統計とコスト情報
+            請求期間の統計とコスト情報
           </p>
         </div>
         
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <!-- カード1: 今月の質問数 / プラン上限 -->
+          <!-- カード1: 請求期間の質問数 / プラン上限 -->
           <MonthlyUsageCard 
             v-if="monthlyUsage" 
             :data="monthlyUsage" 
           />
           
-          <!-- カード2: 今月のAI自動応答数 -->
+          <!-- カード2: 請求期間のAI自動応答数 -->
           <AiAutomationCard 
             v-if="aiAutomation" 
             :data="aiAutomation" 
           />
           
-          <!-- カード3: 今月のエスカレーション数 -->
+          <!-- カード3: 請求期間のエスカレーション数 -->
           <EscalationsSummaryCard 
             v-if="escalationsSummary" 
             :data="escalationsSummary" 
