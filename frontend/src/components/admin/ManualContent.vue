@@ -17,9 +17,7 @@
         class="manual-subsection"
       >
         <h2 class="manual-h2">{{ subsection.title }}</h2>
-        <div class="manual-text">
-          <p>{{ getContent(section.id, subsection.id) }}</p>
-        </div>
+        <div class="manual-text" v-html="formatContent(getContent(section.id, subsection.id))"></div>
       </div>
     </div>
   </div>
@@ -31,6 +29,7 @@ import { onMounted, onUnmounted } from 'vue'
 interface ManualSubsection {
   id: string
   title: string
+  content?: string
 }
 
 interface ManualSection {
@@ -52,12 +51,59 @@ const emit = defineEmits<{
 // スクロール監視用のIntersectionObserver
 let observer: IntersectionObserver | null = null
 
-// コンテンツ取得（暫定実装、後で詳細を追加）
-const getContent = (_sectionId: string, subsectionId: string): string => {
-  // 暫定的なプレースホルダー
-  // 後で各セクションの詳細な内容を実装
-  // sectionIdは将来の実装で使用予定
-  return `${subsectionId}の説明内容は後で追加します。`
+// コンテンツ取得
+const getContent = (sectionId: string, subsectionId: string): string => {
+  const section = props.sections.find(s => s.id === sectionId)
+  const subsection = section?.subsections.find(sub => sub.id === subsectionId)
+  return subsection?.content || '説明内容は準備中です。'
+}
+
+// マークダウン風のテキストをHTMLに変換
+const formatContent = (content: string): string => {
+  if (!content) return ''
+  
+  const lines = content.split('\n')
+  let html = ''
+  let inList = false
+  
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]
+    const trimmed = line.trim()
+    
+    // リスト項目の処理
+    if (trimmed.startsWith('- ')) {
+      if (!inList) {
+        html += '<ul>'
+        inList = true
+      }
+      // **太字**を<strong>に変換してから<li>に追加
+      const listContent = trimmed.substring(2).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      html += `<li>${listContent}</li>`
+    } else {
+      // リストの終了
+      if (inList) {
+        html += '</ul>'
+        inList = false
+      }
+      
+      // 空行は無視
+      if (trimmed === '') {
+        html += '<br>'
+        continue
+      }
+      
+      // **太字**を<strong>に変換
+      const formattedLine = trimmed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      html += `<p>${formattedLine}</p>`
+    }
+  }
+  
+  // リストが最後まで続いていた場合、閉じる
+  if (inList) {
+    html += '</ul>'
+  }
+  
+  return html
 }
 
 // スクロール監視のセットアップ
