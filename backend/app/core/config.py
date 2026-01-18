@@ -21,6 +21,9 @@ class Settings(BaseSettings):
     environment: str = "development"
     debug: bool = True
     
+    # Frontend URL (QRコード生成用)
+    frontend_url: str = "https://yadopera.com"  # デフォルトは本番環境用
+    
     # CORS (comma-separated string to List[str])
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
     

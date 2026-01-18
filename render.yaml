@@ -22,6 +22,8 @@ services:
         value: https://yadopera-frontend-staging.onrender.com,http://localhost:5173
       - key: ENVIRONMENT
         value: staging
+      - key: FRONTEND_URL
+        value: https://yadopera-frontend-staging.onrender.com  # ステージング環境用
       - key: DEBUG
         value: "False"
       - key: LOG_LEVEL
