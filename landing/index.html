@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YadOPERA | 小規模宿向けAI多言語自動案内システム</title>
-    <meta name="description" content="外国語対応を70%自動化。QRコードだけで始める、ゲストハウス・ホステル向けAI多言語案内。年間40万円削減、PoC無料募集中。">
-    <meta name="keywords" content="ゲストハウス,ホステル,外国人対応,多言語,AI,自動化,やどぺら,YadOPERA">
+    <title>YadOPERA | 小規模宿泊施設向け案内支援サービス（準備中）</title>
+    <meta name="description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。現在サービス準備中。開始時に1通だけご案内します。">
+    <meta name="robots" content="noindex, nofollow">
     
     <!-- Content Security Policy -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://formspree.io;">
@@ -13,14 +13,14 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://yadopera.com/">
-    <meta property="og:title" content="YadOPERA | 小規模宿向けAI多言語自動案内システム">
-    <meta property="og:description" content="外国語対応を70%自動化。QRコードだけで始める、ゲストハウス・ホステル向けAI多言語案内。">
+    <meta property="og:title" content="YadOPERA | 小規模宿泊施設向け案内支援サービス（準備中）">
+    <meta property="og:description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。現在サービス準備中。">
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://yadopera.com/">
-    <meta property="twitter:title" content="YadOPERA | 小規模宿向けAI多言語自動案内システム">
-    <meta property="twitter:description" content="外国語対応を70%自動化。QRコードだけで始める、ゲストハウス・ホステル向けAI多言語案内。">
+    <meta property="twitter:title" content="YadOPERA | 小規模宿泊施設向け案内支援サービス（準備中）">
+    <meta property="twitter:description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。現在サービス準備中。">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -44,11 +44,7 @@
             font-family: 'Noto Sans JP', sans-serif;
         }
         
-        .hero-gradient {
-            background: linear-gradient(135deg, #38b7ee 0%, #0ea5e9 100%);
-        }
-        
-        /* カスタムカラー定義 */
+        /* カスタムカラー定義（PoC募集LPサイトと同じ） */
         .text-primary {
             color: #0c4a6e;
         }
@@ -58,10 +54,6 @@
         }
         
         .bg-primary-hover:hover {
-            background-color: #075985;
-        }
-        
-        .hover\:bg-primary-hover:hover {
             background-color: #075985;
         }
         
@@ -87,14 +79,8 @@
             ring-color: #0c4a6e;
         }
         
-        .section-padding {
-            padding: 4rem 0;
-        }
-        
-        @media (max-width: 768px) {
-            .section-padding {
-                padding: 2rem 0;
-            }
+        .hero-gradient {
+            background: linear-gradient(135deg, #38b7ee 0%, #0ea5e9 100%);
         }
         
         .fade-in {
@@ -117,848 +103,211 @@
         }
     </style>
 </head>
-<body class="scroll-smooth">
-    <!-- Navigation -->
-    <nav class="bg-white shadow-md fixed w-full top-0 z-50">
-        <div class="container mx-auto px-4 py-4">
-            <div class="flex justify-between items-center">
-                <div class="text-2xl font-bold text-primary">YadOPERA</div>
-                <div class="hidden md:flex space-x-6">
-                    <a href="#features" class="text-gray-700 hover:text-primary transition">機能</a>
-                    <a href="#how-it-works" class="text-gray-700 hover:text-primary transition">仕組み</a>
-                    <a href="#pricing" class="text-gray-700 hover:text-primary transition">料金</a>
-                    <a href="#faq" class="text-gray-700 hover:text-primary transition">FAQ</a>
-                    <a href="#apply" class="bg-primary text-white px-4 py-2 rounded-lg bg-primary-hover transition">無料PoCに申し込む</a>
-                </div>
-                <button class="md:hidden text-gray-700" id="mobile-menu-btn">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-                    </svg>
-                </button>
-            </div>
-            <!-- Mobile Menu -->
-            <div class="hidden md:hidden mt-4" id="mobile-menu">
-                <div class="flex flex-col space-y-2">
-                    <a href="#features" class="text-gray-700 py-2">機能</a>
-                    <a href="#how-it-works" class="text-gray-700 py-2">仕組み</a>
-                    <a href="#pricing" class="text-gray-700 py-2">料金</a>
-                    <a href="#faq" class="text-gray-700 py-2">FAQ</a>
-                    <a href="#apply" class="bg-primary text-white px-4 py-2 rounded-lg text-center bg-primary-hover">無料PoCに申し込む</a>
-                </div>
-            </div>
-        </div>
-    </nav>
+<body class="bg-gray-50 text-gray-800 scroll-smooth">
 
-    <!-- Hero Section -->
-    <section class="hero-gradient text-white section-padding mt-16 fade-in">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto text-center">
-                <h1 class="text-4xl md:text-5xl font-bold mb-6">
-                    スタッフの負担を減らし、<br>
-                    ゲストの遠慮をなくす。
-                </h1>
-                <p class="text-xl md:text-2xl mb-4">AI多言語自動案内「YadOPERA」</p>
-                <p class="text-lg mb-8">人とAIで、もっと良い宿体験を。</p>
-                <div class="flex flex-col md:flex-row gap-4 justify-center">
-                    <a href="#apply" class="bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-100 transition shadow-lg">
-                        無料PoCに申し込む
-                    </a>
-                    <a href="#how-it-works" class="bg-transparent border-2 border-white text-white px-8 py-4 rounded-lg font-bold text-lg hover:bg-white hover:text-primary transition">
-                        仕組みを見る
-                    </a>
-                </div>
-                <p class="mt-6 text-sm opacity-90">※ 応募多数の場合は選考となります</p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Problem Section -->
-    <section id="features" class="bg-gray-50 section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto">
-                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">こんなお悩みはありませんか？</h2>
-                
-                <div class="grid md:grid-cols-2 gap-8 mb-12">
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-4 text-primary">宿側の悩み</h3>
-                        <ul class="space-y-3 text-gray-700">
-                            <li class="flex items-start">
-                                <span class="text-primary mr-2">✓</span>
-                                <span>チェックイン後にゲストから何度も同じ質問が来る</span>
-                            </li>
-                            <li class="flex items-start">
-                                <span class="text-primary mr-2">✓</span>
-                                <span>「WiFiパスワードは？」「ゴミ出しは？」を毎日何度も説明</span>
-                            </li>
-                            <li class="flex items-start">
-                                <span class="text-primary mr-2">✓</span>
-                                <span>フロント時間帯に2人体制が必要でシフトが組めない</span>
-                            </li>
-                            <li class="flex items-start">
-                                <span class="text-primary mr-2">✓</span>
-                                <span>夜遅い時間まで質問対応があり、スタッフの帰宅が遅れる</span>
-                            </li>
-                            <li class="flex items-start">
-                                <span class="text-primary mr-2">✓</span>
-                                <span>初対面の接客は大切だが、後から出る細かい質問対応が負担</span>
-                            </li>
-                        </ul>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-4 text-primary">ゲスト側の遠慮</h3>
-                        <ul class="space-y-3 text-gray-700 italic">
-                            <li>「スタッフが忙しそうで聞けない…」</li>
-                            <li>「夜遅いから呼ぶのは悪いかな…」</li>
-                            <li>「英語が苦手で、うまく伝えられない…」</li>
-                            <li>「こんな小さなこと聞いていいのかな…」</li>
-                        </ul>
-                        <p class="mt-4 text-gray-600">→ その遠慮が、満足度を下げています。</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Concept Section -->
-    <section class="bg-white section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto text-center">
-                <h2 class="text-3xl md:text-4xl font-bold mb-6">YadOPERAは「無人化ツール」ではありません。</h2>
-                <p class="text-xl text-gray-700 mb-8">
-                    ゲストの遠慮をなくし、<br>
-                    スタッフの負担を減らす、<br>
-                    新しいホスピタリティの形です。
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Value Proposition Section -->
-    <section class="bg-accent-light section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-6xl mx-auto">
-                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">3つの価値</h2>
-                
-                <div class="grid md:grid-cols-3 gap-8">
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <div class="text-4xl mb-4">1️⃣</div>
-                        <h3 class="text-xl font-bold mb-4">スタッフの勤務時間を削減</h3>
-                        <p class="text-gray-700">
-                            チェックイン対応は人が行い、その後の定型質問はAIが対応。
-                            フロント時間帯の2人体制を1時間短縮できれば、
-                            年間40万円以上のコスト削減を実現します。
-                        </p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <div class="text-4xl mb-4">2️⃣</div>
-                        <h3 class="text-xl font-bold mb-4">ゲストの遠慮をなくす</h3>
-                        <p class="text-gray-700">
-                            24時間、どんな言語でも、気兼ねなく質問できる。
-                            小さな不安を残さない滞在体験を提供します。
-                        </p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <div class="text-4xl mb-4">3️⃣</div>
-                        <h3 class="text-xl font-bold mb-4">深夜も安心の運営体制</h3>
-                        <p class="text-gray-700">
-                            スタッフが不在でも、ゲストは困りません。
-                            人手不足の不安から解放されます。
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- How It Works Section -->
-    <section id="how-it-works" class="bg-white section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto">
-                <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">QRを置くだけ。設備投資ゼロ。</h2>
-                <p class="text-center text-gray-600 mb-12">初期設定は30分で完了</p>
-                
-                <div class="space-y-8">
-                    <div class="flex flex-col md:flex-row items-center gap-6">
-                        <div class="bg-accent-light rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold text-primary flex-shrink-0">
-                            1
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="text-xl font-bold mb-2">QRコードを印刷して館内に設置</h3>
-                            <p class="text-gray-700">チェックインカウンター、各部屋、共用スペース</p>
-                        </div>
-                    </div>
-                    
-                    <div class="flex flex-col md:flex-row items-center gap-6">
-                        <div class="bg-accent-light rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold text-primary flex-shrink-0">
-                            2
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="text-xl font-bold mb-2">よくある質問をテンプレートから選択</h3>
-                            <p class="text-gray-700">WiFi、チェックアウト時間、周辺施設など30種類</p>
-                        </div>
-                    </div>
-                    
-                    <div class="flex flex-col md:flex-row items-center gap-6">
-                        <div class="bg-accent-light rounded-full w-16 h-16 flex items-center justify-center text-2xl font-bold text-primary flex-shrink-0">
-                            3
-                        </div>
-                        <div class="flex-1">
-                            <h3 class="text-xl font-bold mb-2">ゲストがスマホでスキャン→質問→AI回答</h3>
-                            <p class="text-gray-700">チェックイン後の細かい質問に平均3秒で回答</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="mt-12 bg-gray-50 p-6 rounded-lg">
-                    <p class="text-sm text-gray-600">
-                        ※ チェックイン時はスタッフが丁寧に対応<br>
-                        ※ その後の定型質問はAIが24時間自動対応<br>
-                        ※ 特別なタブレットや機器は一切不要<br>
-                        ※ ゲストのスマホだけで完結
+    <main class="min-h-screen">
+        
+        <!-- ファーストビュー -->
+        <section class="hero-gradient text-white py-16 md:py-24 fade-in">
+            <div class="container mx-auto px-4">
+                <div class="max-w-4xl mx-auto text-center">
+                    <h1 class="text-3xl md:text-5xl font-bold mb-6">
+                        フロントに人がいない時間、<br>
+                        説明を止めない。
+                    </h1>
+                    <p class="text-xl md:text-2xl mb-4">YadOPERA</p>
+                    <p class="text-base md:text-lg mb-8 opacity-90">
+                        小規模宿泊施設向け案内支援サービス
+                    </p>
+                    <p class="text-sm opacity-80">
+                        準備中 | 2026年春 提供開始予定
                     </p>
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- ROI Section -->
-    <section class="bg-gradient-to-r from-[#0c4a6e] to-[#075985] text-white section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto">
-                <h2 class="text-3xl md:text-4xl font-bold text-center mb-8">たった1時間のシフト短縮が、年間40万円の削減に</h2>
-                
-                <div class="grid md:grid-cols-2 gap-8 mb-8">
-                    <div class="bg-white/10 backdrop-blur-sm p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-4">【従来】</h3>
-                        <p class="mb-2">フロント時間帯（15:00-22:00）: 2人体制必須</p>
-                        <p class="text-sm opacity-90">年間人件費（Bさん分）: ¥2,810,500</p>
-                    </div>
+        <!-- メインコンテンツ -->
+        <section class="py-12 md:py-16">
+            <div class="container mx-auto px-4">
+                <div class="max-w-3xl mx-auto">
                     
-                    <div class="bg-white/10 backdrop-blur-sm p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-4">【YadOPERA導入後】</h3>
-                        <p class="mb-2">チェックイン対応: 2人で丁寧に接客</p>
-                        <p class="mb-2">その後の定型質問: AIが自動対応</p>
-                        <p class="text-sm opacity-90">→ 21:00以降は1人体制でOK</p>
-                    </div>
-                </div>
-                
-                <div class="bg-white text-primary p-6 rounded-lg text-center">
-                    <p class="text-2xl font-bold mb-2">1時間/日 × 365日 × ¥1,100 = ¥401,500/年削減</p>
-                    <p class="text-lg">YadOPERA年間利用料: ¥47,760</p>
-                    <p class="text-xl font-bold mt-2">実質利益: ¥353,740/年</p>
-                    <p class="text-sm mt-2">投資回収期間: 約1.4ヶ月</p>
-                </div>
-                
-                <p class="text-center mt-6 text-sm opacity-90">
-                    チェックイン時の大切な接客はそのままに、<br>
-                    後から出る細かい質問はAIにお任せ。
-                </p>
-            </div>
-        </div>
-    </section>
+                    <!-- コアメッセージ -->
+                    <div class="bg-white rounded-lg shadow-sm p-8 md:p-10 mb-8">
+                        <div class="mb-8">
+                            <div class="space-y-4 text-base md:text-lg text-gray-700 leading-relaxed">
+                                <p>
+                                    YadOPERAは、<br>
+                                    スタッフが対応しきれない時間帯や、<br>
+                                    「聞きづらさ」が生まれやすい場面での<br>
+                                    <strong class="font-semibold text-primary">宿泊施設の案内負担を軽くする</strong>ためのサービスです。
+                                </p>
+                                <p>
+                                    夜間限定のツールではありません。<br>
+                                    無人・半無人時間帯を前提とした設計です。
+                                </p>
+                                <p>
+                                    自動接客ツールでもありません。<br>
+                                    説明を継続するための一次対応の仕組みです。
+                                </p>
+                            </div>
+                        </div>
 
-    <!-- PoC Section -->
-    <section id="apply" class="bg-white section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto">
-                <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">まずは無料で試してください</h2>
-                <p class="text-center text-xl text-primary font-bold mb-8">PoC参加施設を【3施設限定】で募集</p>
-                
-                <!-- PoC説明サブセクション -->
-                <div class="bg-accent-light border-l-4 border-primary p-6 rounded-lg mb-8">
-                    <h3 class="text-2xl font-bold mb-4 text-primary">PoC（Proof of Concept）とは？</h3>
-                    <div class="space-y-4 text-gray-700">
-                        <p>
-                            <strong>PoC（実証実験）</strong>は、YadOPERAを実際の施設で試していただき、効果を検証していただくプログラムです。
-                        </p>
-                        <div>
-                            <h4 class="font-bold mb-2 text-primary">契約内容</h4>
-                            <ul class="list-disc list-inside space-y-1 ml-4">
-                                <li><strong>完全無料</strong>: 2ヶ月間、すべての機能を無料でご利用いただけます</li>
-                                <li><strong>契約の縛りなし</strong>: いつでも中止可能です。解約金や違約金は一切ありません</li>
-                                <li><strong>AI利用制限なし</strong>: 質問数に上限はありません</li>
+                        <hr class="border-gray-200 my-8">
+
+                        <!-- 対象施設 -->
+                        <div class="mb-8">
+                            <h3 class="text-lg md:text-xl font-semibold text-primary mb-4">
+                                こんな宿泊施設を想定しています
+                            </h3>
+                            <ul class="space-y-2 text-sm md:text-base text-gray-700">
+                                <li class="flex items-start">
+                                    <span class="text-accent mr-2">・</span>
+                                    <span>ゲストハウス・ホステル</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <span class="text-accent mr-2">・</span>
+                                    <span>スタッフ1〜10名規模</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <span class="text-accent mr-2">・</span>
+                                    <span>常時フロントに人がいるわけではない</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <span class="text-accent mr-2">・</span>
+                                    <span>説明対応・問い合わせ対応が負担になっている</span>
+                                </li>
                             </ul>
                         </div>
-                        <div>
-                            <h4 class="font-bold mb-2 text-primary">YadOPERAとの関係性</h4>
-                            <p>
-                                参加施設の皆様は、YadOPERAの<strong>テストユーザー</strong>として、実際の運用を通じてフィードバックを提供していただきます。
-                                いただいたご意見は、正式版リリースに向けた機能改善に反映させていただきます。
+
+                        <hr class="border-gray-200 my-8">
+
+                        <!-- やらないこと -->
+                        <div class="mb-8">
+                            <h3 class="text-lg md:text-xl font-semibold text-primary mb-4">
+                                YadOPERAが「やらないこと」
+                            </h3>
+                            <ul class="space-y-2 text-sm md:text-base text-gray-700">
+                                <li class="flex items-start">
+                                    <span class="text-gray-400 mr-2">・</span>
+                                    <span>スタッフの代わりに接客する</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <span class="text-gray-400 mr-2">・</span>
+                                    <span>判断や責任を代行する</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <span class="text-gray-400 mr-2">・</span>
+                                    <span>完全無人化を目指す</span>
+                                </li>
+                            </ul>
+                            <p class="text-sm text-gray-600 mt-4 leading-relaxed">
+                                判断や責任は人に戻す前提で設計されています。
                             </p>
                         </div>
-                        <div>
-                            <h4 class="font-bold mb-2 text-primary">期待される協力内容</h4>
-                            <ul class="list-disc list-inside space-y-1 ml-4">
-                                <li>QRコードの設置と運用</li>
-                                <li>週次30分のオンラインミーティングへの参加（フィードバック共有）</li>
-                                <li>使用感や改善点のご意見提供（Slackチャンネルまたはミーティングで）</li>
+
+                        <hr class="border-gray-200 my-8">
+
+                        <!-- 補足情報 -->
+                        <div class="mb-8">
+                            <h3 class="text-lg md:text-xl font-semibold text-primary mb-4">
+                                補足
+                            </h3>
+                            <ul class="space-y-2 text-sm md:text-base text-gray-700">
+                                <li class="flex items-start">
+                                    <span class="text-accent mr-2">・</span>
+                                    <span>Freeプランから始められます（詳細は提供開始時にご案内）</span>
+                                </li>
+                                <li class="flex items-start">
+                                    <span class="text-accent mr-2">・</span>
+                                    <span>現在、正式リリースに向けて準備を進めています</span>
+                                </li>
                             </ul>
                         </div>
-                        <p class="text-sm text-gray-600 mt-4">
-                            ※ PoC期間中は、YadOPERA開発者が直接サポートいたします。不明点やご要望はいつでもお気軽にお申し付けください。
+
+                        <hr class="border-gray-200 my-8">
+
+                        <!-- 登録フォーム -->
+                        <div>
+                            <p class="text-center text-base md:text-lg text-gray-700 mb-6">
+                                サービス開始時に<strong class="font-semibold text-primary">1通だけ</strong>ご連絡します
+                            </p>
+
+                            <form
+                                action="https://formspree.io/f/xzdddjwn"
+                                method="POST"
+                                class="space-y-4"
+                            >
+                                <!-- 施設名（任意） -->
+                                <div>
+                                    <label for="facility_name" class="block text-sm font-medium text-gray-700 mb-2">
+                                        施設名（任意）
+                                    </label>
+                                    <input
+                                        type="text"
+                                        id="facility_name"
+                                        name="facility_name"
+                                        placeholder="例：京都ゲストハウス"
+                                        class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    />
+                                </div>
+
+                                <!-- メールアドレス（必須） -->
+                                <div>
+                                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                                        メールアドレス <span class="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="email"
+                                        id="email"
+                                        name="email"
+                                        required
+                                        placeholder="example@guesthouse.com"
+                                        class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    />
+                                </div>
+
+                                <!-- 隠しフィールド：登録日時 -->
+                                <input type="hidden" name="_subject" value="YadOPERA ティザー登録">
+                                <input type="hidden" name="_next" value="https://yadopera.com/thanks.html">
+                                
+                                <button
+                                    type="submit"
+                                    class="w-full bg-primary text-white font-medium py-3 rounded-md hover:bg-primary-hover transition-colors duration-200"
+                                >
+                                    開始時に連絡を受け取る
+                                </button>
+                            </form>
+
+                            <p class="text-xs text-gray-500 mt-4 text-center leading-relaxed">
+                                ※ 営業メールは送信しません<br>
+                                ※ 本通知は1回限りです
+                            </p>
+                        </div>
+
+                    </div>
+
+                    <!-- PoC進行中の補足（控えめ） -->
+                    <div class="bg-accent-light rounded-lg p-6 mb-8 text-center">
+                        <p class="text-sm text-gray-700">
+                            現在、PoC（実証実験）を実施中です。<br>
+                            正式リリースは2026年春を予定しています。
                         </p>
                     </div>
-                </div>
-                
-                <div class="grid md:grid-cols-3 gap-6 mb-8">
-                    <div class="bg-accent-light p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-4 text-primary">【完全無料】</h3>
-                        <ul class="space-y-2 text-gray-700">
-                            <li>• 利用期間: 2ヶ月</li>
-                            <li>• 初期費用: ¥0</li>
-                            <li>• 月額料金: ¥0</li>
-                            <li>• AI利用制限: なし</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="bg-accent-light p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-4 text-primary">【充実サポート】</h3>
-                        <ul class="space-y-2 text-gray-700">
-                            <li>• FAQ登録支援（テンプレート30件提供）</li>
-                            <li>• 週次ミーティング（30分、オンライン）</li>
-                            <li>• 専用Slackチャンネル（質問即対応）</li>
-                            <li>• 施設情報入力代行</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="bg-accent-light p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-4 text-primary">【参加特典】</h3>
-                        <ul class="space-y-2 text-gray-700">
-                            <li>• 正式版リリース時の特別料金（初年度20% OFF）</li>
-                            <li>• 新機能の優先利用権</li>
-                            <li>• 導入事例として紹介（集客支援、任意）</li>
-                            <li>• 成功事例レポート提供</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <div class="bg-gray-50 p-6 rounded-lg mb-8">
-                    <h3 class="text-xl font-bold mb-4">【応募条件】</h3>
-                    <div class="grid md:grid-cols-2 gap-4">
-                        <ul class="space-y-2 text-gray-700">
-                            <li>✓ 外国人ゲスト比率30%以上</li>
-                            <li>✓ スタッフ2-3名程度</li>
-                        </ul>
-                        <ul class="space-y-2 text-gray-700">
-                            <li>✓ 京都・大阪・東京いずれかの施設</li>
-                            <li>✓ QR設置とフィードバック協力</li>
-                            <li>✓ 週次30分ミーティング参加可能</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <!-- Application Form -->
-                <div class="bg-white border-2 border-primary p-8 rounded-lg">
-                    <h3 class="text-2xl font-bold text-center mb-6">PoC応募フォーム</h3>
-                    <form id="poc-form" action="https://formspree.io/f/meowddgp" method="POST" class="space-y-4">
-                        <div>
-                            <label class="block text-gray-700 font-bold mb-2">施設名 *</label>
-                            <input type="text" name="facility_name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0c4a6e]">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-gray-700 font-bold mb-2">ご担当者名 *</label>
-                            <input type="text" name="contact_name" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0c4a6e]">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-gray-700 font-bold mb-2">メールアドレス *</label>
-                            <input type="email" name="email" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0c4a6e]">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-gray-700 font-bold mb-2">電話番号 *</label>
-                            <input type="tel" name="phone" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0c4a6e]">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-gray-700 font-bold mb-2">所在地（都道府県・市区町村） *</label>
-                            <input type="text" name="location" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0c4a6e]">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-gray-700 font-bold mb-2">外国人ゲスト比率（概算） *</label>
-                            <select name="foreign_guest_ratio" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0c4a6e]">
-                                <option value="">選択してください</option>
-                                <option value="30-50">30-50%</option>
-                                <option value="50-70">50-70%</option>
-                                <option value="70-90">70-90%</option>
-                                <option value="90+">90%以上</option>
-                            </select>
-                        </div>
-                        
-                        <div>
-                            <label class="block text-gray-700 font-bold mb-2">スタッフ数 *</label>
-                            <input type="number" name="staff_count" min="1" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0c4a6e]">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-gray-700 font-bold mb-2">現在の課題・期待する効果 *</label>
-                            <textarea name="challenges" rows="4" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#0c4a6e]"></textarea>
-                        </div>
-                        
-                        <div class="flex items-start">
-                            <input type="checkbox" name="agree" required class="mt-1 mr-2">
-                            <label class="text-sm text-gray-700">
-                                週次ミーティング（30分）への参加と、フィードバック提供に同意します。 *
-                            </label>
-                        </div>
-                        
-                        <button type="submit" class="w-full bg-primary text-white px-8 py-4 rounded-lg font-bold text-lg bg-primary-hover transition">
-                            応募する
-                        </button>
-                    </form>
-                    
-                    <p class="text-center text-sm text-gray-600 mt-4">
-                        ※ 応募多数の場合は選考となります<br>
-                        ※ 応募締切: 2026年1月20日（予定）
-                    </p>
+
                 </div>
             </div>
-        </div>
-    </section>
+        </section>
 
-    <!-- Online Seminar Section -->
-    <!-- 一時的にコメントアウト（説明会予約リンクが未設定のため） -->
-    <!--
-    <section class="bg-accent-light section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto text-center">
-                <h2 class="text-3xl md:text-4xl font-bold mb-4">オンライン説明会</h2>
-                <p class="text-lg text-gray-700 mb-8">
-                    YadOPERAの詳細を30分でご説明します。<br>
-                    毎週水曜日 18:00-18:30（定員: 20施設/回）
-                </p>
-                
-                <div class="bg-white p-8 rounded-lg shadow-md mb-6">
-                    <h3 class="text-xl font-bold mb-4">説明会プログラム</h3>
-                    <div class="text-left space-y-3 text-gray-700 mb-6">
-                        <p>• 5分: 課題共有（フロント時間帯の2人体制負担）</p>
-                        <p>• 5分: YadOPERA概要（チェックイン対応 vs その後の質問対応）</p>
-                        <p>• 15分: デモ実演（実際の画面操作、シフト削減シミュレーション）</p>
-                        <p>• 5分: Q&A</p>
-                    </div>
-                    <p class="text-sm text-gray-600 mb-6">※ 録画配信あり（後日視聴可能）</p>
-                    
-                    <a href="https://calendly.com/your-calendar-link" target="_blank" class="bg-primary text-white px-8 py-4 rounded-lg font-bold text-lg bg-primary-hover transition shadow-lg inline-block">
-                        説明会に予約する
-                    </a>
-                    <p class="text-sm text-gray-600 mt-4">
-                        ※ GoogleカレンダーまたはCalendlyのリンクに接続してください
-                    </p>
+        <!-- フッター -->
+        <footer class="bg-white border-t border-gray-200 py-8">
+            <div class="container mx-auto px-4">
+                <div class="max-w-3xl mx-auto text-center text-xs text-gray-500">
+                    <p>© 2026 YadOPERA. All rights reserved.</p>
                 </div>
             </div>
-        </div>
-    </section>
-    -->
+        </footer>
 
-    <!-- Why Choose Section -->
-    <section class="bg-gray-50 section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto">
-                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">なぜ「YadOPERA」なのか？</h2>
-                
-                <div class="grid md:grid-cols-2 gap-6">
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-3 text-primary">✓ 小規模宿泊施設に特化した設計</h3>
-                        <p class="text-gray-700">大手PMSでは対応しきれないニッチに最適化。15-60床規模の施設に最適な機能セット。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-3 text-primary">✓ 「やどびと」運営の信頼</h3>
-                        <p class="text-gray-700">200施設のネットワークから生まれたプロダクト。宿泊業界の実情を深く理解。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-3 text-primary">✓ ゲスト体験を最優先</h3>
-                        <p class="text-gray-700">無人化ではなく、ホスピタリティの拡張。「遠慮をなくす」という独自価値。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-3 text-primary">✓ 圧倒的な導入ハードルの低さ</h3>
-                        <p class="text-gray-700">QRコードだけ。設備投資ゼロ。30分で開始。アプリ不要、ゲストのスマホで完結。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-3 text-primary">✓ 安心のサポート体制</h3>
-                        <p class="text-gray-700">宿泊業界を知る開発者が直接サポート。PoC期間中は週次ミーティング、専用Slack。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-3 text-primary">✓ コスト効率</h3>
-                        <p class="text-gray-700">RAG技術による48%コスト削減。1質問あたり¥0.033の低コスト運用。</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+    </main>
 
-    <!-- Pricing Section -->
-    <section id="pricing" class="bg-white section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto">
-                <h2 class="text-3xl md:text-4xl font-bold text-center mb-4">正式版料金（参考）</h2>
-                <p class="text-center text-gray-600 mb-12">※ PoCは完全無料です</p>
-                
-                <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-                    <div class="border-2 border-gray-200 p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-2">Free</h3>
-                        <p class="text-3xl font-bold text-primary mb-4">無料</p>
-                        <ul class="space-y-2 text-gray-700 mb-4">
-                            <li>• 同時利用言語数: 1言語</li>
-                            <li>• 想定: 国内・日本語のみ※選択不可</li>
-                            <li>• 30質問限定（超過後はFAQ対応のみ）</li>
-                            <li>• FAQ登録数: 20件（インテント単位）</li>
-                            <li>• 規模目安: 〜25床</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="border-2 border-gray-200 p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-2">Mini</h3>
-                        <p class="text-3xl font-bold text-primary mb-4">¥1,980<span class="text-lg text-gray-600">/月</span></p>
-                        <ul class="space-y-2 text-gray-700 mb-4">
-                            <li>• 同時利用言語数: 2言語</li>
-                            <li>• 想定: 日本語＋英語</li>
-                            <li>• 最初から従量課金（¥30/質問）</li>
-                            <li>• FAQ登録数: 30件（インテント単位）</li>
-                            <li>• 規模目安: 〜25床</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="border-2 border-gray-200 p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-2">Small</h3>
-                        <p class="text-3xl font-bold text-primary mb-4">¥3,980<span class="text-lg text-gray-600">/月</span></p>
-                        <ul class="space-y-2 text-gray-700 mb-4">
-                            <li>• 同時利用言語数: 3言語</li>
-                            <li>• 想定: 日・英・中（繁体字中国語）</li>
-                            <li>• 200件/月まで（超過分は+¥30/質問）</li>
-                            <li>• FAQ登録数: 50件（インテント単位）</li>
-                            <li>• 規模目安: 〜25床</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="border-2 border-primary p-6 rounded-lg bg-accent-light">
-                        <div class="bg-primary text-white px-3 py-1 rounded-full text-sm inline-block mb-2">おすすめ</div>
-                        <h3 class="text-xl font-bold mb-2">Standard</h3>
-                        <p class="text-3xl font-bold text-primary mb-4">¥5,980<span class="text-lg text-gray-600">/月</span></p>
-                        <ul class="space-y-2 text-gray-700 mb-4">
-                            <li>• 同時利用言語数: 4言語</li>
-                            <li>• 想定: 日・英・中（繁体字中国語）・仏</li>
-                            <li>• 500件/月まで（超過分は+¥30/質問）</li>
-                            <li>• FAQ登録数: 100件（インテント単位）</li>
-                            <li>• 規模目安: 26-50床</li>
-                        </ul>
-                    </div>
-                    
-                    <div class="border-2 border-gray-200 p-6 rounded-lg">
-                        <h3 class="text-xl font-bold mb-2">Premium</h3>
-                        <p class="text-3xl font-bold text-primary mb-4">¥7,980<span class="text-lg text-gray-600">/月</span></p>
-                        <ul class="space-y-2 text-gray-700 mb-4">
-                            <li>• 同時利用言語数: 無制限</li>
-                            <li>• 1,000件/月まで（超過分は+¥30/質問）</li>
-                            <li>• FAQ登録数: 無制限（インテント単位）</li>
-                            <li>• 規模目安: 51床以上</li>
-                        </ul>
-                    </div>
-                </div>
-                
-                <div class="bg-gray-50 p-6 rounded-lg">
-                    <h3 class="text-xl font-bold mb-4">特典</h3>
-                    <div class="space-y-4">
-                        <div>
-                            <h4 class="font-bold text-primary">オプション</h4>
-                            <p class="text-gray-700">FAQ作成代行: ¥30,000（30件まで）</p>
-                            <p class="text-gray-700">完全導入サポート: ¥50,000（FAQ50件+設置案）</p>
-                        </div>
-                        <div>
-                            <h4 class="font-bold text-primary">特典</h4>
-                            <p class="text-gray-700">初期費用・解約金なし</p>
-                            <p class="text-gray-700"><b>補助金活用で実質負担最大67% OFF（小規模事業者持続化補助金・IT導入補助金）</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- FAQ Section -->
-    <section id="faq" class="bg-gray-50 section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto">
-                <h2 class="text-3xl md:text-4xl font-bold text-center mb-12">よくある質問</h2>
-                
-                <div class="space-y-4">
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-2">Q1. PoCに参加するリスクはありますか？</h3>
-                        <p class="text-gray-700">完全無料で、いつでも中止可能です。契約の縛りは一切ありません。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-2">Q2. 設定や操作は難しくないですか？</h3>
-                        <p class="text-gray-700">初期設定は30分程度で完了します。操作はQRコード設置とFAQ選択のみで、専門知識は不要です。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-2">Q3. ゲストがアプリをダウンロードする必要はありますか？</h3>
-                        <p class="text-gray-700">不要です。ゲストのスマホでQRコードを読み取るだけで利用できます。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-2">Q4. WiFiが弱い環境でも使えますか？</h3>
-                        <p class="text-gray-700">ゲストのモバイルデータ通信でも動作するため、WiFi環境に依存しません。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-2">Q5. AIが答えられない質問はどうなりますか？</h3>
-                        <p class="text-gray-700">自動的にスタッフへエスカレーションされ、メール/Slack通知が届きます。夜間は翌朝対応として記録されます。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-2">Q6. 英語以外の言語にも対応していますか？</h3>
-                        <p class="text-gray-700">MVP版は英語のみですが、Phase 2（PoC終了後）で繁体中国語・韓国語などを追加予定です。</p>
-                    </div>
-                    
-                    <div class="bg-white p-6 rounded-lg shadow-md">
-                        <h3 class="text-xl font-bold mb-2">Q7. 正式版の料金はいくらですか？</h3>
-                        <p class="text-gray-700">Freeプランは無料、Miniプランは¥1,980/月〜です。補助金活用で実質負担を最大67%削減できます。</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- About Section -->
-    <section class="bg-white section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto text-center">
-                <h2 class="text-3xl md:text-4xl font-bold mb-6">運営者情報</h2>
-                <div class="bg-gray-50 p-8 rounded-lg">
-                    <h3 class="text-xl font-bold mb-4">YadOPERA</h3>
-                    <p class="text-gray-700 mb-4">
-                        「やどびと」運営の200施設ネットワークから生まれた、<br>
-                        小規模宿泊施設向けAI多言語自動案内システムです。
-                    </p>
-                    <p class="text-gray-700 mb-4">
-                        開発者: Air Edison<br>
-                        ブログ: <a href="https://air-edison.com" class="text-primary hover:underline">https://air-edison.com</a><br>
-                        運営者: アプラウソ株式会社<br>
-                    </p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Final CTA Section -->
-    <section class="hero-gradient text-white section-padding">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto text-center">
-                <h2 class="text-3xl md:text-4xl font-bold mb-6">
-                    まずは無料PoCで体験してください
-                </h2>
-                <p class="text-xl mb-8">
-                    スタッフが足りなくても、<br>
-                    ゲストに遠慮させなくても、<br>
-                    もっと良い宿体験をつくれる未来へ                </p>
-                <a href="#apply" class="bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg hover:bg-gray-100 transition shadow-lg inline-block">
-                    無料PoCに申し込む
-                </a>
-                <p class="mt-6 text-sm opacity-90">
-                    ※ 応募多数の場合は選考となります<br>
-                    ※ 3施設限定のため、お早めにご応募ください<br>
-                    ※ 応募締切: 2026年1月20日（予定）
-                </p>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="text-white py-8" style="background-color: #0c4a6e;">
-        <div class="container mx-auto px-4">
-            <div class="max-w-4xl mx-auto text-center">
-                <div class="text-2xl font-bold mb-4">YadOPERA</div>
-                <p class="text-gray-400 mb-4">小規模宿泊施設向けAI多言語自動案内システム</p>
-                <div class="flex justify-center space-x-6 mb-4">
-                    <a href="#features" class="text-gray-400 hover:text-white transition">機能</a>
-                    <a href="#how-it-works" class="text-gray-400 hover:text-white transition">仕組み</a>
-                    <a href="#pricing" class="text-gray-400 hover:text-white transition">料金</a>
-                    <a href="#faq" class="text-gray-400 hover:text-white transition">FAQ</a>
-                </div>
-                <p class="text-sm text-gray-500">
-                    © 2025 YadOPERA. All rights reserved.
-                </p>
-            </div>
-        </div>
-    </footer>
-
-    <!-- JavaScript -->
-    <script>
-        // Google Analytics 4 イベントトラッキング関数
-        function trackEvent(eventName, eventParams = {}) {
-            if (typeof gtag !== 'undefined') {
-                gtag('event', eventName, eventParams);
-            }
-        }
-
-        // ページビュー追跡（セクション閲覧）
-        const observerOptions = {
-            root: null,
-            rootMargin: '0px',
-            threshold: 0.5
-        };
-
-        const sectionObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const sectionId = entry.target.id || entry.target.className;
-                    trackEvent('section_view', {
-                        section_name: sectionId,
-                        section_title: entry.target.querySelector('h2, h3')?.textContent || 'Unknown'
-                    });
-                }
-            });
-        }, observerOptions);
-
-        // セクション要素を監視
-        document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('section[id]').forEach(section => {
-                sectionObserver.observe(section);
-            });
-        });
-
-        // Mobile menu toggle
-        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
-        const mobileMenu = document.getElementById('mobile-menu');
-        
-        if (mobileMenuBtn && mobileMenu) {
-            mobileMenuBtn.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
-                trackEvent('mobile_menu_toggle', {
-                    is_open: !mobileMenu.classList.contains('hidden')
-                });
-            });
-        }
-
-        // CTAボタンクリック追跡
-        document.querySelectorAll('a[href="#apply"], button[type="submit"]').forEach(button => {
-            button.addEventListener('click', (e) => {
-                const buttonText = button.textContent.trim();
-                const buttonLocation = button.closest('section')?.id || 'unknown';
-                
-                trackEvent('cta_click', {
-                    button_text: buttonText,
-                    button_location: buttonLocation,
-                    cta_type: buttonText.includes('申し込む') ? 'apply' : 'other'
-                });
-            });
-        });
-
-        // ナビゲーションリンククリック追跡
-        document.querySelectorAll('nav a[href^="#"]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                const linkText = link.textContent.trim();
-                const targetId = link.getAttribute('href').substring(1);
-                
-                trackEvent('navigation_click', {
-                    link_text: linkText,
-                    target_section: targetId
-                });
-            });
-        });
-
-        // 外部リンククリック追跡
-        document.querySelectorAll('a[href^="http"]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                const linkUrl = link.getAttribute('href');
-                const linkText = link.textContent.trim();
-                
-                trackEvent('external_link_click', {
-                    link_url: linkUrl,
-                    link_text: linkText
-                });
-            });
-        });
-
-        // 説明会予約リンククリック追跡
-        document.querySelectorAll('a[href*="calendly"], a[href*="calendar"]').forEach(link => {
-            link.addEventListener('click', (e) => {
-                trackEvent('seminar_booking_click', {
-                    link_url: link.getAttribute('href')
-                });
-            });
-        });
-
-        // Form submission (Formspree連携)
-        const pocForm = document.getElementById('poc-form');
-        if (pocForm) {
-            pocForm.addEventListener('submit', (e) => {
-                // Get form data
-                const formData = new FormData(pocForm);
-                const data = Object.fromEntries(formData);
-                
-                // Google Analytics イベント送信（送信前に実行）
-                trackEvent('poc_form_submit', {
-                    facility_name: data.facility_name || 'Unknown',
-                    location: data.location || 'Unknown',
-                    foreign_guest_ratio: data.foreign_guest_ratio || 'Unknown',
-                    staff_count: data.staff_count || 'Unknown'
-                });
-                
-                // Formspreeに送信（フォームのaction属性で自動送信される）
-                // e.preventDefault()は呼び出さないため、通常のフォーム送信が実行される
-                // 送信成功時はFormspreeのデフォルト動作（リダイレクトまたはJSONレスポンス）で処理
-            });
-        }
-
-        // Smooth scroll for anchor links
-        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-            anchor.addEventListener('click', function (e) {
-                e.preventDefault();
-                const target = document.querySelector(this.getAttribute('href'));
-                if (target) {
-                    target.scrollIntoView({
-                        behavior: 'smooth',
-                        block: 'start'
-                    });
-                }
-            });
-        });
-
-        // スクロール深度追跡
-        let maxScroll = 0;
-        const scrollDepthThresholds = [25, 50, 75, 90, 100];
-        const trackedDepths = new Set();
-
-        window.addEventListener('scroll', () => {
-            const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
-            const docHeight = document.documentElement.scrollHeight - window.innerHeight;
-            const scrollPercent = Math.round((scrollTop / docHeight) * 100);
-            
-            if (scrollPercent > maxScroll) {
-                maxScroll = scrollPercent;
-                
-                scrollDepthThresholds.forEach(threshold => {
-                    if (scrollPercent >= threshold && !trackedDepths.has(threshold)) {
-                        trackedDepths.add(threshold);
-                        trackEvent('scroll_depth', {
-                            depth_percent: threshold
-                        });
-                    }
-                });
-            }
-        });
-
-        // ページ滞在時間追跡
-        const startTime = Date.now();
-        window.addEventListener('beforeunload', () => {
-            const timeSpent = Math.round((Date.now() - startTime) / 1000);
-            trackEvent('page_time', {
-                time_spent_seconds: timeSpent
-            });
-        });
-    </script>
 </body>
 </html>
-
