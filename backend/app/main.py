@@ -2,16 +2,68 @@ from fastapi import FastAPI, Request, status, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.database import check_db_connection
+from app.services.operator_faq_service import OperatorFaqService
+from app.database import AsyncSessionLocal
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    アプリケーションライフサイクル管理
+    起動時と終了時の処理を定義
+    """
+    # 起動時処理
+    logger.info("Starting up YadOPERA API...")
+    
+    # データベース接続確認
+    try:
+        db_connected = await check_db_connection()
+        if not db_connected:
+            logger.warning("Database connection check failed, skipping FAQ data update")
+        else:
+            logger.info("Database connection confirmed")
+            
+            # FAQデータ更新処理
+            try:
+                logger.info("Updating operator FAQ data...")
+                from scripts.update_operator_faqs import update_operator_faqs
+                await update_operator_faqs()
+                logger.info("Operator FAQ data update completed")
+                
+                # キャッシュクリア
+                try:
+                    async with AsyncSessionLocal() as db:
+                        faq_service = OperatorFaqService(db)
+                        cleared_count = await faq_service.clear_faq_cache()
+                        logger.info(f"Cleared {cleared_count} FAQ cache keys")
+                except Exception as cache_error:
+                    logger.warning(f"Failed to clear FAQ cache: {cache_error}")
+                    
+            except Exception as e:
+                logger.error(f"Failed to update operator FAQ data: {e}", exc_info=True)
+                # エラーが発生してもアプリケーションは起動する
+    except Exception as e:
+        logger.error(f"Startup error: {e}", exc_info=True)
+        # エラーが発生してもアプリケーションは起動する
+    
+    yield
+    
+    # 終了時処理
+    logger.info("Shutting down YadOPERA API...")
+
 
 app = FastAPI(
     title="YadOPERA API",
     description="小規模宿泊施設向けAI多言語自動案内システム",
     version="0.3.0",
+    lifespan=lifespan,
 )
 
 # CORS設定

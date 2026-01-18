@@ -236,4 +236,32 @@ class OperatorFaqService:
             logger.warning(f"Cache set error: {e}")
         
         return categories
+    
+    async def clear_faq_cache(self):
+        """
+        FAQ関連のキャッシュをクリア
+        
+        Returns:
+            クリアしたキャッシュキーの数
+        """
+        try:
+            # パターンマッチでキャッシュキーを取得（scan_iterを使用）
+            keys = []
+            async for key in redis_client.scan_iter(match="operator_faqs:*"):
+                keys.append(key)
+            
+            # カテゴリキャッシュもクリア
+            async for key in redis_client.scan_iter(match="operator_faq_categories:*"):
+                keys.append(key)
+            
+            if keys:
+                await redis_client.delete(*keys)
+                logger.info(f"Cleared {len(keys)} FAQ cache keys")
+                return len(keys)
+            else:
+                logger.info("No FAQ cache keys to clear")
+                return 0
+        except Exception as e:
+            logger.warning(f"Cache clear error: {e}")
+            return 0
 
