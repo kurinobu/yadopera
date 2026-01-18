@@ -24,8 +24,6 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-
 interface ManualSubsection {
   id: string
   title: string
@@ -43,13 +41,6 @@ interface Props {
 }
 
 const props = defineProps<Props>()
-
-const emit = defineEmits<{
-  'section-change': [sectionId: string]
-}>()
-
-// スクロール監視用のIntersectionObserver
-let observer: IntersectionObserver | null = null
 
 // コンテンツ取得
 const getContent = (sectionId: string, subsectionId: string): string => {
@@ -105,52 +96,6 @@ const formatContent = (content: string): string => {
   
   return html
 }
-
-// スクロール監視のセットアップ
-onMounted(() => {
-  // IntersectionObserverで現在表示中のセクションを検出
-  observer = new IntersectionObserver(
-    (entries) => {
-      entries.forEach((entry) => {
-        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-          const sectionId = entry.target.id
-          // 親セクションIDを取得
-          const section = props.sections.find((s) => {
-            return s.id === sectionId || s.subsections.some((sub) => sub.id === sectionId)
-          })
-          if (section) {
-            emit('section-change', section.id)
-          }
-        }
-      })
-    },
-    {
-      rootMargin: '-20% 0px -50% 0px',
-      threshold: [0, 0.5, 1]
-    }
-  )
-
-  // すべてのセクションとサブセクションを監視対象に追加
-  props.sections.forEach((section) => {
-    const sectionElement = document.getElementById(section.id)
-    if (sectionElement) {
-      observer?.observe(sectionElement)
-    }
-
-    section.subsections.forEach((subsection) => {
-      const subsectionElement = document.getElementById(subsection.id)
-      if (subsectionElement) {
-        observer?.observe(subsectionElement)
-      }
-    })
-  })
-})
-
-onUnmounted(() => {
-  if (observer) {
-    observer.disconnect()
-  }
-})
 </script>
 
 <style scoped>

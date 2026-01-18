@@ -39,19 +39,19 @@
       v-if="isMobileTocOpen"
       class="lg:hidden mb-6 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
     >
-      <ManualToc :sections="sections" :activeSection="activeSection" :isMobile="true" />
+      <ManualToc :sections="sections" :isMobile="true" />
     </div>
 
     <!-- メインコンテンツエリア -->
     <div class="flex gap-6">
       <!-- 目次（タブレット・デスクトップ） -->
       <aside class="hidden md:block md:w-[200px] lg:w-64 flex-shrink-0">
-        <ManualToc :sections="sections" :activeSection="activeSection" />
+        <ManualToc :sections="sections" />
       </aside>
 
       <!-- マニュアル本文 -->
       <main class="flex-1 md:max-w-3xl lg:max-w-[800px]">
-        <ManualContent :sections="sections" @section-change="handleSectionChange" />
+        <ManualContent :sections="sections" />
       </main>
     </div>
   </div>
@@ -1573,12 +1573,6 @@ YadOPERAを利用開始する前に、以下の手順で初期設定を行って
     ]
   }
 ])
-
-const activeSection = ref('intro')
-
-const handleSectionChange = (sectionId: string) => {
-  activeSection.value = sectionId
-}
 
 onMounted(() => {
   // 初期化処理（必要に応じて）

@@ -3,15 +3,22 @@
     <ul class="space-y-1">
       <li v-for="section in sections" :key="section.id" class="manual-toc-section">
         <!-- 章タイトル -->
-        <button
-          :class="[
-            'manual-toc-item w-full text-left',
-            activeSection === section.id ? 'active' : ''
-          ]"
-          @click="handleSectionClick(section.id)"
-        >
-          <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between">
+          <!-- 章タイトルテキスト（クリックでスクロール） -->
+          <button
+            class="manual-toc-item-title flex-1 text-left"
+            @click="handleSectionClick(section.id)"
+          >
             <span class="font-medium">{{ section.title }}</span>
+          </button>
+          
+          <!-- アイコンボタン（クリックで折りたたみ/展開） -->
+          <button
+            class="manual-toc-toggle"
+            @click.stop="toggleSection(section.id)"
+            :aria-label="expandedSections[section.id] ? '折りたたむ' : '展開する'"
+            :aria-expanded="expandedSections[section.id]"
+          >
             <svg
               :class="[
                 'w-4 h-4 transition-transform',
@@ -28,8 +35,8 @@
                 d="M9 5l7 7-7 7"
               />
             </svg>
-          </div>
-        </button>
+          </button>
+        </div>
 
         <!-- サブセクション（折りたたみ可能） -->
         <ul
@@ -38,10 +45,7 @@
         >
           <li v-for="subsection in section.subsections" :key="subsection.id">
             <button
-              :class="[
-                'manual-toc-subitem w-full text-left text-sm',
-                activeSubsection === subsection.id ? 'active' : ''
-              ]"
+              class="manual-toc-subitem w-full text-left text-sm"
               @click="handleSubsectionClick(section.id, subsection.id)"
             >
               {{ subsection.title }}
@@ -54,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { reactive } from 'vue'
 
 interface ManualSubsection {
   id: string
@@ -69,7 +73,6 @@ interface ManualSection {
 
 interface Props {
   sections: ManualSection[]
-  activeSection: string
   isMobile?: boolean
 }
 
@@ -78,26 +81,13 @@ const props = defineProps<Props>()
 // 章の折りたたみ状態管理
 const expandedSections = reactive<Record<string, boolean>>({})
 
-// アクティブなサブセクション
-const activeSubsection = ref<string>('')
-
-// 初期化: アクティブな章は展開状態にする
-watch(
-  () => props.activeSection,
-  (newSection) => {
-    if (newSection && !expandedSections[newSection]) {
-      expandedSections[newSection] = true
-    }
-  },
-  { immediate: true }
-)
-
-// 章クリック時の処理
-const handleSectionClick = (sectionId: string) => {
-  // 折りたたみ/展開をトグル
+// 章の折りたたみ/展開のみ（スクロールなし）
+const toggleSection = (sectionId: string) => {
   expandedSections[sectionId] = !expandedSections[sectionId]
+}
 
-  // スクロール処理（親コンポーネントに通知）
+// 章タイトルクリック時の処理（スクロールのみ）
+const handleSectionClick = (sectionId: string) => {
   scrollToSection(sectionId)
 }
 
@@ -105,9 +95,6 @@ const handleSectionClick = (sectionId: string) => {
 const handleSubsectionClick = (sectionId: string, subsectionId: string) => {
   // 章を展開状態にする
   expandedSections[sectionId] = true
-
-  // アクティブなサブセクションを設定
-  activeSubsection.value = subsectionId
 
   // スクロール処理
   scrollToSubsection(subsectionId)
@@ -164,6 +151,21 @@ const scrollToSubsection = (subsectionId: string) => {
   @apply font-semibold;
 }
 
+.manual-toc-item-title {
+  @apply px-4 py-2 rounded-lg transition-colors;
+  @apply text-gray-700 dark:text-gray-300;
+  @apply hover:bg-gray-100 dark:hover:bg-gray-700;
+  @apply cursor-pointer;
+}
+
+.manual-toc-toggle {
+  @apply ml-2 flex-shrink-0;
+  @apply p-1 rounded transition-colors;
+  @apply text-gray-500 dark:text-gray-400;
+  @apply hover:bg-gray-200 dark:hover:bg-gray-700;
+  @apply hover:text-gray-700 dark:hover:text-gray-300;
+}
+
 .manual-toc-subsections {
   @apply border-l-2 border-gray-200 dark:border-gray-700 pl-2;
 }
@@ -173,12 +175,6 @@ const scrollToSubsection = (subsectionId: string) => {
   @apply text-gray-600 dark:text-gray-400;
   @apply hover:bg-gray-50 dark:hover:bg-gray-800;
   @apply hover:text-gray-900 dark:hover:text-gray-200;
-}
-
-.manual-toc-subitem.active {
-  @apply bg-blue-50 dark:bg-blue-900/20;
-  @apply text-blue-600 dark:text-blue-400;
-  @apply font-medium;
 }
 </style>
 
