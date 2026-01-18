@@ -55,6 +55,7 @@
 </template>
 
 <script setup lang="ts">
+import { watch } from 'vue'
 import Modal from '@/components/common/Modal.vue'
 import FaqSearchBar from './FaqSearchBar.vue'
 import CategoryFilter from './CategoryFilter.vue'
@@ -63,5 +64,12 @@ import AiChatPanel from './AiChatPanel.vue'
 import { useHelpStore } from '@/stores/help'
 
 const helpStore = useHelpStore()
+
+// モーダルが開かれた時にFAQを取得
+watch(() => helpStore.isModalOpen, async (isOpen) => {
+  if (isOpen && helpStore.faqs.length === 0) {
+    await helpStore.fetchFaqs()
+  }
+})
 </script>
 
