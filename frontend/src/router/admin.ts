@@ -92,6 +92,15 @@ export const adminRoutes: RouteRecordRaw[] = [
       layout: 'admin',
       requiresAuth: true
     }
+  },
+  {
+    path: '/admin/support',
+    name: 'AdminSupport',
+    component: () => import('@/views/admin/Support.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
   }
 ]
 
