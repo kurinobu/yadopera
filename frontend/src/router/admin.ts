@@ -10,7 +10,7 @@ export const adminRoutes: RouteRecordRaw[] = [
     name: 'AdminLogin',
     component: () => import('@/views/admin/Login.vue'),
     meta: {
-      layout: 'admin',
+      layout: undefined,
       requiresAuth: false
     }
   },
@@ -19,7 +19,7 @@ export const adminRoutes: RouteRecordRaw[] = [
     name: 'Register',
     component: () => import('@/views/admin/Register.vue'),
     meta: {
-      layout: 'admin',
+      layout: undefined,
       requiresAuth: false
     }
   },
