@@ -160,7 +160,7 @@
             v-model="formData.house_rules"
             type="textarea"
             label="館内ルール"
-            placeholder="例: 門限23:00、静粛時間22:00-8:00、ゴミ出しは毎週火曜日・金曜日"
+            placeholder="例: 門限23:00、静粛時間22:00-8:00"
             :rows="4"
             :maxlength="500"
             hint="500文字以内（AI応答のコンテキストに使用されます）"
