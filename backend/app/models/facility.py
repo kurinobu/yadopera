@@ -25,8 +25,9 @@ class Facility(Base):
     wifi_password = Column(String(100))  # 暗号化保存
     check_in_time = Column(Time, default=time(15, 0))
     check_out_time = Column(Time, default=time(11, 0))
-    house_rules = Column(Text)
-    local_info = Column(Text)
+    house_rules = Column(Text)  # 500文字（制限はスキーマで定義）
+    local_info = Column(Text)   # 500文字（制限はスキーマで定義）
+    prohibited_items = Column(Text)  # 500文字（制限はスキーマで定義）
     languages = Column(ARRAY(String), default=["en"])
     timezone = Column(String(50), default="Asia/Tokyo")
     subscription_plan = Column(String(50), default="small")  # 'free', 'mini', 'small', 'standard', 'premium' (既存、後方互換性のため保持)

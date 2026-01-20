@@ -46,6 +46,7 @@ export interface FacilitySettingsFacility {
   check_out_time?: string  // "HH:MM"形式
   house_rules?: string
   local_info?: string
+  prohibited_items?: string
   languages: string[]
   timezone: string
   subscription_plan: string
@@ -72,6 +73,7 @@ export interface FacilitySettingsUpdateRequest {
   check_out_time?: string  // "HH:MM"形式
   house_rules?: string
   local_info?: string
+  prohibited_items?: string
   staff_absence_periods?: StaffAbsencePeriod[]
 }
 

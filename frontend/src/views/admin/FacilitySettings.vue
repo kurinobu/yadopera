@@ -150,20 +150,20 @@
         </div>
       </div>
 
-      <!-- 館内ルール・周辺情報セクション -->
+      <!-- 館内ルール・周辺情報・禁止事項セクション -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-          館内ルール・周辺情報
+          館内ルール・周辺情報・禁止事項
         </h2>
         <div class="space-y-4">
           <Input
             v-model="formData.house_rules"
             type="textarea"
             label="館内ルール"
-            placeholder="例: 禁煙、門限23:00、静粛時間22:00-8:00、ゴミ出しは毎週火曜日・金曜日"
+            placeholder="例: 門限23:00、静粛時間22:00-8:00、ゴミ出しは毎週火曜日・金曜日"
             :rows="4"
-            :maxlength="1000"
-            hint="1000文字以内（AI応答のコンテキストに使用されます）"
+            :maxlength="500"
+            hint="500文字以内（AI応答のコンテキストに使用されます）"
             :error="errors.house_rules"
           />
           <Input
@@ -172,9 +172,19 @@
             label="周辺情報"
             placeholder="例: 最寄り駅: 京都駅（徒歩10分）、コンビニ: セブンイレブン（徒歩3分）、レストラン: 多数あり"
             :rows="4"
-            :maxlength="1000"
-            hint="1000文字以内（AI応答のコンテキストに使用されます）"
+            :maxlength="500"
+            hint="500文字以内（AI応答のコンテキストに使用されます）"
             :error="errors.local_info"
+          />
+          <Input
+            v-model="formData.prohibited_items"
+            type="textarea"
+            label="禁止事項"
+            placeholder="例: 喫煙、大声、飲酒、ペットの持ち込み"
+            :rows="4"
+            :maxlength="500"
+            hint="500文字以内（AI応答のコンテキストに使用されます）"
+            :error="errors.prohibited_items"
           />
         </div>
       </div>
@@ -401,6 +411,7 @@ const formData = ref<{
   check_out_time: string
   house_rules: string
   local_info: string
+  prohibited_items: string
   staff_absence_periods: StaffAbsencePeriod[]
 }>({
   name: '',
@@ -413,6 +424,7 @@ const formData = ref<{
   check_out_time: '',
   house_rules: '',
   local_info: '',
+  prohibited_items: '',
   staff_absence_periods: []
 })
 
@@ -479,6 +491,7 @@ const fetchSettings = async () => {
       check_out_time: formatTimeForInput(response.facility.check_out_time),
       house_rules: response.facility.house_rules || '',
       local_info: response.facility.local_info || '',
+      prohibited_items: response.facility.prohibited_items || '',
       staff_absence_periods: response.staff_absence_periods.length > 0
         ? response.staff_absence_periods.map(period => ({
             start_time: period.start_time,
