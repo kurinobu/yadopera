@@ -33,6 +33,7 @@
           <ul class="text-sm text-blue-700 dark:text-blue-300 space-y-1 list-disc list-inside">
             <li><strong>使い方</strong>: 設置場所を選択すると、QRコードのプレビューが自動表示されます</li>
             <li>プレビュー下のボタンから、PDF/PNG/SVG形式でダウンロードできます</li>
+            <li><strong>ダウンロード形式</strong>: PDF（A4印刷用サイズ、そのまま印刷して使用する場合に適しています）、PNG（画像形式、デジタル表示や印刷に適しています（加工編集用））、SVG（ベクター形式、拡大縮小しても画質が劣化しません（加工編集用））</li>
             <li>「生成済みQRコード一覧に追加」ボタンで、生成済みQRコード一覧に保存できます</li>
             <li>推奨サイズ: 10cm × 10cm以上（A4印刷用サイズ）</li>
           </ul>
