@@ -62,3 +62,12 @@ class PasswordChangeResponse(BaseModel):
     """
     message: str = Field(default="Password changed successfully", description="パスワード変更メッセージ")
 
+
+class FacilityRegisterRequest(BaseModel):
+    """
+    施設登録リクエスト
+    """
+    email: EmailStr = Field(..., description="施設管理者メールアドレス")
+    password: str = Field(..., min_length=8, description="パスワード（最小8文字）")
+    facility_name: str = Field(..., min_length=1, max_length=255, description="施設名")
+    subscription_plan: str = Field(default="small", description="料金プラン（free/mini/small/standard/premium）")

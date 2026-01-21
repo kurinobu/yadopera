@@ -173,6 +173,9 @@ const error = ref<string | null>(null)
 const sessionToken = computed(() => chatStore.sessionToken)
 const tokenExpiresAt = ref<string | null>(null)
 const showTokenInput = ref(false)
+// 初期質問送信済みフラグ（重複送信防止）
+const initialQuestionSent = ref(false)
+const initialMessageSent = ref(false)
 
 // 初期メッセージまたは質問を送信
 onMounted(async () => {
@@ -335,28 +338,38 @@ onMounted(async () => {
       }
     }
 
-    // 初期メッセージまたは質問を送信
-    if (initialMessage.value) {
+    // 初期メッセージまたは質問を送信（重複送信防止）
+    if (initialMessage.value && !initialMessageSent.value) {
       console.log('[Chat.vue] onMounted: 初期メッセージ送信開始', {
         message: initialMessage.value,
         messagesCountBefore: messages.value.length,
         facilityId: facilityId.value
       })
+      initialMessageSent.value = true  // フラグを設定（重複送信防止）
       await handleMessageSubmit(initialMessage.value)
       console.log('[Chat.vue] onMounted: 初期メッセージ送信完了', {
         messagesCountAfter: messages.value.length,
         messages: messages.value
       })
-    } else if (initialQuestion.value) {
+    } else if (initialMessage.value && initialMessageSent.value) {
+      console.log('[Chat.vue] onMounted: 初期メッセージは既に送信済み', {
+        message: initialMessage.value
+      })
+    } else if (initialQuestion.value && !initialQuestionSent.value) {
       console.log('[Chat.vue] onMounted: 初期質問送信開始', {
         question: initialQuestion.value,
         messagesCountBefore: messages.value.length,
         facilityId: facilityId.value
       })
+      initialQuestionSent.value = true  // フラグを設定（重複送信防止）
       await handleMessageSubmit(initialQuestion.value)
       console.log('[Chat.vue] onMounted: 初期質問送信完了', {
         messagesCountAfter: messages.value.length,
         messages: messages.value
+      })
+    } else if (initialQuestion.value && initialQuestionSent.value) {
+      console.log('[Chat.vue] onMounted: 初期質問は既に送信済み', {
+        question: initialQuestion.value
       })
     }
     

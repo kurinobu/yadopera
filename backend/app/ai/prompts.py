@@ -57,6 +57,7 @@ def build_rag_prompt(
 - WiFi SSID: {facility.wifi_ssid or "Not available"}
 - House Rules: {(facility.house_rules or "")[:500]}
 - Local Info: {(facility.local_info or "")[:500]}
+- Prohibited Items: {(getattr(facility, "prohibited_items", "") or "")[:500]}
 """
     
     # 関連FAQ Top 3（約300トークン）

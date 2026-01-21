@@ -76,11 +76,50 @@ class FeedbackStats(BaseModel):
     low_rated_answers: List[LowRatedAnswer] = Field(default_factory=list, description="低評価回答リスト（2回以上）")
 
 
+class MonthlyUsageResponse(BaseModel):
+    """月次利用状況"""
+    current_month_questions: int = Field(..., description="今月の質問数")
+    plan_type: str = Field(..., description="プラン種別（Free/Mini/Small/Standard/Premium）")
+    plan_limit: Optional[int] = Field(None, description="プラン上限（Miniの場合はNone）")
+    usage_percentage: Optional[float] = Field(None, description="使用率（Miniの場合はNone）")
+    remaining_questions: Optional[int] = Field(None, description="残り質問数（Miniの場合はNone）")
+    overage_questions: int = Field(default=0, description="超過質問数")
+    status: str = Field(..., description="ステータス（normal/warning/overage/faq_only）")
+
+
+class AiAutomationResponse(BaseModel):
+    """AI自動応答統計"""
+    ai_responses: int = Field(..., description="AI自動応答数")
+    total_questions: int = Field(..., description="今月の総質問数")
+    automation_rate: float = Field(..., description="自動化率（パーセンテージ）")
+
+
+class EscalationsSummaryResponse(BaseModel):
+    """エスカレーション統計"""
+    total: int = Field(..., description="エスカレーション総数")
+    unresolved: int = Field(..., description="未解決数")
+    resolved: int = Field(..., description="解決済み数")
+
+
+class UnresolvedEscalation(BaseModel):
+    """未解決エスカレーション"""
+    id: int = Field(..., description="エスカレーションID")
+    conversation_id: int = Field(..., description="会話ID")
+    session_id: str = Field(..., description="セッションID")
+    created_at: datetime = Field(..., description="作成日時")
+    message: str = Field(..., description="ゲストメッセージ")
+
+
 class DashboardResponse(BaseModel):
     """ダッシュボードレスポンス"""
     summary: WeeklySummary = Field(..., description="週次サマリー")
     recent_conversations: List[ChatHistory] = Field(default_factory=list, description="リアルタイムチャット履歴（最新10件）")
     overnight_queue: List[OvernightQueueItem] = Field(default_factory=list, description="夜間対応キュー")
     feedback_stats: FeedbackStats = Field(..., description="ゲストフィードバック統計")
+    # 月次統計（Phase 2で追加）
+    monthly_usage: Optional[MonthlyUsageResponse] = Field(None, description="月次利用状況")
+    ai_automation: Optional[AiAutomationResponse] = Field(None, description="AI自動応答統計")
+    escalations_summary: Optional[EscalationsSummaryResponse] = Field(None, description="エスカレーション統計")
+    unresolved_escalations: List[UnresolvedEscalation] = Field(default_factory=list, description="未解決エスカレーションリスト")
 
 

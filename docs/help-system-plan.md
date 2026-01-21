@@ -3,7 +3,7 @@
 ## ドキュメント情報
 - **プロジェクト**: YadOPERA（宿泊施設管理システム）
 - **フェーズ**: Phase 2 - 統合ヘルプシステム
-- **作成日**: 2025年12月25日
+- **作成日**: 2025年12月26日
 - **バージョン**: 1.0
 - **基準文書**: 
   - やどぺら v0.3.9 要約定義書
@@ -22,6 +22,13 @@
 7. [実装ステップ](#7-実装ステップ)
 8. [テスト計画](#8-テスト計画)
 9. [デプロイ計画](#9-デプロイ計画)
+10. [セキュリティ対策](#10-セキュリティ対策)
+11. [パフォーマンス最適化](#11-パフォーマンス最適化)
+12. [監視・運用](#12-監視運用)
+13. [コスト試算](#13-コスト試算)
+14. [KPI・効果測定](#14-kpi効果測定)
+15. [今後の拡張計画](#15-今後の拡張計画)
+16. [付録](#16-付録)
 
 ---
 
@@ -203,8 +210,8 @@ Response:
 ```sql
 CREATE TABLE operator_faqs (
     id SERIAL PRIMARY KEY,
-    category VARCHAR(100) NOT NULL,  -- 'setup', 'qrcode', 'faq_management', 'ai_logic', 'logs', 'troubleshooting', 'billing', 'security'
-    intent_key VARCHAR(100) NOT NULL,  -- 'setup_account_creation', 'qrcode_placement' など
+    category VARCHAR(100) NOT NULL,
+    intent_key VARCHAR(100) NOT NULL,
     display_order INTEGER DEFAULT 0,
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -224,11 +231,11 @@ CREATE INDEX idx_operator_faqs_display_order ON operator_faqs(display_order);
 CREATE TABLE operator_faq_translations (
     id SERIAL PRIMARY KEY,
     faq_id INTEGER NOT NULL REFERENCES operator_faqs(id) ON DELETE CASCADE,
-    language VARCHAR(10) NOT NULL DEFAULT 'ja',  -- 'ja', 'en'
+    language VARCHAR(10) NOT NULL DEFAULT 'ja',
     question TEXT NOT NULL,
     answer TEXT NOT NULL,
-    keywords TEXT,  -- 検索用キーワード（カンマ区切り）
-    related_url TEXT,  -- 管理画面内リンク（例: '/admin/faqs'）
+    keywords TEXT,
+    related_url TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     
@@ -239,351 +246,458 @@ CREATE INDEX idx_operator_faq_translations_faq_id ON operator_faq_translations(f
 CREATE INDEX idx_operator_faq_translations_language ON operator_faq_translations(language);
 ```
 
-### 4.2 マイグレーション
-
-#### マイグレーション1: テーブル作成
-
-**ファイル**: `backend/alembic/versions/YYYYMMDD_create_operator_help_tables.py`
+### 4.2 初期FAQデータ（30項目の一部抜粋）
 
 ```python
-"""create operator help tables
-
-Revision ID: xxx
-Revises: xxx
-Create Date: 2025-12-25
-"""
-from alembic import op
-import sqlalchemy as sa
-
-def upgrade():
-    # operator_faqs
-    op.create_table(
-        'operator_faqs',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('category', sa.String(100), nullable=False),
-        sa.Column('intent_key', sa.String(100), nullable=False),
-        sa.Column('display_order', sa.Integer(), server_default='0'),
-        sa.Column('is_active', sa.Boolean(), server_default='true'),
-        sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('updated_at', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('intent_key')
-    )
-    
-    op.create_index('idx_operator_faqs_category', 'operator_faqs', ['category'])
-    op.create_index('idx_operator_faqs_is_active', 'operator_faqs', ['is_active'])
-    op.create_index('idx_operator_faqs_display_order', 'operator_faqs', ['display_order'])
-    
-    # operator_faq_translations
-    op.create_table(
-        'operator_faq_translations',
-        sa.Column('id', sa.Integer(), nullable=False),
-        sa.Column('faq_id', sa.Integer(), nullable=False),
-        sa.Column('language', sa.String(10), nullable=False, server_default='ja'),
-        sa.Column('question', sa.Text(), nullable=False),
-        sa.Column('answer', sa.Text(), nullable=False),
-        sa.Column('keywords', sa.Text()),
-        sa.Column('related_url', sa.Text()),
-        sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.Column('updated_at', sa.TIMESTAMP(), server_default=sa.text('CURRENT_TIMESTAMP')),
-        sa.ForeignKeyConstraint(['faq_id'], ['operator_faqs.id'], ondelete='CASCADE'),
-        sa.PrimaryKeyConstraint('id'),
-        sa.UniqueConstraint('faq_id', 'language')
-    )
-    
-    op.create_index('idx_operator_faq_translations_faq_id', 'operator_faq_translations', ['faq_id'])
-    op.create_index('idx_operator_faq_translations_language', 'operator_faq_translations', ['language'])
-
-def downgrade():
-    op.drop_index('idx_operator_faq_translations_language')
-    op.drop_index('idx_operator_faq_translations_faq_id')
-    op.drop_table('operator_faq_translations')
-    
-    op.drop_index('idx_operator_faqs_display_order')
-    op.drop_index('idx_operator_faqs_is_active')
-    op.drop_index('idx_operator_faqs_category')
-    op.drop_table('operator_faqs')
+# Category: setup（初期設定） - 5項目
+{
+    'category': 'setup',
+    'intent_key': 'setup_account_creation',
+    'display_order': 100,
+    'translations': {
+        'ja': {
+            'question': 'アカウント作成の手順は？',
+            'answer': '管理画面トップページから「新規登録」をクリックし、メールアドレス・パスワード・施設情報を入力してください。メール認証後、ログインできます。',
+            'keywords': 'アカウント作成,新規登録,サインアップ,初期設定',
+            'related_url': '/admin/register'
+        },
+        'en': {
+            'question': 'How to create an account?',
+            'answer': 'Click "Sign Up" from the top page, enter your email, password, and facility information. After email verification, you can log in.',
+            'keywords': 'account creation,sign up,registration,initial setup',
+            'related_url': '/admin/register'
+        }
+    }
+},
+# ... 残り29項目（付録Aに全リスト記載）
 ```
 
-#### マイグレーション2: 初期FAQデータ投入
+---
 
-**ファイル**: `backend/alembic/versions/YYYYMMDD_insert_initial_operator_faqs.py`
+## 5. API設計
+
+### 5.1 エンドポイント一覧
+
+| Method | Endpoint | 説明 | 認証 |
+|--------|----------|------|------|
+| GET | `/api/v1/help/faqs` | 全FAQ取得 | 必要 |
+| GET | `/api/v1/help/search` | FAQ検索 | 必要 |
+| POST | `/api/v1/help/chat` | AIチャット | 必要 |
+
+### 5.2 API詳細
+
+#### GET /api/v1/help/faqs
+
+**Query Parameters**:
+- `category` (optional): カテゴリフィルタ
+- `language` (optional, default: 'ja'): 言語
+
+**Response**:
+```json
+{
+  "faqs": [
+    {
+      "id": 1,
+      "category": "setup",
+      "question": "アカウント作成の手順は？",
+      "answer": "管理画面トップページから...",
+      "keywords": "アカウント作成,新規登録",
+      "related_url": "/admin/register",
+      "display_order": 100
+    }
+  ],
+  "total": 30,
+  "categories": ["setup", "qrcode", "faq_management", ...]
+}
+```
+
+#### POST /api/v1/help/chat
+
+**Request**:
+```json
+{
+  "message": "FAQの登録方法を教えてください",
+  "language": "ja"
+}
+```
+
+**Response**:
+```json
+{
+  "response": "FAQ登録は「FAQ管理」→「新規FAQ追加」から行えます...",
+  "related_faqs": [
+    {
+      "id": 10,
+      "question": "自分でFAQを追加する方法は？",
+      "category": "faq_management"
+    }
+  ],
+  "related_url": "/admin/faqs",
+  "timestamp": "2025-12-26T10:30:00Z"
+}
+```
+
+---
+
+## 6. フロントエンド設計
+
+### 6.1 コンポーネント構成
+
+```
+src/components/help/
+├── HelpButton.vue          # 右下固定ボタン
+├── HelpModal.vue           # モーダル本体
+├── FaqList.vue             # FAQ一覧
+├── FaqSearchBar.vue        # 検索バー
+├── CategoryFilter.vue      # カテゴリフィルタ
+└── AiChatPanel.vue         # チャットUI
+```
+
+### 6.2 State Management (Pinia)
+
+```typescript
+// src/stores/helpStore.ts
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import type { FAQ, ChatMessage } from '@/types/help'
+import api from '@/api/client'
+
+export const useHelpStore = defineStore('help', () => {
+  const faqs = ref<FAQ[]>([])
+  const isLoading = ref(false)
+  
+  const fetchFaqs = async (category?: string) => {
+    isLoading.value = true
+    try {
+      const response = await api.get('/help/faqs', {
+        params: { category }
+      })
+      faqs.value = response.data.faqs
+    } finally {
+      isLoading.value = false
+    }
+  }
+  
+  const searchFaqs = async (query: string) => {
+    isLoading.value = true
+    try {
+      const response = await api.get('/help/search', {
+        params: { q: query }
+      })
+      faqs.value = response.data.results
+    } finally {
+      isLoading.value = false
+    }
+  }
+  
+  const sendChatMessage = async (message: string) => {
+    const response = await api.post('/help/chat', {
+      message,
+      language: 'ja'
+    })
+    return response.data
+  }
+  
+  return {
+    faqs,
+    isLoading,
+    fetchFaqs,
+    searchFaqs,
+    sendChatMessage
+  }
+})
+```
+
+---
+
+## 7. 実装ステップ
+
+### Step 1: データベースセットアップ（1日）
+
+1. マイグレーションファイル作成
+2. 初期FAQデータ投入（30項目）
+3. データ確認
+
+### Step 2: Backend API実装（2日）
+
+**Day 1: Service Layer**
+- OperatorFaqService
+- OperatorHelpChatService
+
+**Day 2: API Endpoints**
+- GET /help/faqs
+- GET /help/search
+- POST /help/chat
+
+### Step 3: Frontend実装（3日）
+
+**Day 1**: HelpButton, HelpModal, Store作成  
+**Day 2**: FAQ機能（FaqList, Search, Filter）  
+**Day 3**: AIチャット機能（AiChatPanel）
+
+### Step 4: 統合テスト（1日）
+
+- FAQ閲覧・検索テスト
+- AIチャット動作テスト
+- エラーハンドリング確認
+
+### Step 5: デプロイ（0.5日）
+
+- Staging環境デプロイ
+- Production環境デプロイ
+
+---
+
+## 8. テスト計画
+
+### 8.1 単体テスト
 
 ```python
-"""insert initial operator faqs
+# Backend
+@pytest.mark.asyncio
+async def test_get_faqs(db_session):
+    service = OperatorFaqService(db_session)
+    faqs = await service.get_faqs(language='ja')
+    assert len(faqs) > 0
+```
 
-Revision ID: xxx
-Revises: xxx
-Create Date: 2025-12-25
-"""
-from alembic import op
-import sqlalchemy as sa
+```typescript
+// Frontend
+it('opens help modal', async () => {
+  const wrapper = mount(HelpButton)
+  await wrapper.find('button').trigger('click')
+  expect(wrapper.findComponent(HelpModal).exists()).toBe(true)
+})
+```
 
-# 初期FAQデータ（30項目）
-INITIAL_FAQS = [
-    # Category: setup（初期設定） - 5項目
-    {
-        'category': 'setup',
-        'intent_key': 'setup_account_creation',
-        'display_order': 100,
-        'translations': {
-            'ja': {
-                'question': 'アカウント作成の手順は？',
-                'answer': '管理画面トップページから「新規登録」をクリックし、メールアドレス・パスワード・施設情報を入力してください。メール認証後、ログインできます。',
-                'keywords': 'アカウント作成,新規登録,サインアップ,初期設定',
-                'related_url': '/admin/register'
-            },
-            'en': {
-                'question': 'How to create an account?',
-                'answer': 'Click "Sign Up" from the top page, enter your email, password, and facility information. After email verification, you can log in.',
-                'keywords': 'account creation,sign up,registration,initial setup',
-                'related_url': '/admin/register'
-            }
-        }
-    },
-    {
-        'category': 'setup',
-        'intent_key': 'setup_facility_info',
-        'display_order': 95,
-        'translations': {
-            'ja': {
-                'question': '施設情報はどこで登録しますか？',
-                'answer': 'ログイン後、「設定」→「施設設定」から施設名、住所、チェックイン/アウト時間、WiFi情報などを登録できます。',
-                'keywords': '施設情報,施設設定,基本情報,WiFi設定',
-                'related_url': '/admin/facility'
-            },
-            'en': {
-                'question': 'Where do I register facility information?',
-                'answer': 'After login, go to "Settings" → "Facility Settings" to register facility name, address, check-in/out times, WiFi info, etc.',
-                'keywords': 'facility information,facility settings,basic info,WiFi settings',
-                'related_url': '/admin/facility'
-            }
-        }
-    },
-    {
-        'category': 'setup',
-        'intent_key': 'setup_first_login',
-        'display_order': 90,
-        'translations': {
-            'ja': {
-                'question': '初回ログイン後にまずやるべきことは？',
-                'answer': '以下の順番で設定を行ってください：1. 施設情報登録、2. FAQ初期テンプレート確認・編集、3. QRコード生成・印刷、4. テスト質問で動作確認。',
-                'keywords': '初回ログイン,初期設定,はじめに,スタート',
-                'related_url': '/admin/dashboard'
-            },
-            'en': {
-                'question': 'What should I do after first login?',
-                'answer': 'Follow these steps: 1. Register facility info, 2. Review/edit initial FAQ templates, 3. Generate/print QR codes, 4. Test with sample questions.',
-                'keywords': 'first login,initial setup,getting started,start',
-                'related_url': '/admin/dashboard'
-            }
-        }
-    },
-    {
-        'category': 'setup',
-        'intent_key': 'setup_staff_account',
-        'display_order': 85,
-        'translations': {
-            'ja': {
-                'question': 'スタッフアカウントを追加できますか？',
-                'answer': 'はい。「設定」→「スタッフ管理」から、スタッフのメールアドレスと権限レベルを設定してアカウントを追加できます。',
-                'keywords': 'スタッフ追加,複数ユーザー,アカウント追加,権限設定',
-                'related_url': '/admin/staff'
-            },
-            'en': {
-                'question': 'Can I add staff accounts?',
-                'answer': 'Yes. From "Settings" → "Staff Management", you can add staff accounts by setting their email and permission level.',
-                'keywords': 'add staff,multiple users,add account,permissions',
-                'related_url': '/admin/staff'
-            }
-        }
-    },
-    {
-        'category': 'setup',
-        'intent_key': 'setup_password_reset',
-        'display_order': 80,
-        'translations': {
-            'ja': {
-                'question': 'パスワードを忘れた場合は？',
-                'answer': 'ログイン画面の「パスワードを忘れた場合」リンクをクリックし、メールアドレスを入力してください。パスワードリセット用のリンクが送信されます。',
-                'keywords': 'パスワード忘れ,パスワードリセット,ログインできない',
-                'related_url': '/admin/login'
-            },
-            'en': {
-                'question': 'What if I forget my password?',
-                'answer': 'Click "Forgot password?" on the login screen, enter your email, and you will receive a password reset link.',
-                'keywords': 'forgot password,password reset,cannot login',
-                'related_url': '/admin/login'
-            }
-        }
-    },
-    
-    # Category: qrcode（QRコード設置） - 4項目
-    {
-        'category': 'qrcode',
-        'intent_key': 'qrcode_placement',
-        'display_order': 100,
-        'translations': {
-            'ja': {
-                'question': 'QRコードはどこに貼るのがベストですか？',
-                'answer': 'おすすめの設置場所：1. エントランス（最優先）、2. 各部屋、3. キッチン、4. ラウンジ。設置場所ごとに異なるQRコードを生成できます。',
-                'keywords': 'QRコード設置,設置場所,おすすめ場所,配置',
-                'related_url': '/admin/qr-code'
-            },
-            'en': {
-                'question': 'Where is the best place to put QR codes?',
-                'answer': 'Recommended locations: 1. Entrance (highest priority), 2. Each room, 3. Kitchen, 4. Lounge. You can generate different QR codes for each location.',
-                'keywords': 'QR code placement,location,recommended spots,positioning',
-                'related_url': '/admin/qr-code'
-            }
-        }
-    },
-    {
-        'category': 'qrcode',
-        'intent_key': 'qrcode_multiple',
-        'display_order': 95,
-        'translations': {
-            'ja': {
-                'question': '複数のQRコードを使い分けられますか？',
-                'answer': 'はい。設置場所ごとにQRコードを生成できます。各QRコードは設置場所情報を含むため、どこから質問が来たか追跡できます。',
-                'keywords': '複数QRコード,QRコード使い分け,場所別QRコード',
-                'related_url': '/admin/qr-code'
-            },
-            'en': {
-                'question': 'Can I use multiple QR codes?',
-                'answer': 'Yes. You can generate QR codes for each location. Each QR code includes location info, so you can track where questions come from.',
-                'keywords': 'multiple QR codes,QR code variation,location-specific codes',
-                'related_url': '/admin/qr-code'
-            }
-        }
-    },
-    {
-        'category': 'qrcode',
-        'intent_key': 'qrcode_print_size',
-        'display_order': 90,
-        'translations': {
-            'ja': {
-                'question': 'QRコードの印刷サイズの推奨は？',
-                'answer': 'A4用紙1枚に1つのQRコードが推奨です。最小サイズは5cm×5cm、推奨サイズは10cm×10cm以上です。小さすぎるとスマホで読み取りにくくなります。',
-                'keywords': 'QRコード印刷,印刷サイズ,推奨サイズ,最小サイズ',
-                'related_url': '/admin/qr-code'
-            },
-            'en': {
-                'question': 'What is the recommended QR code print size?',
-                'answer': 'One QR code per A4 sheet is recommended. Minimum size is 5cm×5cm, recommended size is 10cm×10cm or larger. Too small makes it hard to scan with smartphones.',
-                'keywords': 'QR code printing,print size,recommended size,minimum size',
-                'related_url': '/admin/qr-code'
-            }
-        }
-    },
-    {
-        'category': 'qrcode',
-        'intent_key': 'qrcode_regenerate',
-        'display_order': 85,
-        'translations': {
-            'ja': {
-                'question': 'QRコードを再発行したい場合は？',
-                'answer': '「QRコード管理」から既存のQRコードを削除し、新しいQRコードを生成してください。古いQRコードは自動的に無効化されます。',
-                'keywords': 'QRコード再発行,QRコード更新,QRコード削除',
-                'related_url': '/admin/qr-code'
-            },
-            'en': {
-                'question': 'How do I regenerate a QR code?',
-                'answer': 'From "QR Code Management", delete the existing QR code and generate a new one. The old QR code will be automatically invalidated.',
-                'keywords': 'regenerate QR code,update QR code,delete QR code',
-                'related_url': '/admin/qr-code'
-            }
-        }
-    },
-    
-    # Category: faq_management（FAQ管理） - 5項目
-    {
-        'category': 'faq_management',
-        'intent_key': 'faq_template_usage',
-        'display_order': 100,
-        'translations': {
-            'ja': {
-                'question': 'FAQテンプレートの使い方は？',
-                'answer': 'システムが20-30件の初期テンプレートを提供しています。「FAQ管理」から各テンプレートを確認し、施設に合わせて編集してください。不要なFAQは非アクティブ化できます。',
-                'keywords': 'FAQテンプレート,初期FAQ,テンプレート編集',
-                'related_url': '/admin/faqs'
-            },
-            'en': {
-                'question': 'How to use FAQ templates?',
-                'answer': 'The system provides 20-30 initial templates. From "FAQ Management", review each template and edit to match your facility. Unwanted FAQs can be deactivated.',
-                'keywords': 'FAQ templates,initial FAQs,template editing',
-                'related_url': '/admin/faqs'
-            }
-        }
-    },
-    {
-        'category': 'faq_management',
-        'intent_key': 'faq_add_custom',
-        'display_order': 95,
-        'translations': {
-            'ja': {
-                'question': '自分でFAQを追加する方法は？',
-                'answer': '「FAQ管理」→「新規FAQ追加」から、質問・回答・カテゴリ・優先度を入力して保存してください。保存時に埋め込みベクトルが自動生成されます。',
-                'keywords': 'FAQ追加,カスタムFAQ,FAQ作成,新規FAQ',
-                'related_url': '/admin/faqs'
-            },
-            'en': {
-                'question': 'How to add custom FAQs?',
-                'answer': 'From "FAQ Management" → "Add New FAQ", enter question, answer, category, and priority, then save. Embedding vectors are automatically generated on save.',
-                'keywords': 'add FAQ,custom FAQ,create FAQ,new FAQ',
-                'related_url': '/admin/faqs'
-            }
-        }
-    },
-    {
-        'category': 'faq_management',
-        'intent_key': 'faq_priority',
-        'display_order': 90,
-        'translations': {
-            'ja': {
-                'question': 'FAQの優先度とは何ですか？',
-                'answer': '優先度（1-5）は、AI検索時のランキングに影響します。優先度5が最高で、よくある質問には高い優先度を設定してください。',
-                'keywords': 'FAQ優先度,優先順位,ランキング',
-                'related_url': '/admin/faqs'
-            },
-            'en': {
-                'question': 'What is FAQ priority?',
-                'answer': 'Priority (1-5) affects ranking in AI search. Priority 5 is highest. Set high priority for frequently asked questions.',
-                'keywords': 'FAQ priority,ranking,priority level',
-                'related_url': '/admin/faqs'
-            }
-        }
-    },
-    {
-        'category': 'faq_management',
-        'intent_key': 'faq_category',
-        'display_order': 85,
-        'translations': {
-            'ja': {
-                'question': 'カテゴリはどう分けるべきですか？',
-                'answer': 'カテゴリは4種類：基本情報（チェックイン/WiFi等）、設備（キッチン/シャワー等）、周辺情報（駅/コンビニ等）、トラブル（鍵紛失/故障等）。質問内容に最も近いカテゴリを選んでください。',
-                'keywords': 'FAQカテゴリ,カテゴリ分類,カテゴリ選択',
-                'related_url': '/admin/faqs'
-            },
-            'en': {
-                'question': 'How should I categorize FAQs?',
-                'answer': '4 categories: Basic (check-in/WiFi), Facilities (kitchen/shower), Location (station/convenience store), Trouble (lost key/malfunction). Choose the category closest to the question content.',
-                'keywords': 'FAQ categories,categorization,category selection',
-                'related_url': '/admin/faqs'
-            }
-        }
-    },
-    {
-        'category': 'faq_management',
-        'intent_key': 'faq_bulk_import',
-        'display_order': 80,
-        'translations': {
-            'ja': {
-                'question': 'FAQを一括登録できますか？',
-                'answer': '現在は個別登録のみですが、Phase 2でCSV一括インポート機能を追加予定です。大量のFAQがある場合は、サポートチームにご相談ください。',
-                'keywords': 'FAQ一括登録,CSV登録,大量登録,インポート',
-                'related_url': '/admin/faqs'
-            },
-            'en': {
-                'question': 'Can I bulk import FAQs?',
-                'answer': 'Currently only individual registration is supported, but CSV bulk import will be added in Phase 2. For large FAQ volumes, please
+### 8.2 統合テスト
+
+```typescript
+test('should search FAQs and display results', async ({ page }) => {
+  await page.goto('/admin/dashboard')
+  await page.click('[aria-label="ヘルプ"]')
+  await page.fill('[placeholder="FAQを検索..."]', 'アカウント')
+  await expect(page.locator('text=アカウント作成')).toBeVisible()
+})
+```
+
+---
+
+## 9. デプロイ計画
+
+### 9.1 環境構成
+
+- **Staging**: https://staging-admin.yadopera.com
+- **Production**: https://admin.yadopera.com
+
+### 9.2 デプロイ手順
+
+1. データベースマイグレーション実行
+2. Backend デプロイ（Docker）
+3. Frontend デプロイ（S3/CloudFront）
+4. 動作確認
+5. ヘルスチェック
+
+---
+
+## 10. セキュリティ対策
+
+### 10.1 認証・認可
+- JWT認証（アクセストークン7日）
+- 全APIエンドポイントで認証必須
+
+### 10.2 入力バリデーション
+```python
+class ChatRequest(BaseModel):
+    message: str = Field(..., min_length=1, max_length=500)
+    language: str = Field(default='ja', pattern='^(ja|en)$')
+```
+
+### 10.3 レート制限
+- AIチャット: 10リクエスト/分
+- FAQ検索: 20リクエスト/分
+
+---
+
+## 11. パフォーマンス最適化
+
+### 11.1 データベース最適化
+- インデックス活用
+- JOIN最適化（N+1問題回避）
+
+### 11.2 Redisキャッシュ
+```python
+# FAQ一覧キャッシュ（TTL: 5分）
+cache_key = f"faqs:{language}:{category or 'all'}"
+cached = await redis.get(cache_key)
+if cached:
+    return json.loads(cached)
+```
+
+### 11.3 フロントエンド最適化
+- デバウンス処理（検索）
+- 遅延ローディング
+
+---
+
+## 12. 監視・運用
+
+### 12.1 ログ管理
+```python
+logger.info({
+    'event': 'help_chat',
+    'operator_id': operator_id,
+    'message_length': len(message),
+    'latency_ms': latency
+})
+```
+
+### 12.2 メトリクス
+- リクエスト数
+- レイテンシ（P50, P95, P99）
+- エラー率
+
+### 12.3 アラート
+- 高レイテンシ（> 5秒）
+- OpenAI APIエラー率（> 5%）
+
+---
+
+## 13. コスト試算
+
+### 13.1 OpenAI API コスト
+
+| 月間チャット数 | 月額コスト |
+|---------------|-----------|
+| 1,000回 | ¥87 |
+| 5,000回 | ¥432 |
+| 10,000回 | ¥864 |
+
+### 13.2 インフラコスト
+
+| 項目 | 月額 |
+|------|------|
+| PostgreSQL | $15 |
+| Redis | $12 |
+| EC2 | $15 |
+| **合計** | **$42 (¥6,300)** |
+
+---
+
+## 14. KPI・効果測定
+
+| KPI | 目標値 | 測定方法 |
+|-----|-------|---------|
+| サポート工数削減率 | 70%以上 | 問い合わせ数（前月比） |
+| FAQ参照率 | 80%以上 | モーダル開封率 |
+| AIチャット利用率 | 50%以上 | チャットタブクリック率 |
+| 平均解決時間 | 2分以内 | ログ分析 |
+
+---
+
+## 15. 今後の拡張計画
+
+### Phase 3 追加機能
+1. FAQ自動生成（ログ分析）
+2. 多言語FAQ自動翻訳
+3. ヘルプ動画チュートリアル
+4. AIチャットストリーミングレスポンス
+
+### Phase 4 高度な機能
+1. コンテキスト保持型チャット
+2. FAQ有効性スコアリング
+3. インテリジェントFAQレコメンデーション
+
+---
+
+## 16. 付録
+
+### A. 初期FAQデータ全30項目
+
+#### カテゴリ: setup（5項目）
+1. アカウント作成の手順は？
+2. 施設情報はどこで登録しますか？
+3. 初回ログイン後にまずやるべきことは？
+4. スタッフアカウントを追加できますか？
+5. パスワードを忘れた場合は？
+
+#### カテゴリ: qrcode（4項目）
+6. QRコードはどこに貼るのがベストですか？
+7. 複数のQRコードを使い分けられますか？
+8. QRコードの印刷サイズの推奨は？
+9. QRコードを再発行したい場合は？
+
+#### カテゴリ: faq_management（5項目）
+10. FAQテンプレートの使い方は？
+11. 自分でFAQを追加する方法は？
+12. FAQの優先度とは何ですか？
+13. カテゴリはどう分けるべきですか？
+14. FAQを一括登録できますか？
+
+#### カテゴリ: ai_logic（4項目）
+15. AIはどうやって質問に答えていますか？
+16. AIの回答精度を上げるには？
+17. 対応言語は何語ですか？
+18. AIが答えられない質問はありますか？
+
+#### カテゴリ: logs（3項目）
+19. ゲストの質問履歴はどこで見られますか？
+20. AIが答えられなかった質問を確認するには？
+21. よくある質問のランキングは？
+
+#### カテゴリ: troubleshooting（5項目）
+22. AIの応答が遅い場合は？
+23. QRコードが読み取れない場合は？
+24. FAQを更新したのに反映されない？
+25. ログインできない場合は？
+26. サポートへの問い合わせ方法は？
+
+#### カテゴリ: billing（3項目）
+27. 料金プランは？
+28. 解約方法は？
+29. 請求書の発行は？
+
+#### カテゴリ: security（3項目）
+30. ゲストのデータはどう管理されていますか？
+31. スタッフの権限設定は？
+32. データのバックアップは？
+
+### B. 環境変数
+
+```bash
+# Backend .env
+OPENAI_API_KEY=sk-...
+DATABASE_URL=postgresql://...
+REDIS_URL=redis://localhost:6379/0
+JWT_SECRET_KEY=your-secret-key
+```
+
+```bash
+# Frontend .env
+VITE_API_BASE_URL=http://localhost:8000/api/v1
+```
+
+### C. デプロイチェックリスト
+
+#### Pre-deployment
+- [ ] 全テスト通過
+- [ ] コードレビュー完了
+- [ ] マイグレーションファイル作成
+- [ ] 環境変数設定確認
+
+#### Deployment
+- [ ] DBバックアップ
+- [ ] Staging デプロイ
+- [ ] Production デプロイ
+- [ ] 動作確認
+
+#### Post-deployment
+- [ ] ログ監視開始
+- [ ] メトリクス監視開始
+- [ ] ユーザーフィードバック収集
+
+---
+
+**実装期間**: 7.5日間  
+**完成日**: Phase 2完了時  
+**次のステップ**: Phase 3（PoC実施）

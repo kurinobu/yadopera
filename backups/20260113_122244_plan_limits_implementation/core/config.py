@@ -1,0 +1,39 @@
+from pydantic_settings import BaseSettings
+from typing import List
+
+
+class Settings(BaseSettings):
+    # Database
+    database_url: str
+    
+    # Redis
+    redis_url: str
+    
+    # OpenAI
+    openai_api_key: str
+    
+    # JWT
+    secret_key: str
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 10080
+    
+    # App
+    environment: str = "development"
+    debug: bool = True
+    
+    # CORS (comma-separated string to List[str])
+    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    
+    @property
+    def cors_origins_list(self) -> List[str]:
+        """CORS originsをリストに変換"""
+        return [origin.strip() for origin in self.cors_origins.split(",")]
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = False
+
+
+# 環境変数から設定を読み込む
+settings = Settings()
+

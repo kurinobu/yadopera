@@ -6,10 +6,11 @@
 import logging
 import uuid
 from typing import Optional, List
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 import pytz
 
 from app.models.conversation import Conversation
@@ -126,7 +127,7 @@ class ChatService:
             facility = await self.db.get(Facility, request.facility_id)
             if facility:
                 timezone_str = facility.timezone or 'Asia/Tokyo'
-                utc_now = datetime.utcnow().replace(tzinfo=pytz.UTC)
+                utc_now = datetime.now(timezone.utc)
                 facility_tz = pytz.timezone(timezone_str)
                 local_now = utc_now.astimezone(facility_tz)
                 
@@ -169,7 +170,7 @@ class ChatService:
                     )
         
         # 会話の最終活動時刻を更新
-        conversation.last_activity_at = datetime.utcnow()
+        conversation.last_activity_at = datetime.now(timezone.utc)
         conversation.total_messages += 2  # ユーザーメッセージ + AI応答
         
         await self.db.commit()
@@ -259,26 +260,65 @@ class ChatService:
                 logger.info(f"Generating new session_id for expired session: new_session_id={session_id}")
             else:
                 # 既存の会話を更新
-                conversation.last_activity_at = datetime.utcnow()
+                conversation.last_activity_at = datetime.now(timezone.utc)
                 if location:
                     conversation.location = location
                 logger.debug(f"Existing conversation found: conversation_id={conversation.id}, session_id={session_id}")
         
         if not conversation:
             # 新規会話を作成（既存の会話が存在しない、またはセッションが無効な場合）
-            conversation = Conversation(
-                facility_id=facility_id,
-                session_id=session_id,
-                guest_language=language,
-                location=location,
-                user_agent=user_agent,
-                ip_address=ip_address,
-                started_at=datetime.utcnow(),
-                last_activity_at=datetime.utcnow()
-            )
-            self.db.add(conversation)
-            await self.db.flush()
-            logger.info(f"New conversation created: conversation_id={conversation.id}, session_id={session_id}")
+            try:
+                conversation = Conversation(
+                    facility_id=facility_id,
+                    session_id=session_id,
+                    guest_language=language,
+                    location=location,
+                    user_agent=user_agent,
+                    ip_address=ip_address,
+                    started_at=datetime.now(timezone.utc),
+                    last_activity_at=datetime.now(timezone.utc)
+                )
+                self.db.add(conversation)
+                await self.db.flush()
+                logger.info(f"New conversation created: conversation_id={conversation.id}, session_id={session_id}")
+            except IntegrityError as e:
+                # セッションIDの重複エラーが発生した場合（並行処理による競合）
+                # 既存の会話を再取得する
+                await self.db.rollback()
+                logger.warning(f"Session ID duplicate detected, retrieving existing conversation: session_id={session_id}, error={e}")
+                
+                # 既存の会話を再取得
+                result = await self.db.execute(
+                    select(Conversation).where(
+                        Conversation.facility_id == facility_id,
+                        Conversation.session_id == session_id
+                    )
+                )
+                conversation = result.scalar_one_or_none()
+                
+                if conversation:
+                    # 既存の会話を更新
+                    conversation.last_activity_at = datetime.now(timezone.utc)
+                    if location:
+                        conversation.location = location
+                    logger.info(f"Existing conversation retrieved after duplicate error: conversation_id={conversation.id}, session_id={session_id}")
+                else:
+                    # 既存の会話が見つからない場合は、新しいセッションIDを生成して再試行
+                    logger.error(f"Existing conversation not found after duplicate error, generating new session_id: old_session_id={session_id}")
+                    session_id = str(uuid.uuid4())
+                    conversation = Conversation(
+                        facility_id=facility_id,
+                        session_id=session_id,
+                        guest_language=language,
+                        location=location,
+                        user_agent=user_agent,
+                        ip_address=ip_address,
+                        started_at=datetime.now(timezone.utc),
+                        last_activity_at=datetime.now(timezone.utc)
+                    )
+                    self.db.add(conversation)
+                    await self.db.flush()
+                    logger.info(f"New conversation created with new session_id: conversation_id={conversation.id}, session_id={session_id}")
         
         await self.db.commit()
         await self.db.refresh(conversation)
@@ -298,14 +338,21 @@ class ChatService:
         
         Returns:
             ChatHistoryResponse: 会話履歴、見つからない場合はNone
-        """
-        # セッション有効期限をチェック（防止策1: started_atベースの固定有効期限）
-        from app.utils.session import is_session_valid
-        is_valid = await is_session_valid(session_id, self.db)
         
-        if not is_valid:
-            logger.warning(f"Session expired: session_id={session_id}")
-            return None
+        Note:
+            - ゲスト側（facility_idがNone）: セッション有効期限チェックを実行（24時間以内）
+            - 管理画面側（facility_idが指定されている）: セッション有効期限チェックをスキップ（月次統計のため過去の会話も表示可能）
+        """
+        # セッション有効期限をチェック（ゲスト側のみ）
+        # 管理画面からのアクセス（facility_idが指定されている場合）はスキップ
+        # 理由: 管理画面では月次統計のため過去の会話（今月のデータ）も表示する必要がある
+        if facility_id is None:
+            from app.utils.session import is_session_valid
+            is_valid = await is_session_valid(session_id, self.db)
+            
+            if not is_valid:
+                logger.warning(f"Session expired: session_id={session_id}")
+                return None
         
         # 会話を検索
         query = select(Conversation).where(Conversation.session_id == session_id)

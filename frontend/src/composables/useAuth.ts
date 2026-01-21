@@ -6,7 +6,7 @@ import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { authApi } from '@/api/auth'
-import type { LoginRequest } from '@/types/auth'
+import type { LoginRequest, RegisterRequest } from '@/types/auth'
 
 export function useAuth() {
   const router = useRouter()
@@ -18,6 +18,17 @@ export function useAuth() {
   async function login(loginData: LoginRequest) {
     try {
       const response = await authApi.login(loginData)
+      authStore.login(response.user, response.access_token)
+      await router.push('/admin/dashboard')
+      return response
+    } catch (error) {
+      throw error
+    }
+  }
+
+  async function register(registerData: RegisterRequest) {
+    try {
+      const response = await authApi.register(registerData)
       authStore.login(response.user, response.access_token)
       await router.push('/admin/dashboard')
       return response
@@ -42,6 +53,7 @@ export function useAuth() {
     isAuthenticated,
     user,
     login,
+    register,
     logout
   }
 }

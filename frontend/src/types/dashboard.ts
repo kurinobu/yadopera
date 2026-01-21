@@ -61,12 +61,50 @@ export interface FeedbackStats {
   }>
 }
 
+// 月次利用状況
+export interface MonthlyUsage {
+  current_month_questions: number
+  plan_type: 'Free' | 'Mini' | 'Small' | 'Standard' | 'Premium'
+  plan_limit: number | null
+  usage_percentage: number | null
+  remaining_questions: number | null
+  overage_questions: number
+  status: 'normal' | 'warning' | 'overage' | 'faq_only'
+}
+
+// AI自動応答統計
+export interface AiAutomation {
+  ai_responses: number
+  total_questions: number
+  automation_rate: number
+}
+
+// エスカレーション統計
+export interface EscalationsSummary {
+  total: number
+  unresolved: number
+  resolved: number
+}
+
+// 未解決エスカレーション
+export interface UnresolvedEscalation {
+  id: number
+  conversation_id: number
+  session_id: string
+  created_at: string
+  message: string
+}
+
 // ダッシュボードデータ
 export interface DashboardData {
   summary: WeeklySummary
   recent_conversations: ChatHistory[]
   overnight_queue: OvernightQueue[]
   feedback_stats: FeedbackStats
+  monthly_usage?: MonthlyUsage
+  ai_automation?: AiAutomation
+  escalations_summary?: EscalationsSummary
+  unresolved_escalations?: UnresolvedEscalation[]
 }
 
 

@@ -10,7 +10,16 @@ export const adminRoutes: RouteRecordRaw[] = [
     name: 'AdminLogin',
     component: () => import('@/views/admin/Login.vue'),
     meta: {
-      layout: 'admin',
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('@/views/admin/Register.vue'),
+    meta: {
+      layout: undefined,
       requiresAuth: false
     }
   },
@@ -58,6 +67,15 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/manual',
+    name: 'AdminManual',
+    component: () => import('@/views/admin/Manual.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/admin/conversations/:session_id',
     name: 'ConversationDetail',
     component: () => import('@/views/admin/ConversationDetail.vue'),
@@ -70,6 +88,15 @@ export const adminRoutes: RouteRecordRaw[] = [
     path: '/admin/facility/settings',
     name: 'FacilitySettings',
     component: () => import('@/views/admin/FacilitySettings.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/admin/support',
+    name: 'AdminSupport',
+    component: () => import('@/views/admin/Support.vue'),
     meta: {
       layout: 'admin',
       requiresAuth: true

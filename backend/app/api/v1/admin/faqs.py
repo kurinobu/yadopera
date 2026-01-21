@@ -5,11 +5,14 @@ FAQ管理APIエンドポイント
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
+from datetime import datetime, timezone, timedelta
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQListResponse
+from app.models.facility import Facility
+from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQListResponse, BulkFAQCreateResponse
 from app.services.faq_service import FAQService
+from app.core.plan_limits import get_initial_faq_count
 
 router = APIRouter(prefix="/admin/faqs", tags=["admin", "faqs"])
 
@@ -47,8 +50,25 @@ async def get_faqs(
             is_active=is_active
         )
         
+        # 施設情報を取得して、バックグラウンド処理が進行中かどうかを判定
+        facility = await db.get(Facility, facility_id)
+        is_initializing = False
+        
+        if facility:
+            time_since_creation = datetime.now(timezone.utc) - facility.created_at
+            expected_count = get_initial_faq_count(facility.subscription_plan)
+            actual_count = len(faqs)
+            
+            # 施設作成から60秒以内で、期待値と一致しない場合は進行中とみなす
+            # ステージング環境での処理時間を考慮して60秒に拡張
+            if time_since_creation < timedelta(seconds=60) and actual_count < expected_count:
+                is_initializing = True
+            # 期待値未満の場合は常に進行中とみなす（より確実）
+            elif actual_count < expected_count:
+                is_initializing = True
+        
         # totalはインテント単位でカウント（言語に関係なく、FAQ.idをカウント）
-        return FAQListResponse(faqs=faqs, total=len(faqs))
+        return FAQListResponse(faqs=faqs, total=len(faqs), is_initializing=is_initializing)
     
     except HTTPException:
         raise
@@ -220,4 +240,58 @@ async def delete_faq(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting FAQ: {str(e)}"
         )
+
+
+@router.post("/bulk", response_model=BulkFAQCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_bulk_faqs(
+    faq_requests: List[FAQRequest],
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    FAQ一括作成（プリセット投入用、埋め込みベクトル自動生成、インテントベース構造）
+    
+    - **faq_requests**: FAQ作成リクエストのリスト
+      - **category**: カテゴリ（basic/facilities/location/trouble）
+      - **intent_key**: インテント識別キー（オプション、自動生成される場合は省略可能）
+      - **translations**: 翻訳リスト（最低1つの言語が必要）
+        - **language**: 言語コード（en/ja/zh-TW/fr）
+        - **question**: 質問文（1-500文字）
+        - **answer**: 回答文（1-2000文字）
+      - **priority**: 優先度（1-5、デフォルト: 1）
+      - **is_active**: 有効/無効（デフォルト: true）
+    
+    JWT認証必須。一括で複数FAQを作成します。作成に失敗したFAQはスキップされ、ログに記録されます。
+    """
+    try:
+        # ユーザーが所属する施設IDを取得
+        facility_id = current_user.facility_id
+        if not facility_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User is not associated with any facility"
+            )
+        
+        # FAQサービスで一括作成
+        faq_service = FAQService(db)
+        created_faqs = await faq_service.bulk_create_faqs(
+            facility_id=facility_id,
+            faq_requests=faq_requests,
+            user_id=current_user.id
+        )
+        
+        return BulkFAQCreateResponse(
+            created_count=len(created_faqs),
+            faqs=created_faqs
+        )
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        # その他のエラー
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating bulk FAQs: {str(e)}"
+        )
+
 

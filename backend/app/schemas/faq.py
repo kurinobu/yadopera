@@ -89,4 +89,11 @@ class FAQListResponse(BaseModel):
     """FAQ一覧レスポンス"""
     faqs: list[FAQResponse] = Field(default_factory=list, description="FAQリスト")
     total: int = Field(..., description="総件数（インテント単位でカウント）")
+    is_initializing: bool = Field(default=False, description="バックグラウンド処理が進行中かどうか")
+
+
+class BulkFAQCreateResponse(BaseModel):
+    """一括FAQ作成レスポンス"""
+    created_count: int = Field(..., description="作成されたFAQ数")
+    faqs: List[FAQResponse] = Field(default_factory=list, description="作成されたFAQリスト")
 

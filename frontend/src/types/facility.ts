@@ -11,6 +11,8 @@ export interface Facility {
   check_in_time: string
   check_out_time: string
   wifi_ssid?: string
+  plan_type?: string  // 料金プラン（Free, Mini, Small, Standard, Premium）
+  available_languages?: string[]  // 利用可能言語リスト
 }
 
 export interface TopQuestion {
@@ -44,6 +46,7 @@ export interface FacilitySettingsFacility {
   check_out_time?: string  // "HH:MM"形式
   house_rules?: string
   local_info?: string
+  prohibited_items?: string
   languages: string[]
   timezone: string
   subscription_plan: string
@@ -70,6 +73,7 @@ export interface FacilitySettingsUpdateRequest {
   check_out_time?: string  // "HH:MM"形式
   house_rules?: string
   local_info?: string
+  prohibited_items?: string
   staff_absence_periods?: StaffAbsencePeriod[]
 }
 

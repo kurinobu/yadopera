@@ -72,6 +72,7 @@ async def get_facility_settings(
             check_out_time=check_out_time_str,
             house_rules=facility.house_rules,
             local_info=facility.local_info,
+            prohibited_items=getattr(facility, "prohibited_items", None),
             languages=facility.languages or [],
             timezone=facility.timezone or "Asia/Tokyo",
             subscription_plan=facility.subscription_plan or "small",
@@ -185,6 +186,8 @@ async def update_facility_settings(
             facility.house_rules = update_data["house_rules"]
         if "local_info" in update_data:
             facility.local_info = update_data["local_info"]
+        if "prohibited_items" in update_data:
+            facility.prohibited_items = update_data["prohibited_items"]
         
         # スタッフ不在時間帯の更新
         if "staff_absence_periods" in update_data and update_data["staff_absence_periods"] is not None:

@@ -238,6 +238,7 @@ Check-out: {facility.check_out_time}
 WiFi SSID: {facility.wifi_ssid or "Not available"}
 House Rules: {(facility.house_rules or "")[:500]}
 Local Info: {(facility.local_info or "")[:500]}
+Prohibited Items: {(getattr(facility, "prohibited_items", "") or "")[:500]}
 """
         
         # システムプロンプト（約100トークン）

@@ -182,15 +182,131 @@ const lowRatedAnswers = ref<LowRatedAnswer[]>([])
 
 // データ取得
 const fetchFaqs = async () => {
+  console.log('🚀 fetchFaqs: 開始')
   try {
     loading.value = true
     error.value = null
-    const data = await faqApi.getFaqs()
+    console.log('📡 fetchFaqs: API呼び出し前')
+    const response = await faqApi.getFaqs()
+    console.log('📡 fetchFaqs: API呼び出し成功', response)
+    const data = response.faqs
+    const isInitializing = response.is_initializing
+    const total = response.total
+    
+    console.log('✅ FAQ取得成功:', {
+      count: data.length,
+      total: total,
+      is_initializing: isInitializing,
+      categories: {
+        basic: data.filter(f => f.category === 'basic').length,
+        facilities: data.filter(f => f.category === 'facilities').length,
+        location: data.filter(f => f.category === 'location').length,
+        trouble: data.filter(f => f.category === 'trouble').length,
+      },
+      data: data
+    })
+    
     faqs.value = data
+    
+    // バックグラウンド処理が進行中の場合、または期待値未満の場合はポーリングを開始
+    // 修正2: isInitializingがFalseでも、total < 20の場合はポーリングを開始（二重の安全策）
+    const expectedCount = 20  // 条件チェック前に定義
+    console.log('🔍 ポーリング条件チェック:', {
+      isInitializing,
+      total,
+      expectedCount,
+      condition1: isInitializing && total < expectedCount,
+      condition2: !isInitializing && total < expectedCount,
+      shouldPoll: (isInitializing && total < expectedCount) || (!isInitializing && total < expectedCount)
+    })
+    
+    if ((isInitializing && total < expectedCount) || (!isInitializing && total < expectedCount)) {
+      const pollInterval = 2000 // 2秒ごとにポーリング
+      const maxPollTime = 90000 // 最大90秒（20件のFAQ作成 + 埋め込みベクトル生成を考慮）
+      const startTime = Date.now()
+      
+      const poll = async () => {
+        try {
+          const newResponse = await faqApi.getFaqs()
+          const newData = newResponse.faqs
+          const newTotal = newResponse.total
+          const newIsInitializing = newResponse.is_initializing
+          
+          console.log('🔄 ポーリング結果:', {
+            count: newData.length,
+            total: newTotal,
+            is_initializing: newIsInitializing
+          })
+          
+          // ポーリング中にFAQ数が増えた場合は、即座にUIを更新
+          if (newTotal > faqs.value.length) {
+            console.log('📊 FAQ数が増加: UIを更新', {
+              previous: faqs.value.length,
+              current: newTotal
+            })
+            faqs.value = newData
+          }
+          
+          // バックグラウンド処理の完了を優先チェック（タイムアウトチェックより先）
+          if (!newIsInitializing && newTotal >= expectedCount) {
+            // 完了: 最新のデータを表示
+            console.log('✅ バックグラウンド処理完了: 最新のデータを表示', newTotal)
+            faqs.value = newData
+            loading.value = false
+            return
+          }
+          
+          // タイムアウトチェック（完了チェックの後）
+          if (Date.now() - startTime > maxPollTime) {
+            // タイムアウト: 最後に取得したデータを表示
+            console.log('⏱️ ポーリングタイムアウト: 最後に取得したデータを表示', {
+              total: newTotal,
+              count: newData.length,
+              is_initializing: newIsInitializing
+            })
+            faqs.value = newData
+            loading.value = false
+            return
+          }
+          
+          // まだ進行中: 再度ポーリング
+          setTimeout(poll, pollInterval)
+        } catch (err: any) {
+          // エラー: 現在の件数を表示
+          console.error('❌ ポーリングエラー:', err)
+          console.error('❌ ポーリングエラー: エラー詳細', {
+            message: err.message,
+            stack: err.stack,
+            response: err.response
+          })
+          loading.value = false
+        }
+      }
+      
+      // 初回ポーリングを開始
+      console.log('🔄 バックグラウンド処理進行中または期待値未満: ポーリングを開始', {
+        isInitializing,
+        total,
+        expectedCount
+      })
+      setTimeout(poll, pollInterval)
+    } else {
+      // 通常の表示
+      console.log('⏭️ ポーリング不要: 通常の表示', {
+        isInitializing,
+        total,
+        expectedCount
+      })
+      loading.value = false
+    }
   } catch (err: any) {
-    console.error('Failed to fetch FAQs:', err)
+    console.error('❌ FAQ取得失敗:', err)
+    console.error('❌ FAQ取得失敗: エラー詳細', {
+      message: err.message,
+      stack: err.stack,
+      response: err.response
+    })
     error.value = err.response?.data?.detail || 'FAQ一覧の取得に失敗しました'
-  } finally {
     loading.value = false
   }
 }
@@ -277,11 +393,21 @@ const scrollToSection = async (targetId?: string) => {
 
 // コンポーネントマウント時にデータ取得
 onMounted(async () => {
-  await fetchFaqs()
-  await fetchUnresolvedQuestions()
-  await fetchLowRatedAnswers()
-  // ハッシュフラグメントに基づいてスクロール
-  await scrollToSection()
+  console.log('🚀 FaqManagement: onMounted開始')
+  try {
+    await fetchFaqs()
+    await fetchUnresolvedQuestions()
+    await fetchLowRatedAnswers()
+    // ハッシュフラグメントに基づいてスクロール
+    await scrollToSection()
+    console.log('✅ FaqManagement: onMounted完了')
+  } catch (err: any) {
+    console.error('❌ FaqManagement: onMountedエラー', err)
+    console.error('❌ FaqManagement: onMountedエラー詳細', {
+      message: err.message,
+      stack: err.stack
+    })
+  }
 })
 
 // ルートのハッシュが変更されたときにもスクロール
@@ -422,6 +548,9 @@ const handleSubmitFaq = async (data: FAQCreate) => {
       errorMessage = '保存しようとしたFAQが見つかりませんでした。既に削除されている可能性があります。ページをリロードして最新の状態を確認してください。'
     } else if (detail.includes('does not belong to facility')) {
       errorMessage = 'このFAQは保存できません。権限がない可能性があります。'
+    } else if (detail.includes('言語数制限に達しています') || detail.includes('Language limit reached')) {
+      // 言語数制限エラー: バックエンドからのメッセージをそのまま表示
+      errorMessage = detail
     } else if (detail.includes('Validation error') || detail.includes('validation')) {
       errorMessage = `入力内容に問題があります: ${detail}`
     } else if (detail) {

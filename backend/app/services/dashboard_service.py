@@ -7,6 +7,7 @@ import logging
 from typing import List, Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
+import pytz
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, and_, or_, case
 from sqlalchemy.orm import selectinload
@@ -17,6 +18,7 @@ from app.models.escalation import Escalation
 from app.models.overnight_queue import OvernightQueue
 from app.models.guest_feedback import GuestFeedback
 from app.models.faq import FAQ
+from app.models.facility import Facility
 from app.schemas.dashboard import (
     DashboardResponse,
     WeeklySummary,
@@ -25,7 +27,11 @@ from app.schemas.dashboard import (
     ChatHistory,
     OvernightQueueItem,
     FeedbackStats,
-    LowRatedAnswer
+    LowRatedAnswer,
+    MonthlyUsageResponse,
+    AiAutomationResponse,
+    EscalationsSummaryResponse,
+    UnresolvedEscalation
 )
 from app.core.cache import get_cache, set_cache, cache_key
 from app.services.feedback_service import FeedbackService
@@ -76,18 +82,26 @@ class DashboardService:
         
         # キャッシュミス: 並列処理でデータ取得
         logger.debug(f"Dashboard cache miss: {cache_key_str}")
-        summary, recent_conversations, overnight_queue, feedback_stats = await asyncio.gather(
+        summary, recent_conversations, overnight_queue, feedback_stats, monthly_usage, ai_automation, escalations_summary, unresolved_escalations = await asyncio.gather(
             self.get_weekly_summary(facility_id),
             self.get_recent_chat_history(facility_id),
             self.get_overnight_queue(facility_id),
-            self.get_feedback_stats(facility_id)
+            self.get_feedback_stats(facility_id),
+            self.get_monthly_usage(facility_id),
+            self.get_ai_automation(facility_id),
+            self.get_escalations_summary(facility_id),
+            self.get_unresolved_escalations(facility_id)
         )
         
         dashboard_data = DashboardResponse(
             summary=summary,
             recent_conversations=recent_conversations,
             overnight_queue=overnight_queue,
-            feedback_stats=feedback_stats
+            feedback_stats=feedback_stats,
+            monthly_usage=monthly_usage,
+            ai_automation=ai_automation,
+            escalations_summary=escalations_summary,
+            unresolved_escalations=unresolved_escalations
         )
         
         # キャッシュに保存
@@ -370,4 +384,379 @@ class DashboardService:
             positive_rate=positive_rate,
             low_rated_answers=low_rated_answers
         )
+    
+    async def get_monthly_usage(self, facility_id: int) -> Optional[MonthlyUsageResponse]:
+        """
+        今月の質問数/プラン上限を取得（請求期間ベース）
+        
+        Args:
+            facility_id: 施設ID
+        
+        Returns:
+            MonthlyUsageResponse: 月次利用状況（エラー時はNone）
+        """
+        try:
+            # 施設情報を取得
+            facility_result = await self.db.execute(
+                select(Facility).where(Facility.id == facility_id)
+            )
+            facility = facility_result.scalar_one_or_none()
+            if not facility:
+                logger.warning(f"Facility not found: {facility_id}")
+                return None  # ValueErrorではなくNoneを返す
+            
+            # JSTタイムゾーン取得
+            jst = pytz.timezone('Asia/Tokyo')
+            now_jst = datetime.now(jst)
+            
+            # plan_started_atを取得（timezone-awareに変換）
+            plan_started_at = facility.plan_started_at
+            if plan_started_at.tzinfo is None:
+                # naive datetimeの場合はUTCとして扱い、JSTに変換
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
+            else:
+                # timezone-awareの場合はJSTに変換
+                plan_started_at = plan_started_at.astimezone(jst)
+            
+            # 請求期間を計算
+            from app.utils.billing_period import calculate_billing_period
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
+            
+            # UTCに変換
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
+            
+            # 請求期間の質問数を集計
+            questions_result = await self.db.execute(
+                select(func.count(Message.id))
+                .join(Conversation, Message.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Message.role == MessageRole.USER.value,
+                    Message.created_at >= billing_start_utc,
+                    Message.created_at <= billing_end_utc
+                )
+            )
+            current_billing_period_questions = questions_result.scalar() or 0
+            
+            # プラン情報を取得
+            plan_type = facility.plan_type or 'Free'
+            plan_limit = facility.monthly_question_limit
+            
+            # プラン種別に応じた正しいデフォルト値を定義
+            plan_limits = {
+                'Free': 30,
+                'Mini': None,  # 無制限
+                'Small': 200,
+                'Standard': 500,
+                'Premium': 1000
+            }
+            
+            # プラン種別に応じた正しいデフォルト値を強制適用
+            # plan_limitがNoneの場合、またはプラン種別に応じた正しい値と一致しない場合に適用
+            expected_limit = plan_limits.get(plan_type, 30)
+            if plan_limit is None or plan_limit != expected_limit:
+                plan_limit = expected_limit
+            
+            # 使用率、残り質問数、超過質問数を計算
+            usage_percentage = None
+            remaining_questions = None
+            overage_questions = 0
+            status = "normal"
+            
+            if plan_type == 'Mini':
+                # Miniプラン: 上限なし（従量課金のみ）
+                overage_questions = current_billing_period_questions
+                status = "normal"
+            elif plan_limit is not None:
+                # 上限があるプラン
+                # Freeプランの場合は30件超過でfaq_only
+                if plan_type == 'Free' and current_billing_period_questions > 30:
+                    overage_questions = current_billing_period_questions - 30
+                    usage_percentage = 100.0
+                    remaining_questions = 0
+                    status = "faq_only"
+                elif current_billing_period_questions > plan_limit:
+                    overage_questions = current_billing_period_questions - plan_limit
+                    usage_percentage = 100.0
+                    remaining_questions = 0
+                    status = "overage"
+                else:
+                    usage_percentage = (current_billing_period_questions / plan_limit * 100) if plan_limit > 0 else 0.0
+                    remaining_questions = plan_limit - current_billing_period_questions
+                    
+                    # ステータス判定
+                    if usage_percentage >= 91:
+                        status = "warning"
+                    else:
+                        status = "normal"
+            else:
+                # plan_limitがNULLの場合（通常は発生しないが念のため）
+                status = "normal"
+            
+            return MonthlyUsageResponse(
+                current_month_questions=current_billing_period_questions,
+                plan_type=plan_type,
+                plan_limit=plan_limit,
+                usage_percentage=usage_percentage,
+                remaining_questions=remaining_questions,
+                overage_questions=overage_questions,
+                status=status
+            )
+        
+        except Exception as e:
+            logger.error(
+                f"Error getting monthly usage for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return None  # エラー時はNoneを返す
+    
+    async def get_ai_automation(self, facility_id: int) -> Optional[AiAutomationResponse]:
+        """
+        AI自動応答数・自動化率を取得（請求期間ベース）
+        
+        Args:
+            facility_id: 施設ID
+        
+        Returns:
+            AiAutomationResponse: AI自動応答統計（エラー時はNone）
+        """
+        try:
+            # 施設情報を取得
+            facility_result = await self.db.execute(
+                select(Facility).where(Facility.id == facility_id)
+            )
+            facility = facility_result.scalar_one_or_none()
+            if not facility:
+                logger.warning(f"Facility not found: {facility_id}")
+                return None
+            
+            # JSTタイムゾーン取得
+            jst = pytz.timezone('Asia/Tokyo')
+            now_jst = datetime.now(jst)
+            
+            # plan_started_atを取得（timezone-awareに変換）
+            plan_started_at = facility.plan_started_at
+            if plan_started_at.tzinfo is None:
+                # naive datetimeの場合はUTCとして扱い、JSTに変換
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
+            else:
+                # timezone-awareの場合はJSTに変換
+                plan_started_at = plan_started_at.astimezone(jst)
+            
+            # 請求期間を計算
+            from app.utils.billing_period import calculate_billing_period
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
+            
+            # UTCに変換
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
+            
+            # 請求期間の総質問数
+            total_questions_result = await self.db.execute(
+                select(func.count(Message.id))
+                .join(Conversation, Message.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Message.role == MessageRole.USER.value,
+                    Message.created_at >= billing_start_utc,
+                    Message.created_at <= billing_end_utc
+                )
+            )
+            total_questions = total_questions_result.scalar() or 0
+            
+            # エスカレーションされた会話IDを取得
+            escalated_conversation_ids_result = await self.db.execute(
+                select(Escalation.conversation_id)
+                .join(Conversation, Escalation.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Escalation.created_at >= billing_start_utc,
+                    Escalation.created_at <= billing_end_utc
+                )
+            )
+            escalated_conversation_ids = [row[0] for row in escalated_conversation_ids_result.all()]
+            
+            # エスカレーションされなかった会話IDを取得
+            all_conversations_result = await self.db.execute(
+                select(Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Conversation.started_at >= billing_start_utc,
+                    Conversation.started_at <= billing_end_utc
+                )
+            )
+            all_conversation_ids = [row[0] for row in all_conversations_result.all()]
+            
+            if escalated_conversation_ids:
+                non_escalated_conversation_ids = [cid for cid in all_conversation_ids if cid not in escalated_conversation_ids]
+            else:
+                # エスカレーションがなければすべての会話が対象
+                non_escalated_conversation_ids = all_conversation_ids
+            
+            # AI自動応答数 = エスカレーションされなかった会話のAI自動応答メッセージ数
+            ai_responses = 0
+            if non_escalated_conversation_ids:
+                ai_responses_result = await self.db.execute(
+                    select(func.count(Message.id))
+                    .where(
+                        Message.conversation_id.in_(non_escalated_conversation_ids),
+                        Message.role == MessageRole.ASSISTANT.value,
+                        Message.created_at >= billing_start_utc,
+                        Message.created_at <= billing_end_utc
+                    )
+                )
+                ai_responses = ai_responses_result.scalar() or 0
+            
+            # 自動化率計算
+            automation_rate = 0.0
+            if total_questions > 0:
+                automation_rate = (ai_responses / total_questions * 100) if total_questions > 0 else 0.0
+            
+            return AiAutomationResponse(
+                ai_responses=ai_responses,
+                total_questions=total_questions,
+                automation_rate=round(automation_rate, 1)
+            )
+        
+        except Exception as e:
+            logger.error(
+                f"Error getting AI automation for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return None  # エラー時はNoneを返す
+    
+    async def get_escalations_summary(self, facility_id: int) -> Optional[EscalationsSummaryResponse]:
+        """
+        エスカレーション統計を取得（請求期間ベース）
+        
+        Args:
+            facility_id: 施設ID
+        
+        Returns:
+            EscalationsSummaryResponse: エスカレーション統計（エラー時はNone）
+        """
+        try:
+            # 施設情報を取得
+            facility_result = await self.db.execute(
+                select(Facility).where(Facility.id == facility_id)
+            )
+            facility = facility_result.scalar_one_or_none()
+            if not facility:
+                logger.warning(f"Facility not found: {facility_id}")
+                return None
+            
+            # JSTタイムゾーン取得
+            jst = pytz.timezone('Asia/Tokyo')
+            now_jst = datetime.now(jst)
+            
+            # plan_started_atを取得（timezone-awareに変換）
+            plan_started_at = facility.plan_started_at
+            if plan_started_at.tzinfo is None:
+                # naive datetimeの場合はUTCとして扱い、JSTに変換
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
+            else:
+                # timezone-awareの場合はJSTに変換
+                plan_started_at = plan_started_at.astimezone(jst)
+            
+            # 請求期間を計算
+            from app.utils.billing_period import calculate_billing_period
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
+            
+            # UTCに変換
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
+            
+            # 請求期間のエスカレーション数を集計
+            escalations_result = await self.db.execute(
+                select(Escalation)
+                .join(Conversation, Escalation.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Escalation.created_at >= billing_start_utc,
+                    Escalation.created_at <= billing_end_utc
+                )
+            )
+            escalations = escalations_result.scalars().all()
+            
+            total = len(escalations)
+            unresolved = sum(1 for e in escalations if e.resolved_at is None)
+            resolved = total - unresolved
+            
+            return EscalationsSummaryResponse(
+                total=total,
+                unresolved=unresolved,
+                resolved=resolved
+            )
+        
+        except Exception as e:
+            logger.error(
+                f"Error getting escalations summary for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return None  # エラー時はNoneを返す
+    
+    async def get_unresolved_escalations(self, facility_id: int, limit: int = 10) -> List[UnresolvedEscalation]:
+        """
+        未解決エスカレーションを取得（最新10件）
+        
+        Args:
+            facility_id: 施設ID
+            limit: 取得件数（デフォルト: 10）
+        
+        Returns:
+            List[UnresolvedEscalation]: 未解決エスカレーションリスト
+        """
+        try:
+            # 未解決エスカレーションを取得
+            escalations_result = await self.db.execute(
+                select(Escalation)
+                .join(Conversation, Escalation.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility_id,
+                    Escalation.resolved_at.is_(None)
+                )
+                .order_by(Escalation.created_at.desc())
+                .limit(limit)
+                .options(selectinload(Escalation.conversation).selectinload(Conversation.messages))
+            )
+            escalations = escalations_result.scalars().all()
+            
+            unresolved_list: List[UnresolvedEscalation] = []
+            for escalation in escalations:
+                # ゲストメッセージを取得（最初のユーザーメッセージ）
+                message = ""
+                if escalation.conversation and escalation.conversation.messages:
+                    user_messages = [m for m in escalation.conversation.messages if m.role == MessageRole.USER.value]
+                    if user_messages:
+                        message = user_messages[0].content[:200]  # 200文字まで
+                
+                # session_idを取得（安全に）
+                session_id = ""
+                if escalation.conversation and escalation.conversation.session_id:
+                    session_id = escalation.conversation.session_id
+                else:
+                    # conversationが存在しない、またはsession_idがNoneの場合は空文字列
+                    logger.warning(
+                        f"Conversation or session_id not found for escalation {escalation.id} "
+                        f"(conversation_id={escalation.conversation_id})"
+                    )
+                    session_id = ""
+                
+                unresolved_list.append(UnresolvedEscalation(
+                    id=escalation.id,
+                    conversation_id=escalation.conversation_id,
+                    session_id=session_id,
+                    created_at=escalation.created_at,
+                    message=message
+                ))
+            
+            return unresolved_list
+        
+        except Exception as e:
+            logger.error(
+                f"Error getting unresolved escalations for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return []  # エラー時は空のリストを返す
 

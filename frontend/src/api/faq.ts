@@ -14,18 +14,18 @@ export const faqApi = {
    * 
    * @param category - カテゴリフィルタ（オプション）
    * @param isActive - 有効/無効フィルタ（オプション）
-   * @returns FAQリスト（translationsを含む）
+   * @returns FAQリスト（translationsを含む）と進行中フラグ
    * 
    * 注意: 返されるFAQはインテント単位で、translationsに複数言語の翻訳が含まれます。
    */
-  async getFaqs(category?: string, isActive?: boolean): Promise<FAQ[]> {
+  async getFaqs(category?: string, isActive?: boolean): Promise<{ faqs: FAQ[]; total: number; is_initializing: boolean }> {
     const params: Record<string, any> = {}
     if (category) params.category = category
     if (isActive !== undefined) params.is_active = isActive
     
-    const response = await apiClient.get<{ faqs: FAQ[]; total: number }>('/admin/faqs', { params })
+    const response = await apiClient.get<{ faqs: FAQ[]; total: number; is_initializing: boolean }>('/admin/faqs', { params })
     // totalはインテント単位でカウント（言語に関係なく、FAQ.idをカウント）
-    return response.data.faqs
+    return response.data
   },
 
   /**

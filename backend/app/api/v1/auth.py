@@ -2,11 +2,12 @@
 認証APIエンドポイント
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.api.deps import get_current_user
-from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, UserResponse, PasswordChangeRequest, PasswordChangeResponse
+from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, UserResponse, PasswordChangeRequest, PasswordChangeResponse, FacilityRegisterRequest
 from app.services.auth_service import AuthService
 from app.models.user import User
 from app.core.security import hash_password, verify_password
@@ -28,6 +29,54 @@ async def login(
     成功時はJWTアクセストークンを返却
     """
     return await AuthService.login(db, login_data)
+
+
+@router.post("/register", response_model=LoginResponse)
+async def register_facility(
+    request: FacilityRegisterRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    施設登録
+    
+    - **email**: 施設管理者メールアドレス
+    - **password**: パスワード（最小8文字）
+    - **facility_name**: 施設名
+    - **subscription_plan**: 料金プラン（デフォルト: small）
+    
+    成功時は施設・ユーザー作成、JWTアクセストークンを返却
+    FAQ自動投入はバックグラウンドで実行されます
+    """
+    try:
+        return await AuthService.register_facility(db, request, background_tasks)
+    except IntegrityError as e:
+        # データベース制約違反のハンドリング
+        error_str = str(e.orig) if hasattr(e, 'orig') else str(e)
+        if "idx_facilities_slug" in error_str:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="施設の登録に失敗しました。同じ施設名が既に登録されている可能性があります。"
+            )
+        elif "idx_facilities_email" in error_str or "email" in error_str.lower():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="このメールアドレスは既に登録されています。"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="施設の登録中にエラーが発生しました。"
+            )
+    except HTTPException:
+        # HTTPExceptionはそのまま再発生
+        raise
+    except Exception as e:
+        # その他の例外
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"予期しないエラーが発生しました: {str(e)}"
+        )
 
 
 @router.get("/me", response_model=UserResponse)

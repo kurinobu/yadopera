@@ -7,8 +7,15 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
 
 // 言語設定
 export const SUPPORTED_LANGUAGES = [
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
   { code: 'en', name: 'English', flag: '🇬🇧' },
-  // MVPでは英語のみ、Phase 2で追加
+  { code: 'zh-TW', name: '繁體中文', flag: '🇹🇼' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'ko', name: '한국어', flag: '🇰🇷' },
+  { code: 'th', name: 'ไทย', flag: '🇹🇭' },
+  { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
 ] as const
 
 // セッション設定

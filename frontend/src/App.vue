@@ -5,10 +5,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import GuestLayout from '@/layouts/GuestLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
+import { updateManifestLink } from '@/utils/manifestGenerator'
 
 const route = useRoute()
 
@@ -25,6 +26,11 @@ const layoutComponent = computed(() => {
   
   // デフォルト（レイアウトなし）
   return 'div'
+})
+
+// DOM ready後に動的manifestを初期化
+onMounted(() => {
+  updateManifestLink(null)
 })
 </script>
 

@@ -10,6 +10,7 @@ from datetime import datetime
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.facility import Facility
 from app.services.session_token_service import SessionTokenService
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +58,7 @@ class QRCodeService:
         location: str,
         custom_location_name: Optional[str] = None,
         session_token: Optional[str] = None,
-        base_url: str = "https://yadopera.com"
+        base_url: Optional[str] = None
     ) -> str:
         """
         QRコードURL生成
@@ -67,11 +68,15 @@ class QRCodeService:
             location: 設置場所
             custom_location_name: カスタム設置場所名（オプション）
             session_token: 会話引き継ぎコード（オプション）
-            base_url: ベースURL
+            base_url: ベースURL（オプション、未指定の場合は環境変数から取得）
         
         Returns:
             str: QRコードURL
         """
+        # base_urlが指定されていない場合は環境変数から取得
+        if base_url is None:
+            base_url = settings.frontend_url
+        
         url = f"{base_url}/f/{facility_slug}?location={location}"
         
         if custom_location_name:

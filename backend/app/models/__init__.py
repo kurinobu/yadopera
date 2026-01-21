@@ -19,6 +19,7 @@ from app.models.ignored_feedback import IgnoredFeedback
 from app.models.processed_feedback import ProcessedFeedback
 from app.models.faq_suggestion import FAQSuggestion
 from app.models.qr_code import QRCode
+from app.models.operator_help import OperatorFaq, OperatorFaqTranslation
 
 __all__ = [
     "Base",
@@ -38,5 +39,7 @@ __all__ = [
     "ProcessedFeedback",
     "FAQSuggestion",
     "QRCode",
+    "OperatorFaq",
+    "OperatorFaqTranslation",
 ]
 

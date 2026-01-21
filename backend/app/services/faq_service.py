@@ -5,7 +5,7 @@ FAQ管理のビジネスロジック（インテントベース構造）
 
 import logging
 import re
-from typing import List, Optional
+from typing import List, Optional, Set
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
@@ -176,11 +176,49 @@ class FAQService:
                 )
             )
         
+        # バックグラウンド処理が完了しているか確認
+        # 施設作成から30秒以内の場合、バックグラウンド処理が完了していない可能性がある
+        from app.models.facility import Facility
+        from datetime import datetime, timezone, timedelta
+        
+        facility = await self.db.get(Facility, facility_id)
+        if facility:
+            time_since_creation = datetime.now(timezone.utc) - facility.created_at
+            # 施設作成から30秒以内の場合、キャッシュを保存しない（バックグラウンド処理が完了していない可能性がある）
+            if time_since_creation < timedelta(seconds=30):
+                logger.debug(
+                    f"Skipping cache save for recently created facility: "
+                    f"facility_id={facility_id}, time_since_creation={time_since_creation.total_seconds():.2f}s"
+                )
+                return faq_responses
+        
         # キャッシュに保存（辞書形式で保存）
         faq_dicts = [faq.model_dump() for faq in faq_responses]
         await set_cache(cache_key_str, faq_dicts, FAQ_CACHE_TTL)
         
         return faq_responses
+    
+    async def _get_facility_languages(self, facility_id: int) -> Set[str]:
+        """
+        施設の既存FAQから使用されている言語の一意なリストを取得
+        
+        Args:
+            facility_id: 施設ID
+        
+        Returns:
+            使用されている言語のセット（例: {"ja", "en"}）
+        """
+        # FAQTranslationテーブルから、該当施設のFAQに紐づく翻訳の言語を取得
+        # 有効なFAQ（is_active=True）のみを対象とする
+        query = select(FAQTranslation.language).join(FAQ).where(
+            FAQ.facility_id == facility_id,
+            FAQ.is_active == True
+        ).distinct()
+        
+        result = await self.db.execute(query)
+        languages = {row[0] for row in result.all()}
+        
+        return languages
     
     async def create_faq(
         self,
@@ -202,6 +240,34 @@ class FAQService:
         # カテゴリバリデーション
         if request.category not in [cat.value for cat in FAQCategory]:
             raise ValueError(f"Invalid category: {request.category}")
+        
+        # 施設情報を取得
+        from app.models.facility import Facility
+        facility = await self.db.get(Facility, facility_id)
+        if not facility:
+            raise ValueError(f"Facility not found: facility_id={facility_id}")
+        
+        # 言語数制限バリデーション（Premiumプランの場合はスキップ）
+        if facility.language_limit is not None:
+            # 既存の言語リストを取得
+            existing_languages = await self._get_facility_languages(facility_id)
+            
+            # 新規登録される言語を取得
+            new_languages = {trans.language for trans in request.translations}
+            
+            # 既存の言語と新規言語を結合
+            all_languages = existing_languages | new_languages
+            
+            # 言語数制限をチェック
+            if len(all_languages) > facility.language_limit:
+                # 新規言語のみを抽出（既存言語は許可）
+                truly_new_languages = new_languages - existing_languages
+                if truly_new_languages:
+                    raise ValueError(
+                        f"プランの言語数制限に達しています（{facility.language_limit}言語）。"
+                        f"既存の言語（{', '.join(sorted(existing_languages))}）を使用するか、"
+                        f"プランをアップグレードしてください。"
+                    )
         
         # intent_keyを生成（指定されていない場合）
         if request.intent_key:
@@ -353,6 +419,55 @@ class FAQService:
             updated_at=faq.updated_at
         )
     
+    async def bulk_create_faqs(
+        self,
+        facility_id: int,
+        faq_requests: List[FAQRequest],
+        user_id: int
+    ) -> List[FAQResponse]:
+        """
+        FAQ一括作成（埋め込みベクトル自動生成、インテントベース構造）
+        
+        Args:
+            facility_id: 施設ID
+            faq_requests: FAQ作成リクエストリスト
+            user_id: 作成者ID
+        
+        Returns:
+            List[FAQResponse]: 作成されたFAQリスト（translationsを含む）
+        """
+        created_faqs = []
+        
+        for request in faq_requests:
+            try:
+                # 個別のcreate_faqを呼び出し
+                faq_response = await self.create_faq(
+                    facility_id=facility_id,
+                    request=request,
+                    user_id=user_id
+                )
+                created_faqs.append(faq_response)
+                logger.info(f"Bulk FAQ creation: created faq_id={faq_response.id}, intent_key={faq_response.intent_key}")
+            except ValueError as e:
+                logger.warning(f"Bulk FAQ creation: skipped due to validation error: {str(e)}")
+                # 一括作成なので、エラーがあっても続行（ログに記録）
+                continue
+            except Exception as e:
+                logger.error(f"Bulk FAQ creation: unexpected error: {str(e)}", exc_info=True)
+                # 予期せぬエラーは続行
+                continue
+        
+        logger.info(
+            f"Bulk FAQ creation completed: facility_id={facility_id}, requested={len(faq_requests)}, created={len(created_faqs)}",
+            extra={
+                "facility_id": facility_id,
+                "requested_count": len(faq_requests),
+                "created_count": len(created_faqs)
+            }
+        )
+        
+        return created_faqs
+    
     async def update_faq(
         self,
         faq_id: int,
@@ -420,6 +535,36 @@ class FAQService:
         
         # translationsの更新または作成
         if request.translations is not None:
+            # 施設情報を取得
+            from app.models.facility import Facility
+            facility = await self.db.get(Facility, facility_id)
+            if not facility:
+                raise ValueError(f"Facility not found: facility_id={facility_id}")
+            
+            # 言語数制限バリデーション（Premiumプランの場合はスキップ）
+            if facility.language_limit is not None:
+                # 既存の言語リストを取得（更新対象のFAQを除く）
+                existing_languages = await self._get_facility_languages(facility_id)
+                # 更新対象のFAQの既存言語を除外
+                existing_languages = existing_languages - {trans.language for trans in existing_translations.values()}
+                
+                # 更新時に追加される新しい言語を取得
+                new_languages = {trans.language for trans in request.translations}
+                
+                # 既存の言語と新規言語を結合
+                all_languages = existing_languages | new_languages
+                
+                # 言語数制限をチェック
+                if len(all_languages) > facility.language_limit:
+                    # 新規言語のみを抽出（既存言語は許可）
+                    truly_new_languages = new_languages - existing_languages
+                    if truly_new_languages:
+                        raise ValueError(
+                            f"プランの言語数制限に達しています（{facility.language_limit}言語）。"
+                            f"既存の言語（{', '.join(sorted(existing_languages))}）を使用するか、"
+                            f"プランをアップグレードしてください。"
+                        )
+            
             for trans_request in request.translations:
                 if trans_request.language in existing_translations:
                     # 既存の翻訳を更新

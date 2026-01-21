@@ -3,7 +3,7 @@
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -30,6 +30,8 @@ class FacilityPublicResponse(BaseModel):
     check_out_time: Optional[str] = None  # "11:00"形式
     wifi_ssid: Optional[str] = None
     top_questions: List[TopQuestion] = Field(default_factory=list, description="よくある質問TOP3")
+    plan_type: Optional[str] = Field(None, description="料金プラン（Free, Mini, Small, Standard, Premium）")
+    available_languages: List[str] = Field(default_factory=list, description="利用可能言語リスト")
 
     class Config:
         from_attributes = True
@@ -50,9 +52,10 @@ class FacilityResponse(BaseModel):
     check_out_time: Optional[str] = None
     house_rules: Optional[str] = None
     local_info: Optional[str] = None
+    prohibited_items: Optional[str] = None
     languages: List[str] = Field(default_factory=list)
     timezone: str = "Asia/Tokyo"
-    subscription_plan: str = "small"
+    subscription_plan: Literal["free", "mini", "small", "standard", "premium"] = "small"
     monthly_question_limit: int = 200
     is_active: bool = True
     created_at: datetime
@@ -95,7 +98,8 @@ class FacilitySettingsUpdateRequest(BaseModel):
     wifi_password: Optional[str] = Field(None, max_length=100, description="変更時のみ")
     check_in_time: Optional[str] = Field(None, description="時刻形式（HH:MM）")
     check_out_time: Optional[str] = Field(None, description="時刻形式（HH:MM）")
-    house_rules: Optional[str] = Field(None, max_length=1000, description="館内ルール（1000文字以内）")
-    local_info: Optional[str] = Field(None, max_length=1000, description="周辺情報（1000文字以内）")
+    house_rules: Optional[str] = Field(None, max_length=500, description="館内ルール（500文字以内）")
+    local_info: Optional[str] = Field(None, max_length=500, description="周辺情報（500文字以内）")
+    prohibited_items: Optional[str] = Field(None, max_length=500, description="禁止事項（500文字以内）")
     staff_absence_periods: Optional[List[StaffAbsencePeriod]] = None
 

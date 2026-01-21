@@ -1,0 +1,3502 @@
+# Phase 2: 統合ヘルプシステム - Backend完全実装ガイド
+
+## ドキュメント情報
+- **プロジェクト**: YadOPERA（宿泊施設管理システム）
+- **対象フェーズ**: Phase 2 - 統合ヘルプシステム Backend実装
+- **作成日**: 2025年12月26日
+- **バージョン**: 1.0
+- **依存文書**: help-system-plan.md
+
+---
+
+## 目次
+
+1. [プロジェクト構成](#1-プロジェクト構成)
+2. [データベースモデル](#2-データベースモデル)
+3. [マイグレーション](#3-マイグレーション)
+4. [サービス層実装](#4-サービス層実装)
+5. [APIエンドポイント実装](#5-apiエンドポイント実装)
+6. [OpenAI統合](#6-openai統合)
+7. [キャッシュ戦略](#7-キャッシュ戦略)
+8. [エラーハンドリング](#8-エラーハンドリング)
+9. [テストコード](#9-テストコード)
+10. [デプロイメント設定](#10-デプロイメント設定)
+
+---
+
+## 1. プロジェクト構成
+
+```
+backend/
+├── app/
+│   ├── api/
+│   │   └── v1/
+│   │       └── endpoints/
+│   │           └── help.py                 # ヘルプAPI
+│   ├── models/
+│   │   └── operator_help.py                # FAQモデル
+│   ├── schemas/
+│   │   └── help.py                         # Pydanticスキーマ
+│   ├── services/
+│   │   ├── operator_faq_service.py         # FAQサービス
+│   │   └── operator_help_chat_service.py   # AIチャットサービス
+│   ├── core/
+│   │   ├── config.py                       # 設定
+│   │   └── cache.py                        # Redisキャッシュ
+│   └── utils/
+│       └── openai_client.py                # OpenAIラッパー
+├── alembic/
+│   └── versions/
+│       └── 20251226_add_operator_help.py   # マイグレーション
+├── tests/
+│   ├── test_faq_service.py
+│   └── test_help_chat.py
+└── requirements.txt
+```
+
+---
+
+## 2. データベースモデル
+
+### app/models/operator_help.py
+
+```python
+"""
+宿泊事業者向けヘルプシステム - データベースモデル
+"""
+from datetime import datetime
+from sqlalchemy import (
+    Column, Integer, String, Text, Boolean, 
+    DateTime, ForeignKey, Index
+)
+from sqlalchemy.orm import relationship
+from app.db.base_class import Base
+
+
+class OperatorFaq(Base):
+    """
+    事業者向けFAQマスターテーブル
+    言語非依存の基本情報を管理
+    """
+    __tablename__ = "operator_faqs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    category = Column(String(100), nullable=False, index=True, comment="カテゴリ（setup, qrcode, faq_management等）")
+    intent_key = Column(String(100), nullable=False, unique=True, comment="意図識別キー（ユニーク）")
+    display_order = Column(Integer, default=0, index=True, comment="表示順序")
+    is_active = Column(Boolean, default=True, index=True, comment="有効フラグ")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # リレーション
+    translations = relationship(
+        "OperatorFaqTranslation", 
+        back_populates="faq", 
+        cascade="all, delete-orphan"
+    )
+
+    def __repr__(self):
+        return f"<OperatorFaq(id={self.id}, intent_key={self.intent_key}, category={self.category})>"
+
+
+class OperatorFaqTranslation(Base):
+    """
+    FAQ翻訳テーブル
+    各言語のQ&A本文を管理
+    """
+    __tablename__ = "operator_faq_translations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    faq_id = Column(Integer, ForeignKey("operator_faqs.id", ondelete="CASCADE"), nullable=False, index=True)
+    language = Column(String(10), nullable=False, default="ja", index=True, comment="言語コード（ja, en）")
+    question = Column(Text, nullable=False, comment="質問文")
+    answer = Column(Text, nullable=False, comment="回答文")
+    keywords = Column(Text, nullable=True, comment="検索キーワード（カンマ区切り）")
+    related_url = Column(Text, nullable=True, comment="関連する管理画面URL")
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # リレーション
+    faq = relationship("OperatorFaq", back_populates="translations")
+
+    # 複合ユニーク制約
+    __table_args__ = (
+        Index('idx_faq_language', 'faq_id', 'language', unique=True),
+    )
+
+    def __repr__(self):
+        return f"<OperatorFaqTranslation(id={self.id}, faq_id={self.faq_id}, language={self.language})>"
+```
+
+---
+
+## 3. マイグレーション
+
+### alembic/versions/20251226_add_operator_help.py
+
+```python
+"""
+Add operator help system tables
+
+Revision ID: 20251226_001
+Revises: previous_revision
+Create Date: 2025-12-26 10:00:00.000000
+"""
+from alembic import op
+import sqlalchemy as sa
+from datetime import datetime
+
+# revision identifiers
+revision = '20251226_001'
+down_revision = 'previous_revision'
+branch_labels = None
+depends_on = None
+
+
+def upgrade():
+    # operator_faqs テーブル作成
+    op.create_table(
+        'operator_faqs',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('category', sa.String(length=100), nullable=False, comment='カテゴリ'),
+        sa.Column('intent_key', sa.String(length=100), nullable=False, comment='意図識別キー'),
+        sa.Column('display_order', sa.Integer(), server_default='0', comment='表示順序'),
+        sa.Column('is_active', sa.Boolean(), server_default='true', comment='有効フラグ'),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+        sa.PrimaryKeyConstraint('id'),
+        sa.UniqueConstraint('intent_key')
+    )
+    op.create_index('idx_operator_faqs_category', 'operator_faqs', ['category'])
+    op.create_index('idx_operator_faqs_is_active', 'operator_faqs', ['is_active'])
+    op.create_index('idx_operator_faqs_display_order', 'operator_faqs', ['display_order'])
+
+    # operator_faq_translations テーブル作成
+    op.create_table(
+        'operator_faq_translations',
+        sa.Column('id', sa.Integer(), nullable=False),
+        sa.Column('faq_id', sa.Integer(), nullable=False, comment='FAQ ID'),
+        sa.Column('language', sa.String(length=10), nullable=False, server_default='ja', comment='言語コード'),
+        sa.Column('question', sa.Text(), nullable=False, comment='質問文'),
+        sa.Column('answer', sa.Text(), nullable=False, comment='回答文'),
+        sa.Column('keywords', sa.Text(), nullable=True, comment='検索キーワード'),
+        sa.Column('related_url', sa.Text(), nullable=True, comment='関連URL'),
+        sa.Column('created_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+        sa.Column('updated_at', sa.DateTime(), server_default=sa.text('CURRENT_TIMESTAMP'), nullable=False),
+        sa.ForeignKeyConstraint(['faq_id'], ['operator_faqs.id'], ondelete='CASCADE'),
+        sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index('idx_operator_faq_translations_faq_id', 'operator_faq_translations', ['faq_id'])
+    op.create_index('idx_operator_faq_translations_language', 'operator_faq_translations', ['language'])
+    op.create_index('idx_faq_language', 'operator_faq_translations', ['faq_id', 'language'], unique=True)
+
+    # 初期FAQデータ投入
+    _insert_initial_faqs()
+
+
+def downgrade():
+    op.drop_table('operator_faq_translations')
+    op.drop_table('operator_faqs')
+
+
+def _insert_initial_faqs():
+    """初期FAQデータ投入（30項目）"""
+    
+    # FAQマスターデータ
+    faq_data = [
+        # カテゴリ: setup（初期設定） - 5項目
+        {
+            'category': 'logs',
+            'intent_key': 'logs_unanswered_questions',
+            'display_order': 510,
+            'translations': {
+                'ja': {
+                    'question': 'AIが答えられなかった質問を確認するには?',
+                    'answer': '「ログ分析」→「未回答質問」で確認できます。これらの質問をFAQに追加することで、AI精度が向上します。',
+                    'keywords': '未回答質問,答えられない,FAQ追加,改善',
+                    'related_url': '/admin/logs/unanswered'
+                },
+                'en': {
+                    'question': 'How to check unanswered questions?',
+                    'answer': 'Go to "Log Analysis" → "Unanswered Questions". Adding these to FAQs improves AI accuracy.',
+                    'keywords': 'unanswered questions,cannot answer,add FAQ,improvement',
+                    'related_url': '/admin/logs/unanswered'
+                }
+            }
+        },
+        {
+            'category': 'logs',
+            'intent_key': 'logs_popular_questions',
+            'display_order': 520,
+            'translations': {
+                'ja': {
+                    'question': 'よくある質問のランキングは?',
+                    'answer': '「ログ分析」→「人気質問ランキング」で確認できます。月間・週間・日別で集計可能です。',
+                    'keywords': '人気質問,ランキング,よくある質問,統計',
+                    'related_url': '/admin/logs/ranking'
+                },
+                'en': {
+                    'question': 'Popular questions ranking?',
+                    'answer': 'Go to "Log Analysis" → "Popular Questions Ranking". Available by month, week, and day.',
+                    'keywords': 'popular questions,ranking,statistics',
+                    'related_url': '/admin/logs/ranking'
+                }
+            }
+        },
+
+        # カテゴリ: troubleshooting（トラブルシューティング） - 5項目
+        {
+            'category': 'troubleshooting',
+            'intent_key': 'troubleshooting_slow_response',
+            'display_order': 600,
+            'translations': {
+                'ja': {
+                    'question': 'AIの応答が遅い場合は?',
+                    'answer': 'FAQ数が多すぎる（100問以上）、インターネット接続が不安定、同時アクセスが集中している可能性があります。FAQ整理をお試しください。',
+                    'keywords': '応答遅い,遅延,速度,改善',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'AI response is slow?',
+                    'answer': 'May be due to too many FAQs (100+), unstable internet, or concurrent access. Try organizing FAQs.',
+                    'keywords': 'slow response,latency,speed,improvement',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+        {
+            'category': 'troubleshooting',
+            'intent_key': 'troubleshooting_qrcode_scan',
+            'display_order': 610,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードが読み取れない場合は?',
+                    'answer': '印刷が不鮮明、照明が暗い、スマホのカメラが汚れている可能性があります。QRコードを再印刷するか、直接URLを案内してください。',
+                    'keywords': 'QRコード読取失敗,スキャンできない,エラー',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'QR code cannot be scanned?',
+                    'answer': 'May be due to unclear print, poor lighting, or dirty camera. Reprint QR code or provide URL directly.',
+                    'keywords': 'QR code scan failed,cannot scan,error',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'troubleshooting',
+            'intent_key': 'troubleshooting_faq_not_reflected',
+            'display_order': 620,
+            'translations': {
+                'ja': {
+                    'question': 'FAQを更新したのに反映されない?',
+                    'answer': 'キャッシュが残っている可能性があります。5-10分待つか、ブラウザをリロードしてください。それでも解決しない場合はサポートにお問い合わせください。',
+                    'keywords': 'FAQ反映されない,更新されない,キャッシュ',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'FAQ update not reflected?',
+                    'answer': 'May be cached. Wait 5-10 minutes or reload browser. Contact support if issue persists.',
+                    'keywords': 'FAQ not reflected,not updated,cache',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'troubleshooting',
+            'intent_key': 'troubleshooting_cannot_login',
+            'display_order': 630,
+            'translations': {
+                'ja': {
+                    'question': 'ログインできない場合は?',
+                    'answer': 'パスワードリセットをお試しください。それでも解決しない場合、メールアドレスの登録ミスの可能性があります。サポートにお問い合わせください。',
+                    'keywords': 'ログインできない,パスワード,エラー',
+                    'related_url': '/admin/password-reset'
+                },
+                'en': {
+                    'question': 'Cannot login?',
+                    'answer': 'Try password reset. If issue persists, email may be incorrect. Contact support.',
+                    'keywords': 'cannot login,password,error',
+                    'related_url': '/admin/password-reset'
+                }
+            }
+        },
+        {
+            'category': 'troubleshooting',
+            'intent_key': 'troubleshooting_contact_support',
+            'display_order': 640,
+            'translations': {
+                'ja': {
+                    'question': 'サポートへの問い合わせ方法は?',
+                    'answer': '管理画面右下の「サポート」ボタン、またはメール（support@yadopera.com）でお問い合わせください。平日9-18時対応です。',
+                    'keywords': 'サポート,問い合わせ,ヘルプ,連絡先',
+                    'related_url': '/admin/support'
+                },
+                'en': {
+                    'question': 'How to contact support?',
+                    'answer': 'Click "Support" button at bottom-right, or email support@yadopera.com. Available weekdays 9am-6pm.',
+                    'keywords': 'support,contact,help,inquiry',
+                    'related_url': '/admin/support'
+                }
+            }
+        },
+
+        # カテゴリ: billing（料金） - 3項目
+        {
+            'category': 'billing',
+            'intent_key': 'billing_plans',
+            'display_order': 700,
+            'translations': {
+                'ja': {
+                    'question': '料金プランは?',
+                    'answer': 'スタータープラン（月額980円）、ビジネスプラン（月額2,980円）があります。詳細は料金ページをご確認ください。',
+                    'keywords': '料金,プラン,価格,費用',
+                    'related_url': '/admin/billing'
+                },
+                'en': {
+                    'question': 'Pricing plans?',
+                    'answer': 'Starter Plan (¥980/month), Business Plan (¥2,980/month). See pricing page for details.',
+                    'keywords': 'pricing,plans,cost,fee',
+                    'related_url': '/admin/billing'
+                }
+            }
+        },
+        {
+            'category': 'billing',
+            'intent_key': 'billing_cancellation',
+            'display_order': 710,
+            'translations': {
+                'ja': {
+                    'question': '解約方法は?',
+                    'answer': '「設定」→「アカウント」→「解約する」から手続きできます。解約後もデータは30日間保持されます。',
+                    'keywords': '解約,退会,キャンセル,停止',
+                    'related_url': '/admin/settings/account'
+                },
+                'en': {
+                    'question': 'How to cancel?',
+                    'answer': 'Go to "Settings" → "Account" → "Cancel". Data is retained for 30 days after cancellation.',
+                    'keywords': 'cancel,unsubscribe,terminate',
+                    'related_url': '/admin/settings/account'
+                }
+            }
+        },
+        {
+            'category': 'billing',
+            'intent_key': 'billing_invoice',
+            'display_order': 720,
+            'translations': {
+                'ja': {
+                    'question': '請求書の発行は?',
+                    'answer': '「設定」→「請求情報」から過去の請求書をダウンロードできます。PDF形式で発行されます。',
+                    'keywords': '請求書,領収書,インボイス,ダウンロード',
+                    'related_url': '/admin/billing/invoices'
+                },
+                'en': {
+                    'question': 'Invoice issuance?',
+                    'answer': 'Go to "Settings" → "Billing Info" to download past invoices in PDF format.',
+                    'keywords': 'invoice,receipt,download',
+                    'related_url': '/admin/billing/invoices'
+                }
+            }
+        },
+
+        # カテゴリ: security（セキュリティ） - 3項目
+        {
+            'category': 'security',
+            'intent_key': 'security_data_management',
+            'display_order': 800,
+            'translations': {
+                'ja': {
+                    'question': 'ゲストのデータはどう管理されていますか?',
+                    'answer': 'AWS上で暗号化して保存し、GDPR・個人情報保護法に準拠しています。ゲストの個人情報は収集しません（質問内容とIPアドレスのみ記録）。',
+                    'keywords': 'データ管理,セキュリティ,個人情報,プライバシー',
+                    'related_url': '/admin/settings/security'
+                },
+                'en': {
+                    'question': 'How is guest data managed?',
+                    'answer': 'Encrypted storage on AWS, GDPR and privacy law compliant. No personal info collected (only questions and IP addresses).',
+                    'keywords': 'data management,security,privacy,GDPR',
+                    'related_url': '/admin/settings/security'
+                }
+            }
+        },
+        {
+            'category': 'security',
+            'intent_key': 'security_staff_permissions',
+            'display_order': 810,
+            'translations': {
+                'ja': {
+                    'question': 'スタッフの権限設定は?',
+                    'answer': '管理者: 全機能、編集者: FAQ編集・ログ閲覧、閲覧者: ログ閲覧のみ。権限は「設定」→「スタッフ管理」で変更できます。',
+                    'keywords': 'スタッフ権限,アクセス制御,ロール,設定',
+                    'related_url': '/admin/settings/staff'
+                },
+                'en': {
+                    'question': 'Staff permission settings?',
+                    'answer': 'Admin: all features, Editor: FAQ edit + log view, Viewer: log view only. Change in "Settings" → "Staff Management".',
+                    'keywords': 'staff permissions,access control,roles,settings',
+                    'related_url': '/admin/settings/staff'
+                }
+            }
+        },
+        {
+            'category': 'security',
+            'intent_key': 'security_backup',
+            'display_order': 820,
+            'translations': {
+                'ja': {
+                    'question': 'データのバックアップは?',
+                    'answer': '自動で毎日バックアップされ、30日間保持されます。手動エクスポートは「設定」→「データエクスポート」から可能です。',
+                    'keywords': 'バックアップ,データ保存,復元,エクスポート',
+                    'related_url': '/admin/settings/backup'
+                },
+                'en': {
+                    'question': 'Data backup?',
+                    'answer': 'Automatic daily backups, retained for 30 days. Manual export available at "Settings" → "Data Export".',
+                    'keywords': 'backup,data retention,restore,export',
+                    'related_url': '/admin/settings/backup'
+                }
+            }
+        },
+    ]
+
+    # データベースに投入
+    connection = op.get_bind()
+    
+    for faq in faq_data:
+        # operator_faqs にマスターデータ挿入
+        result = connection.execute(
+            sa.text("""
+                INSERT INTO operator_faqs (category, intent_key, display_order, is_active)
+                VALUES (:category, :intent_key, :display_order, :is_active)
+                RETURNING id
+            """),
+            {
+                'category': faq['category'],
+                'intent_key': faq['intent_key'],
+                'display_order': faq['display_order'],
+                'is_active': True
+            }
+        )
+        faq_id = result.fetchone()[0]
+        
+        # operator_faq_translations に翻訳データ挿入
+        for lang, trans in faq['translations'].items():
+            connection.execute(
+                sa.text("""
+                    INSERT INTO operator_faq_translations 
+                    (faq_id, language, question, answer, keywords, related_url)
+                    VALUES (:faq_id, :language, :question, :answer, :keywords, :related_url)
+                """),
+                {
+                    'faq_id': faq_id,
+                    'language': lang,
+                    'question': trans['question'],
+                    'answer': trans['answer'],
+                    'keywords': trans.get('keywords', ''),
+                    'related_url': trans.get('related_url', '')
+                }
+            )
+```
+
+---
+
+## 4. サービス層実装
+
+### app/services/operator_faq_service.py
+
+```python
+"""
+事業者向けFAQサービス
+FAQの取得・検索・管理機能を提供
+"""
+from typing import List, Optional, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, or_, func
+from sqlalchemy.orm import selectinload
+from app.models.operator_help import OperatorFaq, OperatorFaqTranslation
+from app.core.cache import redis_client
+import json
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class OperatorFaqService:
+    """事業者向けFAQサービス"""
+    
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.cache_ttl = 300  # 5分
+    
+    async def get_faqs(
+        self,
+        language: str = 'ja',
+        category: Optional[str] = None,
+        is_active: bool = True
+    ) -> List[Dict[str, Any]]:
+        """
+        FAQ一覧取得（キャッシュ対応）
+        
+        Args:
+            language: 言語コード (ja, en)
+            category: カテゴリフィルタ (optional)
+            is_active: 有効フラグ
+        
+        Returns:
+            FAQ辞書のリスト
+        """
+        # キャッシュキー生成
+        cache_key = f"operator_faqs:{language}:{category or 'all'}:{is_active}"
+        
+        # キャッシュチェック
+        cached = await redis_client.get(cache_key)
+        if cached:
+            logger.info(f"FAQ cache hit: {cache_key}")
+            return json.loads(cached)
+        
+        # データベースクエリ
+        query = (
+            select(OperatorFaq)
+            .options(selectinload(OperatorFaq.translations))
+            .where(OperatorFaq.is_active == is_active)
+            .order_by(OperatorFaq.display_order, OperatorFaq.id)
+        )
+        
+        if category:
+            query = query.where(OperatorFaq.category == category)
+        
+        result = await self.db.execute(query)
+        faqs = result.scalars().all()
+        
+        # レスポンス構築
+        faq_list = []
+        for faq in faqs:
+            # 指定言語の翻訳を取得
+            translation = next(
+                (t for t in faq.translations if t.language == language),
+                None
+            )
+            
+            if translation:
+                faq_list.append({
+                    'id': faq.id,
+                    'category': faq.category,
+                    'intent_key': faq.intent_key,
+                    'question': translation.question,
+                    'answer': translation.answer,
+                    'keywords': translation.keywords,
+                    'related_url': translation.related_url,
+                    'display_order': faq.display_order
+                })
+        
+        # キャッシュに保存
+        await redis_client.setex(
+            cache_key,
+            self.cache_ttl,
+            json.dumps(faq_list, ensure_ascii=False)
+        )
+        
+        logger.info(f"FAQs fetched: {len(faq_list)} items (language={language}, category={category})")
+        return faq_list
+    
+    async def search_faqs(
+        self,
+        query: str,
+        language: str = 'ja',
+        limit: int = 10
+    ) -> List[Dict[str, Any]]:
+        """
+        FAQ検索（全文検索）
+        
+        Args:
+            query: 検索クエリ
+            language: 言語コード
+            limit: 取得件数上限
+        
+        Returns:
+            検索結果FAQ辞書のリスト
+        """
+        if not query or len(query) < 2:
+            return []
+        
+        # LIKE検索（PostgreSQL全文検索は今後実装）
+        search_pattern = f"%{query}%"
+        
+        stmt = (
+            select(OperatorFaqTranslation)
+            .join(OperatorFaq)
+            .where(
+                OperatorFaq.is_active == True,
+                OperatorFaqTranslation.language == language,
+                or_(
+                    OperatorFaqTranslation.question.ilike(search_pattern),
+                    OperatorFaqTranslation.answer.ilike(search_pattern),
+                    OperatorFaqTranslation.keywords.ilike(search_pattern)
+                )
+            )
+            .options(selectinload(OperatorFaqTranslation.faq))
+            .limit(limit)
+        )
+        
+        result = await self.db.execute(stmt)
+        translations = result.scalars().all()
+        
+        # レスポンス構築
+        results = []
+        for trans in translations:
+            results.append({
+                'id': trans.faq.id,
+                'category': trans.faq.category,
+                'question': trans.question,
+                'answer': trans.answer,
+                'keywords': trans.keywords,
+                'related_url': trans.related_url,
+                'display_order': trans.faq.display_order,
+                'relevance_score': self._calculate_relevance(query, trans)
+            })
+        
+        # 関連度順にソート
+        results.sort(key=lambda x: x['relevance_score'], reverse=True)
+        
+        logger.info(f"FAQ search: query='{query}', results={len(results)}")
+        return results
+    
+    def _calculate_relevance(self, query: str, translation: OperatorFaqTranslation) -> float:
+        """
+        簡易的な関連度スコア計算
+        
+        Args:
+            query: 検索クエリ
+            translation: FAQ翻訳オブジェクト
+        
+        Returns:
+            関連度スコア (0.0-1.0)
+        """
+        score = 0.0
+        query_lower = query.lower()
+        
+        # 質問文に完全一致
+        if query_lower in translation.question.lower():
+            score += 1.0
+        
+        # 回答文に完全一致
+        if query_lower in translation.answer.lower():
+            score += 0.5
+        
+        # キーワードに部分一致
+        if translation.keywords and query_lower in translation.keywords.lower():
+            score += 0.7
+        
+        return min(score, 1.0)
+    
+    async def get_categories(self, language: str = 'ja') -> List[Dict[str, Any]]:
+        """
+        カテゴリ一覧取得（FAQ件数付き）
+        
+        Args:
+            language: 言語コード
+        
+        Returns:
+            カテゴリ辞書のリスト
+        """
+        cache_key = f"operator_faq_categories:{language}"
+        
+        # キャッシュチェック
+        cached = await redis_client.get(cache_key)
+        if cached:
+            return json.loads(cached)
+        
+        # カテゴリ別件数集計
+        stmt = (
+            select(
+                OperatorFaq.category,
+                func.count(OperatorFaq.id).label('count')
+            )
+            .where(OperatorFaq.is_active == True)
+            .group_by(OperatorFaq.category)
+            .order_by(OperatorFaq.category)
+        )
+        
+        result = await self.db.execute(stmt)
+        categories = [
+            {'category': row.category, 'count': row.count}
+            for row in result.all()
+        ]
+        
+        # キャッシュに保存
+        await redis_client.setex(
+            cache_key,
+            self.cache_ttl,
+            json.dumps(categories)
+        )
+        
+        return categories
+```
+
+### app/services/operator_help_chat_service.py
+
+```python
+"""
+事業者向けAIヘルプチャットサービス
+OpenAI GPT-4o-miniを使用した対話型ヘルプ
+"""
+from typing import Dict, Any, List, Optional
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.services.operator_faq_service import OperatorFaqService
+from app.utils.openai_client import OpenAIClient
+from app.core.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class OperatorHelpChatService:
+    """事業者向けAIヘルプチャットサービス"""
+    
+    def __init__(self, db: AsyncSession):
+        self.db = db
+        self.faq_service = OperatorFaqService(db)
+        self.openai_client = OpenAIClient()
+        self.max_tokens = 500
+        self.temperature = 0.7
+    
+    async def process_message(
+        self,
+        message: str,
+        language: str = 'ja',
+        operator_id: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """
+        チャットメッセージ処理
+        
+        Args:
+            message: ユーザーメッセージ
+            language: 言語コード
+            operator_id: 事業者ID (ログ用)
+        
+        Returns:
+            {
+                'response': AI回答文,
+                'related_faqs': 関連FAQ IDリスト,
+                'related_url': 関連URL,
+                'timestamp': タイムスタンプ
+            }
+        """
+        try:
+            # 全FAQを取得
+            all_faqs = await self.faq_service.get_faqs(language=language)
+            
+            # システムプロンプト構築
+            system_prompt = self._build_system_prompt(all_faqs, language)
+            
+            # OpenAI API呼び出し
+            ai_response = await self.openai_client.chat_completion(
+                messages=[
+                    {'role': 'system', 'content': system_prompt},
+                    {'role': 'user', 'content': message}
+                ],
+                max_tokens=self.max_tokens,
+                temperature=self.temperature
+            )
+            
+            # 関連FAQを検索
+            related_faqs = await self._find_related_faqs(message, all_faqs)
+            
+            # 関連URLを抽出
+            related_url = self._extract_related_url(ai_response, all_faqs)
+            
+            response_data = {
+                'response': ai_response,
+                'related_faqs': [faq['id'] for faq in related_faqs[:3]],
+                'related_url': related_url,
+                'timestamp': self._get_current_timestamp()
+            }
+            
+            logger.info(f"Help chat processed: operator_id={operator_id}, message_len={len(message)}")
+            return response_data
+        
+        except Exception as e:
+            logger.error(f"Help chat error: {str(e)}", exc_info=True)
+            return {
+                'response': self._get_error_message(language),
+                'related_faqs': [],
+                'related_url': None,
+                'timestamp': self._get_current_timestamp()
+            }
+    
+    def _build_system_prompt(self, faqs: List[Dict[str, Any]], language: str) -> str:
+        """
+        システムプロンプト構築
+        
+        Args:
+            faqs: FAQ辞書のリスト
+            language: 言語コード
+        
+        Returns:
+            システムプロンプト文字列
+        """
+        if language == 'ja':
+            base_prompt = """
+あなたはYadOPERA（宿泊施設管理システム）のヘルプアシスタントです。
+宿泊事業者（管理者）からの質問に対して、以下のFAQデータベースを参照して回答してください。
+
+# 回答ガイドライン
+1. 簡潔で分かりやすい回答を心がける
+2. 該当するFAQがある場合は、その内容を元に回答する
+3. 関連する管理画面のURLを案内する
+4. FAQに該当しない質問の場合は、サポートへの問い合わせを案内する
+5. 回答は300文字以内に収める
+
+# FAQ データベース
+
+"""
+        else:
+            base_prompt = """
+You are a help assistant for YadOPERA (accommodation management system).
+Answer questions from accommodation operators (administrators) based on the following FAQ database.
+
+# Response Guidelines
+1. Keep responses concise and clear
+2. Base answers on relevant FAQs
+3. Provide related admin page URLs
+4. Direct to support for non-FAQ questions
+5. Limit responses to 300 characters
+
+# FAQ Database
+
+"""
+        
+        # FAQ全文を追加
+        for faq in faqs:
+            faq_text = f"""
+## {faq['category']} - {faq['question']}
+回答: {faq['answer']}
+関連URL: {faq.get('related_url', 'なし')}
+---
+"""
+            base_prompt += faq_text
+        
+        return base_prompt
+    
+    async def _find_related_faqs(
+        self,
+        query: str,
+        all_faqs: List[Dict[str, Any]]
+    ) -> List[Dict[str, Any]]:
+        """
+        関連FAQ検索
+        
+        Args:
+            query: 検索クエリ
+            all_faqs: 全FAQリスト
+        
+        Returns:
+            関連FAQリスト
+        """
+        related = []
+        query_lower = query.lower()
+        
+        for faq in all_faqs:
+            score = 0.0
+            
+            # 質問文に部分一致
+            if query_lower in faq['question'].lower():
+                score += 1.0
+            
+            # キーワードに部分一致
+            if faq.get('keywords') and query_lower in faq['keywords'].lower():
+                score += 0.7
+            
+            # 回答文に部分一致
+            if query_lower in faq['answer'].lower():
+                score += 0.3
+            
+            if score > 0:
+                faq_copy = faq.copy()
+                faq_copy['relevance_score'] = score
+                related.append(faq_copy)
+        
+        # スコア順にソート
+        related.sort(key=lambda x: x['relevance_score'], reverse=True)
+        return related
+    
+    def _extract_related_url(
+        self,
+        ai_response: str,
+        all_faqs: List[Dict[str, Any]]
+    ) -> Optional[str]:
+        """
+        AI回答から関連URLを抽出
+        
+        Args:
+            ai_response: AI回答文
+            all_faqs: 全FAQリスト
+        
+        Returns:
+            関連URL (見つからない場合None)
+        """
+        # AI回答に含まれるURLキーワードを検索
+        for faq in all_faqs:
+            if faq.get('related_url') and (
+                faq['question'] in ai_response or
+                faq['category'] in ai_response
+            ):
+                return faq['related_url']
+        
+        return None
+    
+    def _get_error_message(self, language: str) -> str:
+        """
+        エラーメッセージ取得
+        
+        Args:
+            language: 言語コード
+        
+        Returns:
+            エラーメッセージ
+        """
+        if language == 'ja':
+            return "申し訳ございません。一時的にエラーが発生しました。しばらく待ってから再度お試しいただくか、サポート（support@yadopera.com）までお問い合わせください。"
+        else:
+            return "We apologize for the inconvenience. A temporary error has occurred. Please try again later or contact support at support@yadopera.com."
+    
+    def _get_current_timestamp(self) -> str:
+        """現在のタイムスタンプ取得"""
+        from datetime import datetime
+        return datetime.utcnow().isoformat() + 'Z'
+```
+
+---
+
+## 5. APIエンドポイント実装
+
+### app/schemas/help.py
+
+```python
+"""
+ヘルプシステム用Pydanticスキーマ
+"""
+from pydantic import BaseModel, Field
+from typing import List, Optional
+from datetime import datetime
+
+
+class FaqResponse(BaseModel):
+    """FAQ単体レスポンス"""
+    id: int
+    category: str
+    question: str
+    answer: str
+    keywords: Optional[str] = None
+    related_url: Optional[str] = None
+    display_order: int
+
+
+class FaqListResponse(BaseModel):
+    """FAQ一覧レスポンス"""
+    faqs: List[FaqResponse]
+    total: int
+    categories: List[str]
+
+
+class FaqSearchResponse(BaseModel):
+    """FAQ検索レスポンス"""
+    results: List[FaqResponse]
+    total: int
+    query: str
+
+
+class ChatRequest(BaseModel):
+    """チャットリクエスト"""
+    message: str = Field(..., min_length=1, max_length=500, description="ユーザーメッセージ")
+    language: str = Field(default='ja', pattern='^(ja|en) 'setup',
+            'intent_key': 'setup_account_creation',
+            'display_order': 100,
+            'translations': {
+                'ja': {
+                    'question': 'アカウント作成の手順は?',
+                    'answer': '管理画面トップページから「新規登録」をクリックし、メールアドレス・パスワード・施設情報を入力してください。メール認証後、ログインできます。',
+                    'keywords': 'アカウント作成,新規登録,サインアップ,初期設定',
+                    'related_url': '/admin/register'
+                },
+                'en': {
+                    'question': 'How to create an account?',
+                    'answer': 'Click "Sign Up" from the top page, enter your email, password, and facility information. After email verification, you can log in.',
+                    'keywords': 'account creation,sign up,registration,initial setup',
+                    'related_url': '/admin/register'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_facility_registration',
+            'display_order': 110,
+            'translations': {
+                'ja': {
+                    'question': '施設情報はどこで登録しますか?',
+                    'answer': 'ログイン後、「設定」→「施設情報」から登録・編集できます。施設名、住所、電話番号、チェックイン/アウト時間などを設定してください。',
+                    'keywords': '施設情報,施設登録,設定,プロフィール',
+                    'related_url': '/admin/settings/facility'
+                },
+                'en': {
+                    'question': 'Where to register facility information?',
+                    'answer': 'After login, go to "Settings" → "Facility Info". You can set facility name, address, phone number, check-in/out times, etc.',
+                    'keywords': 'facility info,registration,settings,profile',
+                    'related_url': '/admin/settings/facility'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_first_steps',
+            'display_order': 120,
+            'translations': {
+                'ja': {
+                    'question': '初回ログイン後にまずやるべきことは?',
+                    'answer': '1. 施設情報の登録、2. 基本FAQの登録（10問程度）、3. QRコードの生成・印刷、4. テスト用にQRコードをスキャンして動作確認、の順で進めてください。',
+                    'keywords': '初回ログイン,はじめに,チュートリアル,スタートガイド',
+                    'related_url': '/admin/dashboard'
+                },
+                'en': {
+                    'question': 'What to do after first login?',
+                    'answer': '1. Register facility info, 2. Add basic FAQs (about 10), 3. Generate and print QR code, 4. Test by scanning QR code.',
+                    'keywords': 'first login,getting started,tutorial,start guide',
+                    'related_url': '/admin/dashboard'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_staff_accounts',
+            'display_order': 130,
+            'translations': {
+                'ja': {
+                    'question': 'スタッフアカウントを追加できますか?',
+                    'answer': '「設定」→「スタッフ管理」から追加できます。メールアドレスを登録すると、招待メールが送信されます。権限は「管理者」「編集者」「閲覧者」から選択可能です。',
+                    'keywords': 'スタッフ追加,ユーザー管理,権限,招待',
+                    'related_url': '/admin/settings/staff'
+                },
+                'en': {
+                    'question': 'Can I add staff accounts?',
+                    'answer': 'Go to "Settings" → "Staff Management". Register email and invitation will be sent. Roles: Admin, Editor, Viewer.',
+                    'keywords': 'add staff,user management,permissions,invitation',
+                    'related_url': '/admin/settings/staff'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_password_reset',
+            'display_order': 140,
+            'translations': {
+                'ja': {
+                    'question': 'パスワードを忘れた場合は?',
+                    'answer': 'ログイン画面の「パスワードを忘れた方」リンクから、登録メールアドレスを入力してください。パスワードリセット用のリンクが送信されます。',
+                    'keywords': 'パスワード忘れ,リセット,再設定,ログインできない',
+                    'related_url': '/admin/password-reset'
+                },
+                'en': {
+                    'question': 'Forgot password?',
+                    'answer': 'Click "Forgot password?" on login page, enter your email. Password reset link will be sent.',
+                    'keywords': 'forgot password,reset,recovery,cannot login',
+                    'related_url': '/admin/password-reset'
+                }
+            }
+        },
+
+        # カテゴリ: qrcode（QRコード） - 4項目
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_placement',
+            'display_order': 200,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードはどこに貼るのがベストですか?',
+                    'answer': 'フロント受付、客室内のテーブル、エレベーター前など、ゲストが立ち止まりやすい場所がおすすめです。A4サイズで印刷し、目線の高さに掲示してください。',
+                    'keywords': 'QRコード設置場所,掲示場所,配置,おすすめ',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Best place to put QR code?',
+                    'answer': 'Front desk, in-room tables, elevator area are recommended. Print in A4 size at eye level.',
+                    'keywords': 'QR code placement,location,position,best practice',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_multiple',
+            'display_order': 210,
+            'translations': {
+                'ja': {
+                    'question': '複数のQRコードを使い分けられますか?',
+                    'answer': '現在は1施設1つのQRコードです。将来的には客室タイプ別・言語別QRコードに対応予定です。',
+                    'keywords': '複数QRコード,使い分け,客室別,言語別',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Can I use multiple QR codes?',
+                    'answer': 'Currently one QR code per facility. Room-type specific and language-specific codes are planned.',
+                    'keywords': 'multiple QR codes,room specific,language specific',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_print_size',
+            'display_order': 220,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードの印刷サイズの推奨は?',
+                    'answer': 'A4サイズ（210×297mm）を推奨します。スマートフォンで3m以内から読み取れるサイズです。',
+                    'keywords': 'QRコード印刷,サイズ,推奨サイズ,A4',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Recommended QR code print size?',
+                    'answer': 'A4 size (210×297mm) is recommended. Readable from 3m with smartphone.',
+                    'keywords': 'QR code print,size,recommended size,A4',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_reissue',
+            'display_order': 230,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードを再発行したい場合は?',
+                    'answer': '「QRコード管理」→「再発行」ボタンから再生成できます。ただし、旧QRコードは無効化されますのでご注意ください。',
+                    'keywords': 'QRコード再発行,再生成,更新,変更',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'How to reissue QR code?',
+                    'answer': 'Go to "QR Code Management" → "Reissue". Note that old QR code will be invalidated.',
+                    'keywords': 'QR code reissue,regenerate,update,change',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+
+        # カテゴリ: faq_management（FAQ管理） - 5項目
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_template_usage',
+            'display_order': 300,
+            'translations': {
+                'ja': {
+                    'question': 'FAQテンプレートの使い方は?',
+                    'answer': '「FAQ管理」→「テンプレートから追加」で、宿泊施設向けの一般的なFAQ（Wi-Fi、チェックイン時間など）を一括登録できます。',
+                    'keywords': 'FAQテンプレート,一括登録,初期FAQ,サンプル',
+                    'related_url': '/admin/faqs/templates'
+                },
+                'en': {
+                    'question': 'How to use FAQ templates?',
+                    'answer': 'Go to "FAQ Management" → "Add from Template" to bulk-add common FAQs (Wi-Fi, check-in time, etc.).',
+                    'keywords': 'FAQ template,bulk add,initial FAQ,sample',
+                    'related_url': '/admin/faqs/templates'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_add_custom',
+            'display_order': 310,
+            'translations': {
+                'ja': {
+                    'question': '自分でFAQを追加する方法は?',
+                    'answer': '「FAQ管理」→「新規FAQ追加」から、質問文・回答文・カテゴリを入力して保存してください。優先度を高く設定すると、AI回答時に優先されます。',
+                    'keywords': 'FAQ追加,新規作成,独自FAQ,カスタム',
+                    'related_url': '/admin/faqs/new'
+                },
+                'en': {
+                    'question': 'How to add custom FAQ?',
+                    'answer': 'Go to "FAQ Management" → "Add New FAQ", enter question, answer, and category. Higher priority FAQs are preferred by AI.',
+                    'keywords': 'add FAQ,create new,custom FAQ',
+                    'related_url': '/admin/faqs/new'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_priority',
+            'display_order': 320,
+            'translations': {
+                'ja': {
+                    'question': 'FAQの優先度とは何ですか?',
+                    'answer': '優先度が高いFAQは、AI回答時に優先的に参照されます。重要な情報（チェックイン時間、Wi-Fiパスワードなど）は優先度を高く設定してください。',
+                    'keywords': 'FAQ優先度,重要度,ランク,設定',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'What is FAQ priority?',
+                    'answer': 'Higher priority FAQs are preferred by AI. Set high priority for important info (check-in time, Wi-Fi password, etc.).',
+                    'keywords': 'FAQ priority,importance,rank,settings',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_categorization',
+            'display_order': 330,
+            'translations': {
+                'ja': {
+                    'question': 'カテゴリはどう分けるべきですか?',
+                    'answer': '「施設情報」「客室」「食事」「周辺観光」「アクセス」など、ゲストの質問傾向に応じて分類してください。1カテゴリ5-10問が目安です。',
+                    'keywords': 'FAQカテゴリ,分類,整理,おすすめ',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'How to categorize FAQs?',
+                    'answer': 'Categorize by guest question trends: Facility Info, Rooms, Dining, Sightseeing, Access. 5-10 FAQs per category is recommended.',
+                    'keywords': 'FAQ categories,classification,organization,best practice',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_bulk_import',
+            'display_order': 340,
+            'translations': {
+                'ja': {
+                    'question': 'FAQを一括登録できますか?',
+                    'answer': 'CSV/Excelファイルでの一括インポート機能は開発中です。現在はテンプレート利用または手動登録をお願いします。',
+                    'keywords': 'FAQ一括登録,インポート,CSV,Excel',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'Can I bulk import FAQs?',
+                    'answer': 'CSV/Excel bulk import is under development. Please use templates or manual entry for now.',
+                    'keywords': 'FAQ bulk import,CSV,Excel',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+
+        # カテゴリ: ai_logic（AI仕組み） - 4項目
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_how_it_works',
+            'display_order': 400,
+            'translations': {
+                'ja': {
+                    'question': 'AIはどうやって質問に答えていますか?',
+                    'answer': 'OpenAI GPT-4oを使用し、登録されたFAQから最適な回答を生成します。ゲストの質問意図を理解し、自然な会話形式で回答します。',
+                    'keywords': 'AI仕組み,回答生成,GPT,仕組み',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'How does AI answer questions?',
+                    'answer': 'Uses OpenAI GPT-4o to generate answers from registered FAQs. Understands guest intent and responds naturally.',
+                    'keywords': 'AI mechanism,answer generation,GPT,how it works',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_accuracy_improvement',
+            'display_order': 410,
+            'translations': {
+                'ja': {
+                    'question': 'AIの回答精度を上げるには?',
+                    'answer': 'FAQを充実させること、キーワードを適切に設定すること、ログから「答えられなかった質問」を確認して追加することが効果的です。',
+                    'keywords': 'AI精度向上,改善,最適化,品質',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'How to improve AI accuracy?',
+                    'answer': 'Enrich FAQs, set appropriate keywords, review unanswered questions from logs and add them.',
+                    'keywords': 'AI accuracy,improvement,optimization,quality',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_supported_languages',
+            'display_order': 420,
+            'translations': {
+                'ja': {
+                    'question': '対応言語は何語ですか?',
+                    'answer': '現在、日本語・英語・中国語（簡体字/繁体字）・韓国語に対応しています。ゲストの質問言語を自動検出し、同じ言語で回答します。',
+                    'keywords': '対応言語,多言語,翻訳,Language',
+                    'related_url': '/admin/settings/language'
+                },
+                'en': {
+                    'question': 'What languages are supported?',
+                    'answer': 'Currently supports Japanese, English, Chinese (Simplified/Traditional), Korean. Auto-detects guest language and responds accordingly.',
+                    'keywords': 'supported languages,multilingual,translation',
+                    'related_url': '/admin/settings/language'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_limitations',
+            'display_order': 430,
+            'translations': {
+                'ja': {
+                    'question': 'AIが答えられない質問はありますか?',
+                    'answer': 'FAQに登録されていない内容や、リアルタイムの空室状況などは回答できません。その場合、スタッフへの問い合わせ案内を表示します。',
+                    'keywords': 'AI制限,答えられない,対応範囲,限界',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'Are there questions AI cannot answer?',
+                    'answer': 'Cannot answer unregistered FAQs or real-time availability. In such cases, directs guests to contact staff.',
+                    'keywords': 'AI limitations,cannot answer,coverage,limits',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+
+        # カテゴリ: logs（ログ分析） - 3項目
+        {
+            'category': 'logs',
+            'intent_key': 'logs_view_history',
+            'display_order': 500,
+            'translations': {
+                'ja': {
+                    'question': 'ゲストの質問履歴はどこで見られますか?',
+                    'answer': '「ログ分析」→「質問履歴」から確認できます。日付・カテゴリ・キーワードで絞り込み可能です。',
+                    'keywords': 'ログ確認,質問履歴,履歴閲覧,分析',
+                    'related_url': '/admin/logs'
+                },
+                'en': {
+                    'question': 'Where to view guest question history?',
+                    'answer': 'Go to "Log Analysis" → "Question History". Filter by date, category, and keywords.',
+                    'keywords': 'view logs,question history,analysis',
+                    'related_url': '/admin/logs'
+                }
+            }
+        },
+        {
+            'category':, description="言語コード")
+
+
+class RelatedFaq(BaseModel):
+    """関連FAQ"""
+    id: int
+    question: str
+    category: str
+
+
+class ChatResponse(BaseModel):
+    """チャットレスポンス"""
+    response: str = Field(..., description="AI回答")
+    related_faqs: List[RelatedFaq] = Field(default_factory=list, description="関連FAQ")
+    related_url: Optional[str] = Field(None, description="関連URL")
+    timestamp: str = Field(..., description="タイムスタンプ")
+```
+
+### app/api/v1/endpoints/help.py
+
+```python
+"""
+事業者向けヘルプシステムAPI
+"""
+from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Optional
+from app.db.session import get_db
+from app.api.dependencies import get_current_operator
+from app.services.operator_faq_service import OperatorFaqService
+from app.services.operator_help_chat_service import OperatorHelpChatService
+from app.schemas.help import (
+    FaqListResponse,
+    FaqSearchResponse,
+    ChatRequest,
+    ChatResponse,
+    RelatedFaq
+)
+from app.core.rate_limit import rate_limit
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter()
+
+
+@router.get("/faqs", response_model=FaqListResponse)
+@rate_limit(max_requests=20, window_seconds=60)
+async def get_faqs(
+    category: Optional[str] = Query(None, description="カテゴリフィルタ"),
+    language: str = Query('ja', regex='^(ja|en) 'setup',
+            'intent_key': 'setup_account_creation',
+            'display_order': 100,
+            'translations': {
+                'ja': {
+                    'question': 'アカウント作成の手順は?',
+                    'answer': '管理画面トップページから「新規登録」をクリックし、メールアドレス・パスワード・施設情報を入力してください。メール認証後、ログインできます。',
+                    'keywords': 'アカウント作成,新規登録,サインアップ,初期設定',
+                    'related_url': '/admin/register'
+                },
+                'en': {
+                    'question': 'How to create an account?',
+                    'answer': 'Click "Sign Up" from the top page, enter your email, password, and facility information. After email verification, you can log in.',
+                    'keywords': 'account creation,sign up,registration,initial setup',
+                    'related_url': '/admin/register'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_facility_registration',
+            'display_order': 110,
+            'translations': {
+                'ja': {
+                    'question': '施設情報はどこで登録しますか?',
+                    'answer': 'ログイン後、「設定」→「施設情報」から登録・編集できます。施設名、住所、電話番号、チェックイン/アウト時間などを設定してください。',
+                    'keywords': '施設情報,施設登録,設定,プロフィール',
+                    'related_url': '/admin/settings/facility'
+                },
+                'en': {
+                    'question': 'Where to register facility information?',
+                    'answer': 'After login, go to "Settings" → "Facility Info". You can set facility name, address, phone number, check-in/out times, etc.',
+                    'keywords': 'facility info,registration,settings,profile',
+                    'related_url': '/admin/settings/facility'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_first_steps',
+            'display_order': 120,
+            'translations': {
+                'ja': {
+                    'question': '初回ログイン後にまずやるべきことは?',
+                    'answer': '1. 施設情報の登録、2. 基本FAQの登録（10問程度）、3. QRコードの生成・印刷、4. テスト用にQRコードをスキャンして動作確認、の順で進めてください。',
+                    'keywords': '初回ログイン,はじめに,チュートリアル,スタートガイド',
+                    'related_url': '/admin/dashboard'
+                },
+                'en': {
+                    'question': 'What to do after first login?',
+                    'answer': '1. Register facility info, 2. Add basic FAQs (about 10), 3. Generate and print QR code, 4. Test by scanning QR code.',
+                    'keywords': 'first login,getting started,tutorial,start guide',
+                    'related_url': '/admin/dashboard'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_staff_accounts',
+            'display_order': 130,
+            'translations': {
+                'ja': {
+                    'question': 'スタッフアカウントを追加できますか?',
+                    'answer': '「設定」→「スタッフ管理」から追加できます。メールアドレスを登録すると、招待メールが送信されます。権限は「管理者」「編集者」「閲覧者」から選択可能です。',
+                    'keywords': 'スタッフ追加,ユーザー管理,権限,招待',
+                    'related_url': '/admin/settings/staff'
+                },
+                'en': {
+                    'question': 'Can I add staff accounts?',
+                    'answer': 'Go to "Settings" → "Staff Management". Register email and invitation will be sent. Roles: Admin, Editor, Viewer.',
+                    'keywords': 'add staff,user management,permissions,invitation',
+                    'related_url': '/admin/settings/staff'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_password_reset',
+            'display_order': 140,
+            'translations': {
+                'ja': {
+                    'question': 'パスワードを忘れた場合は?',
+                    'answer': 'ログイン画面の「パスワードを忘れた方」リンクから、登録メールアドレスを入力してください。パスワードリセット用のリンクが送信されます。',
+                    'keywords': 'パスワード忘れ,リセット,再設定,ログインできない',
+                    'related_url': '/admin/password-reset'
+                },
+                'en': {
+                    'question': 'Forgot password?',
+                    'answer': 'Click "Forgot password?" on login page, enter your email. Password reset link will be sent.',
+                    'keywords': 'forgot password,reset,recovery,cannot login',
+                    'related_url': '/admin/password-reset'
+                }
+            }
+        },
+
+        # カテゴリ: qrcode（QRコード） - 4項目
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_placement',
+            'display_order': 200,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードはどこに貼るのがベストですか?',
+                    'answer': 'フロント受付、客室内のテーブル、エレベーター前など、ゲストが立ち止まりやすい場所がおすすめです。A4サイズで印刷し、目線の高さに掲示してください。',
+                    'keywords': 'QRコード設置場所,掲示場所,配置,おすすめ',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Best place to put QR code?',
+                    'answer': 'Front desk, in-room tables, elevator area are recommended. Print in A4 size at eye level.',
+                    'keywords': 'QR code placement,location,position,best practice',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_multiple',
+            'display_order': 210,
+            'translations': {
+                'ja': {
+                    'question': '複数のQRコードを使い分けられますか?',
+                    'answer': '現在は1施設1つのQRコードです。将来的には客室タイプ別・言語別QRコードに対応予定です。',
+                    'keywords': '複数QRコード,使い分け,客室別,言語別',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Can I use multiple QR codes?',
+                    'answer': 'Currently one QR code per facility. Room-type specific and language-specific codes are planned.',
+                    'keywords': 'multiple QR codes,room specific,language specific',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_print_size',
+            'display_order': 220,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードの印刷サイズの推奨は?',
+                    'answer': 'A4サイズ（210×297mm）を推奨します。スマートフォンで3m以内から読み取れるサイズです。',
+                    'keywords': 'QRコード印刷,サイズ,推奨サイズ,A4',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Recommended QR code print size?',
+                    'answer': 'A4 size (210×297mm) is recommended. Readable from 3m with smartphone.',
+                    'keywords': 'QR code print,size,recommended size,A4',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_reissue',
+            'display_order': 230,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードを再発行したい場合は?',
+                    'answer': '「QRコード管理」→「再発行」ボタンから再生成できます。ただし、旧QRコードは無効化されますのでご注意ください。',
+                    'keywords': 'QRコード再発行,再生成,更新,変更',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'How to reissue QR code?',
+                    'answer': 'Go to "QR Code Management" → "Reissue". Note that old QR code will be invalidated.',
+                    'keywords': 'QR code reissue,regenerate,update,change',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+
+        # カテゴリ: faq_management（FAQ管理） - 5項目
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_template_usage',
+            'display_order': 300,
+            'translations': {
+                'ja': {
+                    'question': 'FAQテンプレートの使い方は?',
+                    'answer': '「FAQ管理」→「テンプレートから追加」で、宿泊施設向けの一般的なFAQ（Wi-Fi、チェックイン時間など）を一括登録できます。',
+                    'keywords': 'FAQテンプレート,一括登録,初期FAQ,サンプル',
+                    'related_url': '/admin/faqs/templates'
+                },
+                'en': {
+                    'question': 'How to use FAQ templates?',
+                    'answer': 'Go to "FAQ Management" → "Add from Template" to bulk-add common FAQs (Wi-Fi, check-in time, etc.).',
+                    'keywords': 'FAQ template,bulk add,initial FAQ,sample',
+                    'related_url': '/admin/faqs/templates'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_add_custom',
+            'display_order': 310,
+            'translations': {
+                'ja': {
+                    'question': '自分でFAQを追加する方法は?',
+                    'answer': '「FAQ管理」→「新規FAQ追加」から、質問文・回答文・カテゴリを入力して保存してください。優先度を高く設定すると、AI回答時に優先されます。',
+                    'keywords': 'FAQ追加,新規作成,独自FAQ,カスタム',
+                    'related_url': '/admin/faqs/new'
+                },
+                'en': {
+                    'question': 'How to add custom FAQ?',
+                    'answer': 'Go to "FAQ Management" → "Add New FAQ", enter question, answer, and category. Higher priority FAQs are preferred by AI.',
+                    'keywords': 'add FAQ,create new,custom FAQ',
+                    'related_url': '/admin/faqs/new'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_priority',
+            'display_order': 320,
+            'translations': {
+                'ja': {
+                    'question': 'FAQの優先度とは何ですか?',
+                    'answer': '優先度が高いFAQは、AI回答時に優先的に参照されます。重要な情報（チェックイン時間、Wi-Fiパスワードなど）は優先度を高く設定してください。',
+                    'keywords': 'FAQ優先度,重要度,ランク,設定',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'What is FAQ priority?',
+                    'answer': 'Higher priority FAQs are preferred by AI. Set high priority for important info (check-in time, Wi-Fi password, etc.).',
+                    'keywords': 'FAQ priority,importance,rank,settings',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_categorization',
+            'display_order': 330,
+            'translations': {
+                'ja': {
+                    'question': 'カテゴリはどう分けるべきですか?',
+                    'answer': '「施設情報」「客室」「食事」「周辺観光」「アクセス」など、ゲストの質問傾向に応じて分類してください。1カテゴリ5-10問が目安です。',
+                    'keywords': 'FAQカテゴリ,分類,整理,おすすめ',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'How to categorize FAQs?',
+                    'answer': 'Categorize by guest question trends: Facility Info, Rooms, Dining, Sightseeing, Access. 5-10 FAQs per category is recommended.',
+                    'keywords': 'FAQ categories,classification,organization,best practice',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_bulk_import',
+            'display_order': 340,
+            'translations': {
+                'ja': {
+                    'question': 'FAQを一括登録できますか?',
+                    'answer': 'CSV/Excelファイルでの一括インポート機能は開発中です。現在はテンプレート利用または手動登録をお願いします。',
+                    'keywords': 'FAQ一括登録,インポート,CSV,Excel',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'Can I bulk import FAQs?',
+                    'answer': 'CSV/Excel bulk import is under development. Please use templates or manual entry for now.',
+                    'keywords': 'FAQ bulk import,CSV,Excel',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+
+        # カテゴリ: ai_logic（AI仕組み） - 4項目
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_how_it_works',
+            'display_order': 400,
+            'translations': {
+                'ja': {
+                    'question': 'AIはどうやって質問に答えていますか?',
+                    'answer': 'OpenAI GPT-4oを使用し、登録されたFAQから最適な回答を生成します。ゲストの質問意図を理解し、自然な会話形式で回答します。',
+                    'keywords': 'AI仕組み,回答生成,GPT,仕組み',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'How does AI answer questions?',
+                    'answer': 'Uses OpenAI GPT-4o to generate answers from registered FAQs. Understands guest intent and responds naturally.',
+                    'keywords': 'AI mechanism,answer generation,GPT,how it works',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_accuracy_improvement',
+            'display_order': 410,
+            'translations': {
+                'ja': {
+                    'question': 'AIの回答精度を上げるには?',
+                    'answer': 'FAQを充実させること、キーワードを適切に設定すること、ログから「答えられなかった質問」を確認して追加することが効果的です。',
+                    'keywords': 'AI精度向上,改善,最適化,品質',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'How to improve AI accuracy?',
+                    'answer': 'Enrich FAQs, set appropriate keywords, review unanswered questions from logs and add them.',
+                    'keywords': 'AI accuracy,improvement,optimization,quality',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_supported_languages',
+            'display_order': 420,
+            'translations': {
+                'ja': {
+                    'question': '対応言語は何語ですか?',
+                    'answer': '現在、日本語・英語・中国語（簡体字/繁体字）・韓国語に対応しています。ゲストの質問言語を自動検出し、同じ言語で回答します。',
+                    'keywords': '対応言語,多言語,翻訳,Language',
+                    'related_url': '/admin/settings/language'
+                },
+                'en': {
+                    'question': 'What languages are supported?',
+                    'answer': 'Currently supports Japanese, English, Chinese (Simplified/Traditional), Korean. Auto-detects guest language and responds accordingly.',
+                    'keywords': 'supported languages,multilingual,translation',
+                    'related_url': '/admin/settings/language'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_limitations',
+            'display_order': 430,
+            'translations': {
+                'ja': {
+                    'question': 'AIが答えられない質問はありますか?',
+                    'answer': 'FAQに登録されていない内容や、リアルタイムの空室状況などは回答できません。その場合、スタッフへの問い合わせ案内を表示します。',
+                    'keywords': 'AI制限,答えられない,対応範囲,限界',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'Are there questions AI cannot answer?',
+                    'answer': 'Cannot answer unregistered FAQs or real-time availability. In such cases, directs guests to contact staff.',
+                    'keywords': 'AI limitations,cannot answer,coverage,limits',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+
+        # カテゴリ: logs（ログ分析） - 3項目
+        {
+            'category': 'logs',
+            'intent_key': 'logs_view_history',
+            'display_order': 500,
+            'translations': {
+                'ja': {
+                    'question': 'ゲストの質問履歴はどこで見られますか?',
+                    'answer': '「ログ分析」→「質問履歴」から確認できます。日付・カテゴリ・キーワードで絞り込み可能です。',
+                    'keywords': 'ログ確認,質問履歴,履歴閲覧,分析',
+                    'related_url': '/admin/logs'
+                },
+                'en': {
+                    'question': 'Where to view guest question history?',
+                    'answer': 'Go to "Log Analysis" → "Question History". Filter by date, category, and keywords.',
+                    'keywords': 'view logs,question history,analysis',
+                    'related_url': '/admin/logs'
+                }
+            }
+        },
+        {
+            'category':, description="言語コード"),
+    db: AsyncSession = Depends(get_db),
+    current_operator = Depends(get_current_operator)
+):
+    """
+    FAQ一覧取得
+    
+    - **category**: カテゴリフィルタ（setup, qrcode, faq_management等）
+    - **language**: 言語コード（ja, en）
+    
+    認証必須。レート制限: 20リクエスト/分
+    """
+    try:
+        service = OperatorFaqService(db)
+        
+        # FAQ取得
+        faqs = await service.get_faqs(
+            language=language,
+            category=category
+        )
+        
+        # カテゴリ一覧取得
+        categories_data = await service.get_categories(language=language)
+        categories = [c['category'] for c in categories_data]
+        
+        return FaqListResponse(
+            faqs=faqs,
+            total=len(faqs),
+            categories=categories
+        )
+    
+    except Exception as e:
+        logger.error(f"Get FAQs error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="FAQの取得に失敗しました")
+
+
+@router.get("/search", response_model=FaqSearchResponse)
+@rate_limit(max_requests=20, window_seconds=60)
+async def search_faqs(
+    q: str = Query(..., min_length=2, max_length=100, description="検索クエリ"),
+    language: str = Query('ja', regex='^(ja|en) 'setup',
+            'intent_key': 'setup_account_creation',
+            'display_order': 100,
+            'translations': {
+                'ja': {
+                    'question': 'アカウント作成の手順は?',
+                    'answer': '管理画面トップページから「新規登録」をクリックし、メールアドレス・パスワード・施設情報を入力してください。メール認証後、ログインできます。',
+                    'keywords': 'アカウント作成,新規登録,サインアップ,初期設定',
+                    'related_url': '/admin/register'
+                },
+                'en': {
+                    'question': 'How to create an account?',
+                    'answer': 'Click "Sign Up" from the top page, enter your email, password, and facility information. After email verification, you can log in.',
+                    'keywords': 'account creation,sign up,registration,initial setup',
+                    'related_url': '/admin/register'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_facility_registration',
+            'display_order': 110,
+            'translations': {
+                'ja': {
+                    'question': '施設情報はどこで登録しますか?',
+                    'answer': 'ログイン後、「設定」→「施設情報」から登録・編集できます。施設名、住所、電話番号、チェックイン/アウト時間などを設定してください。',
+                    'keywords': '施設情報,施設登録,設定,プロフィール',
+                    'related_url': '/admin/settings/facility'
+                },
+                'en': {
+                    'question': 'Where to register facility information?',
+                    'answer': 'After login, go to "Settings" → "Facility Info". You can set facility name, address, phone number, check-in/out times, etc.',
+                    'keywords': 'facility info,registration,settings,profile',
+                    'related_url': '/admin/settings/facility'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_first_steps',
+            'display_order': 120,
+            'translations': {
+                'ja': {
+                    'question': '初回ログイン後にまずやるべきことは?',
+                    'answer': '1. 施設情報の登録、2. 基本FAQの登録（10問程度）、3. QRコードの生成・印刷、4. テスト用にQRコードをスキャンして動作確認、の順で進めてください。',
+                    'keywords': '初回ログイン,はじめに,チュートリアル,スタートガイド',
+                    'related_url': '/admin/dashboard'
+                },
+                'en': {
+                    'question': 'What to do after first login?',
+                    'answer': '1. Register facility info, 2. Add basic FAQs (about 10), 3. Generate and print QR code, 4. Test by scanning QR code.',
+                    'keywords': 'first login,getting started,tutorial,start guide',
+                    'related_url': '/admin/dashboard'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_staff_accounts',
+            'display_order': 130,
+            'translations': {
+                'ja': {
+                    'question': 'スタッフアカウントを追加できますか?',
+                    'answer': '「設定」→「スタッフ管理」から追加できます。メールアドレスを登録すると、招待メールが送信されます。権限は「管理者」「編集者」「閲覧者」から選択可能です。',
+                    'keywords': 'スタッフ追加,ユーザー管理,権限,招待',
+                    'related_url': '/admin/settings/staff'
+                },
+                'en': {
+                    'question': 'Can I add staff accounts?',
+                    'answer': 'Go to "Settings" → "Staff Management". Register email and invitation will be sent. Roles: Admin, Editor, Viewer.',
+                    'keywords': 'add staff,user management,permissions,invitation',
+                    'related_url': '/admin/settings/staff'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_password_reset',
+            'display_order': 140,
+            'translations': {
+                'ja': {
+                    'question': 'パスワードを忘れた場合は?',
+                    'answer': 'ログイン画面の「パスワードを忘れた方」リンクから、登録メールアドレスを入力してください。パスワードリセット用のリンクが送信されます。',
+                    'keywords': 'パスワード忘れ,リセット,再設定,ログインできない',
+                    'related_url': '/admin/password-reset'
+                },
+                'en': {
+                    'question': 'Forgot password?',
+                    'answer': 'Click "Forgot password?" on login page, enter your email. Password reset link will be sent.',
+                    'keywords': 'forgot password,reset,recovery,cannot login',
+                    'related_url': '/admin/password-reset'
+                }
+            }
+        },
+
+        # カテゴリ: qrcode（QRコード） - 4項目
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_placement',
+            'display_order': 200,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードはどこに貼るのがベストですか?',
+                    'answer': 'フロント受付、客室内のテーブル、エレベーター前など、ゲストが立ち止まりやすい場所がおすすめです。A4サイズで印刷し、目線の高さに掲示してください。',
+                    'keywords': 'QRコード設置場所,掲示場所,配置,おすすめ',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Best place to put QR code?',
+                    'answer': 'Front desk, in-room tables, elevator area are recommended. Print in A4 size at eye level.',
+                    'keywords': 'QR code placement,location,position,best practice',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_multiple',
+            'display_order': 210,
+            'translations': {
+                'ja': {
+                    'question': '複数のQRコードを使い分けられますか?',
+                    'answer': '現在は1施設1つのQRコードです。将来的には客室タイプ別・言語別QRコードに対応予定です。',
+                    'keywords': '複数QRコード,使い分け,客室別,言語別',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Can I use multiple QR codes?',
+                    'answer': 'Currently one QR code per facility. Room-type specific and language-specific codes are planned.',
+                    'keywords': 'multiple QR codes,room specific,language specific',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_print_size',
+            'display_order': 220,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードの印刷サイズの推奨は?',
+                    'answer': 'A4サイズ（210×297mm）を推奨します。スマートフォンで3m以内から読み取れるサイズです。',
+                    'keywords': 'QRコード印刷,サイズ,推奨サイズ,A4',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Recommended QR code print size?',
+                    'answer': 'A4 size (210×297mm) is recommended. Readable from 3m with smartphone.',
+                    'keywords': 'QR code print,size,recommended size,A4',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_reissue',
+            'display_order': 230,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードを再発行したい場合は?',
+                    'answer': '「QRコード管理」→「再発行」ボタンから再生成できます。ただし、旧QRコードは無効化されますのでご注意ください。',
+                    'keywords': 'QRコード再発行,再生成,更新,変更',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'How to reissue QR code?',
+                    'answer': 'Go to "QR Code Management" → "Reissue". Note that old QR code will be invalidated.',
+                    'keywords': 'QR code reissue,regenerate,update,change',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+
+        # カテゴリ: faq_management（FAQ管理） - 5項目
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_template_usage',
+            'display_order': 300,
+            'translations': {
+                'ja': {
+                    'question': 'FAQテンプレートの使い方は?',
+                    'answer': '「FAQ管理」→「テンプレートから追加」で、宿泊施設向けの一般的なFAQ（Wi-Fi、チェックイン時間など）を一括登録できます。',
+                    'keywords': 'FAQテンプレート,一括登録,初期FAQ,サンプル',
+                    'related_url': '/admin/faqs/templates'
+                },
+                'en': {
+                    'question': 'How to use FAQ templates?',
+                    'answer': 'Go to "FAQ Management" → "Add from Template" to bulk-add common FAQs (Wi-Fi, check-in time, etc.).',
+                    'keywords': 'FAQ template,bulk add,initial FAQ,sample',
+                    'related_url': '/admin/faqs/templates'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_add_custom',
+            'display_order': 310,
+            'translations': {
+                'ja': {
+                    'question': '自分でFAQを追加する方法は?',
+                    'answer': '「FAQ管理」→「新規FAQ追加」から、質問文・回答文・カテゴリを入力して保存してください。優先度を高く設定すると、AI回答時に優先されます。',
+                    'keywords': 'FAQ追加,新規作成,独自FAQ,カスタム',
+                    'related_url': '/admin/faqs/new'
+                },
+                'en': {
+                    'question': 'How to add custom FAQ?',
+                    'answer': 'Go to "FAQ Management" → "Add New FAQ", enter question, answer, and category. Higher priority FAQs are preferred by AI.',
+                    'keywords': 'add FAQ,create new,custom FAQ',
+                    'related_url': '/admin/faqs/new'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_priority',
+            'display_order': 320,
+            'translations': {
+                'ja': {
+                    'question': 'FAQの優先度とは何ですか?',
+                    'answer': '優先度が高いFAQは、AI回答時に優先的に参照されます。重要な情報（チェックイン時間、Wi-Fiパスワードなど）は優先度を高く設定してください。',
+                    'keywords': 'FAQ優先度,重要度,ランク,設定',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'What is FAQ priority?',
+                    'answer': 'Higher priority FAQs are preferred by AI. Set high priority for important info (check-in time, Wi-Fi password, etc.).',
+                    'keywords': 'FAQ priority,importance,rank,settings',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_categorization',
+            'display_order': 330,
+            'translations': {
+                'ja': {
+                    'question': 'カテゴリはどう分けるべきですか?',
+                    'answer': '「施設情報」「客室」「食事」「周辺観光」「アクセス」など、ゲストの質問傾向に応じて分類してください。1カテゴリ5-10問が目安です。',
+                    'keywords': 'FAQカテゴリ,分類,整理,おすすめ',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'How to categorize FAQs?',
+                    'answer': 'Categorize by guest question trends: Facility Info, Rooms, Dining, Sightseeing, Access. 5-10 FAQs per category is recommended.',
+                    'keywords': 'FAQ categories,classification,organization,best practice',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_bulk_import',
+            'display_order': 340,
+            'translations': {
+                'ja': {
+                    'question': 'FAQを一括登録できますか?',
+                    'answer': 'CSV/Excelファイルでの一括インポート機能は開発中です。現在はテンプレート利用または手動登録をお願いします。',
+                    'keywords': 'FAQ一括登録,インポート,CSV,Excel',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'Can I bulk import FAQs?',
+                    'answer': 'CSV/Excel bulk import is under development. Please use templates or manual entry for now.',
+                    'keywords': 'FAQ bulk import,CSV,Excel',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+
+        # カテゴリ: ai_logic（AI仕組み） - 4項目
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_how_it_works',
+            'display_order': 400,
+            'translations': {
+                'ja': {
+                    'question': 'AIはどうやって質問に答えていますか?',
+                    'answer': 'OpenAI GPT-4oを使用し、登録されたFAQから最適な回答を生成します。ゲストの質問意図を理解し、自然な会話形式で回答します。',
+                    'keywords': 'AI仕組み,回答生成,GPT,仕組み',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'How does AI answer questions?',
+                    'answer': 'Uses OpenAI GPT-4o to generate answers from registered FAQs. Understands guest intent and responds naturally.',
+                    'keywords': 'AI mechanism,answer generation,GPT,how it works',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_accuracy_improvement',
+            'display_order': 410,
+            'translations': {
+                'ja': {
+                    'question': 'AIの回答精度を上げるには?',
+                    'answer': 'FAQを充実させること、キーワードを適切に設定すること、ログから「答えられなかった質問」を確認して追加することが効果的です。',
+                    'keywords': 'AI精度向上,改善,最適化,品質',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'How to improve AI accuracy?',
+                    'answer': 'Enrich FAQs, set appropriate keywords, review unanswered questions from logs and add them.',
+                    'keywords': 'AI accuracy,improvement,optimization,quality',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_supported_languages',
+            'display_order': 420,
+            'translations': {
+                'ja': {
+                    'question': '対応言語は何語ですか?',
+                    'answer': '現在、日本語・英語・中国語（簡体字/繁体字）・韓国語に対応しています。ゲストの質問言語を自動検出し、同じ言語で回答します。',
+                    'keywords': '対応言語,多言語,翻訳,Language',
+                    'related_url': '/admin/settings/language'
+                },
+                'en': {
+                    'question': 'What languages are supported?',
+                    'answer': 'Currently supports Japanese, English, Chinese (Simplified/Traditional), Korean. Auto-detects guest language and responds accordingly.',
+                    'keywords': 'supported languages,multilingual,translation',
+                    'related_url': '/admin/settings/language'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_limitations',
+            'display_order': 430,
+            'translations': {
+                'ja': {
+                    'question': 'AIが答えられない質問はありますか?',
+                    'answer': 'FAQに登録されていない内容や、リアルタイムの空室状況などは回答できません。その場合、スタッフへの問い合わせ案内を表示します。',
+                    'keywords': 'AI制限,答えられない,対応範囲,限界',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'Are there questions AI cannot answer?',
+                    'answer': 'Cannot answer unregistered FAQs or real-time availability. In such cases, directs guests to contact staff.',
+                    'keywords': 'AI limitations,cannot answer,coverage,limits',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+
+        # カテゴリ: logs（ログ分析） - 3項目
+        {
+            'category': 'logs',
+            'intent_key': 'logs_view_history',
+            'display_order': 500,
+            'translations': {
+                'ja': {
+                    'question': 'ゲストの質問履歴はどこで見られますか?',
+                    'answer': '「ログ分析」→「質問履歴」から確認できます。日付・カテゴリ・キーワードで絞り込み可能です。',
+                    'keywords': 'ログ確認,質問履歴,履歴閲覧,分析',
+                    'related_url': '/admin/logs'
+                },
+                'en': {
+                    'question': 'Where to view guest question history?',
+                    'answer': 'Go to "Log Analysis" → "Question History". Filter by date, category, and keywords.',
+                    'keywords': 'view logs,question history,analysis',
+                    'related_url': '/admin/logs'
+                }
+            }
+        },
+        {
+            'category':, description="言語コード"),
+    limit: int = Query(10, ge=1, le=50, description="取得件数上限"),
+    db: AsyncSession = Depends(get_db),
+    current_operator = Depends(get_current_operator)
+):
+    """
+    FAQ検索
+    
+    - **q**: 検索クエリ（2文字以上100文字以内）
+    - **language**: 言語コード（ja, en）
+    - **limit**: 取得件数上限（デフォルト10、最大50）
+    
+    認証必須。レート制限: 20リクエスト/分
+    """
+    try:
+        service = OperatorFaqService(db)
+        
+        results = await service.search_faqs(
+            query=q,
+            language=language,
+            limit=limit
+        )
+        
+        return FaqSearchResponse(
+            results=results,
+            total=len(results),
+            query=q
+        )
+    
+    except Exception as e:
+        logger.error(f"Search FAQs error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="FAQ検索に失敗しました")
+
+
+@router.post("/chat", response_model=ChatResponse)
+@rate_limit(max_requests=10, window_seconds=60)
+async def chat(
+    request: ChatRequest,
+    db: AsyncSession = Depends(get_db),
+    current_operator = Depends(get_current_operator)
+):
+    """
+    AIヘルプチャット
+    
+    - **message**: ユーザーメッセージ（1-500文字）
+    - **language**: 言語コード（ja, en）
+    
+    認証必須。レート制限: 10リクエスト/分
+    """
+    try:
+        service = OperatorHelpChatService(db)
+        
+        # チャット処理
+        result = await service.process_message(
+            message=request.message,
+            language=request.language,
+            operator_id=current_operator.id
+        )
+        
+        # 関連FAQの詳細情報取得
+        faq_service = OperatorFaqService(db)
+        all_faqs = await faq_service.get_faqs(language=request.language)
+        
+        related_faqs = []
+        for faq_id in result['related_faqs']:
+            faq = next((f for f in all_faqs if f['id'] == faq_id), None)
+            if faq:
+                related_faqs.append(RelatedFaq(
+                    id=faq['id'],
+                    question=faq['question'],
+                    category=faq['category']
+                ))
+        
+        return ChatResponse(
+            response=result['response'],
+            related_faqs=related_faqs,
+            related_url=result['related_url'],
+            timestamp=result['timestamp']
+        )
+    
+    except Exception as e:
+        logger.error(f"Chat error: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail="チャット処理に失敗しました")
+```
+
+---
+
+## 6. OpenAI統合
+
+### app/utils/openai_client.py
+
+```python
+"""
+OpenAI APIクライアント
+"""
+from typing import List, Dict, Any
+from openai import AsyncOpenAI
+from app.core.config import settings
+import logging
+
+logger = logging.getLogger(__name__)
+
+
+class OpenAIClient:
+    """OpenAI APIクライアント"""
+    
+    def __init__(self):
+        self.client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+        self.model = "gpt-4o-mini-2024-07-18"
+    
+    async def chat_completion(
+        self,
+        messages: List[Dict[str, str]],
+        max_tokens: int = 500,
+        temperature: float = 0.7
+    ) -> str:
+        """
+        チャット補完API呼び出し
+        
+        Args:
+            messages: メッセージ履歴
+            max_tokens: 最大トークン数
+            temperature: 温度パラメータ
+        
+        Returns:
+            AI回答文字列
+        """
+        try:
+            response = await self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=max_tokens,
+                temperature=temperature
+            )
+            
+            answer = response.choices[0].message.content
+            
+            logger.info(f"OpenAI API call: model={self.model}, tokens={response.usage.total_tokens}")
+            return answer
+        
+        except Exception as e:
+            logger.error(f"OpenAI API error: {str(e)}", exc_info=True)
+            raise
+```
+
+### app/db/session.py
+
+```python
+"""
+データベースセッション管理
+"""
+from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
+from sqlalchemy.orm import declarative_base
+from app.core.config import settings
+from typing import AsyncGenerator
+
+# Baseクラス
+Base = declarative_base()
+
+# 非同期エンジン作成
+engine = create_async_engine(
+    settings.DATABASE_URL,
+    echo=settings.DEBUG,
+    pool_pre_ping=True,
+    pool_size=5,
+    max_overflow=10
+)
+
+# セッションファクトリ（expire_on_commit=False が重要）
+async_session_maker = async_sessionmaker(
+    engine,
+    class_=AsyncSession,
+    expire_on_commit=False,  # 非同期では必須設定
+    autocommit=False,
+    autoflush=False
+)
+
+
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
+    """
+    FastAPI依存関数: データベースセッションを提供
+    
+    Yields:
+        AsyncSession: データベースセッション
+    """
+    async with async_session_maker() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+async def init_db():
+    """データベース初期化（テスト用）"""
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+
+async def close_db():
+    """データベース接続クローズ"""
+    await engine.dispose()
+```
+
+### app/api/dependencies.py
+
+```python
+"""
+API共通依存関数
+"""
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.session import get_db
+from app.core.auth import verify_token
+from typing import Optional
+
+security = HTTPBearer()
+
+
+async def get_current_operator(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    現在の認証済み事業者を取得
+    
+    Args:
+        credentials: JWT認証情報
+        db: データベースセッション
+    
+    Returns:
+        Operator: 事業者オブジェクト
+    
+    Raises:
+        HTTPException: 認証失敗時
+    """
+    token = credentials.credentials
+    
+    try:
+        # JWTトークン検証
+        payload = verify_token(token)
+        operator_id = payload.get('sub')
+        
+        if not operator_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="無効なトークンです"
+            )
+        
+        # Operatorモデルから事業者取得（実装は省略）
+        # operator = await get_operator_by_id(db, operator_id)
+        # if not operator:
+        #     raise HTTPException(status_code=404, detail="事業者が見つかりません")
+        
+        # ダミーオブジェクトを返す（実際はDBから取得）
+        class DummyOperator:
+            def __init__(self, operator_id: int):
+                self.id = operator_id
+        
+        return DummyOperator(int(operator_id))
+    
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="認証に失敗しました"
+        )
+```
+
+### app/core/config.py
+
+```python
+"""
+アプリケーション設定
+"""
+from pydantic_settings import BaseSettings
+from typing import Optional
+
+
+class Settings(BaseSettings):
+    """アプリケーション設定"""
+    
+    # Database
+    DATABASE_URL: str
+    
+    # Redis
+    REDIS_URL: str = "redis://localhost:6379/0"
+    
+    # OpenAI
+    OPENAI_API_KEY: str
+    
+    # JWT
+    JWT_SECRET_KEY: str
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_DAYS: int = 7
+    
+    # Environment
+    ENVIRONMENT: str = "development"
+    DEBUG: bool = True
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+
+settings = Settings()
+```
+
+### app/core/auth.py
+
+```python
+"""
+認証ユーティリティ
+"""
+from jose import JWTError, jwt
+from datetime import datetime, timedelta
+from app.core.config import settings
+from typing import Dict, Any
+
+
+def create_access_token(data: Dict[str, Any], expires_delta: timedelta = None) -> str:
+    """
+    JWTアクセストークン生成
+    
+    Args:
+        data: トークンペイロード
+        expires_delta: 有効期限
+    
+    Returns:
+        JWT文字列
+    """
+    to_encode = data.copy()
+    
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(days=settings.ACCESS_TOKEN_EXPIRE_DAYS)
+    
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    
+    return encoded_jwt
+
+
+def verify_token(token: str) -> Dict[str, Any]:
+    """
+    JWTトークン検証
+    
+    Args:
+        token: JWT文字列
+    
+    Returns:
+        デコードされたペイロード
+    
+    Raises:
+        JWTError: トークン検証失敗
+    """
+    try:
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+        return payload
+    except JWTError:
+        raise
+```
+
+---
+
+## 7. キャッシュ戦略
+
+### app/core/cache.py
+
+```python
+"""
+Redisキャッシュクライアント
+"""
+import redis.asyncio as redis
+from app.core.config import settings
+import logging
+from typing import Optional
+
+logger = logging.getLogger(__name__)
+
+
+class RedisClient:
+    """非同期Redisクライアント"""
+    
+    def __init__(self):
+        self.redis: Optional[redis.Redis] = None
+    
+    async def connect(self):
+        """Redis接続"""
+        self.redis = await redis.from_url(
+            settings.REDIS_URL,
+            encoding="utf-8",
+            decode_responses=True
+        )
+        logger.info("Redis connected")
+    
+    async def disconnect(self):
+        """Redis切断"""
+        if self.redis:
+            await self.redis.close()
+            logger.info("Redis disconnected")
+    
+    async def get(self, key: str) -> Optional[str]:
+        """値取得"""
+        if not self.redis:
+            return None
+        return await self.redis.get(key)
+    
+    async def setex(self, key: str, seconds: int, value: str):
+        """有効期限付き値設定"""
+        if self.redis:
+            await self.redis.setex(key, seconds, value)
+    
+    async def delete(self, key: str):
+        """キー削除"""
+        if self.redis:
+            await self.redis.delete(key)
+    
+    async def incr(self, key: str) -> int:
+        """値をインクリメント"""
+        if not self.redis:
+            return 0
+        return await self.redis.incr(key)
+
+
+# グローバルインスタンス
+redis_client = RedisClient()
+```
+
+---
+
+## 8. エラーハンドリング
+
+### app/core/exceptions.py
+
+```python
+"""
+カスタム例外クラス
+"""
+from fastapi import HTTPException, status
+
+
+class HelpSystemException(HTTPException):
+    """ヘルプシステム基底例外"""
+    def __init__(self, detail: str, status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR):
+        super().__init__(status_code=status_code, detail=detail)
+
+
+class FaqNotFoundException(HelpSystemException):
+    """FAQ未検出例外"""
+    def __init__(self, faq_id: int):
+        super().__init__(
+            detail=f"FAQ ID {faq_id} が見つかりません",
+            status_code=status.HTTP_404_NOT_FOUND
+        )
+
+
+class OpenAIApiException(HelpSystemException):
+    """OpenAI APIエラー例外"""
+    def __init__(self, detail: str = "AI応答の生成に失敗しました"):
+        super().__init__(detail=detail, status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
+```
+
+### app/core/rate_limit.py
+
+```python
+"""
+レート制限デコレータ
+"""
+from functools import wraps
+from fastapi import HTTPException, status
+from app.core.cache import redis_client
+import time
+
+
+def rate_limit(max_requests: int, window_seconds: int):
+    """
+    レート制限デコレータ
+    
+    Args:
+        max_requests: ウィンドウ内の最大リクエスト数
+        window_seconds: ウィンドウ時間（秒）
+    """
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            # current_operatorからoperator_idを取得
+            current_operator = kwargs.get('current_operator')
+            if not current_operator:
+                # 認証なしの場合はスキップ
+                return await func(*args, **kwargs)
+            
+            operator_id = current_operator.id
+            key = f"rate_limit:{func.__name__}:{operator_id}"
+            
+            # 現在のリクエスト数を取得
+            current_count = await redis_client.get(key)
+            
+            if current_count and int(current_count) >= max_requests:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"レート制限超過。{window_seconds}秒後に再試行してください。"
+                )
+            
+            # カウント増加
+            if current_count:
+                await redis_client.incr(key)
+            else:
+                await redis_client.setex(key, window_seconds, "1")
+            
+            return await func(*args, **kwargs)
+        
+        return wrapper
+    return decorator
+```
+
+---
+
+## 9. テストコード
+
+### tests/test_faq_service.py
+
+```python
+"""
+FAQサービステスト
+"""
+import pytest
+from app.services.operator_faq_service import OperatorFaqService
+
+
+@pytest.mark.asyncio
+async def test_get_faqs(db_session):
+    """FAQ一覧取得テスト"""
+    service = OperatorFaqService(db_session)
+    
+    faqs = await service.get_faqs(language='ja')
+    
+    assert len(faqs) > 0
+    assert faqs[0]['question'] is not None
+    assert faqs[0]['answer'] is not None
+
+
+@pytest.mark.asyncio
+async def test_get_faqs_by_category(db_session):
+    """カテゴリフィルタテスト"""
+    service = OperatorFaqService(db_session)
+    
+    faqs = await service.get_faqs(language='ja', category='setup')
+    
+    assert all(faq['category'] == 'setup' for faq in faqs)
+
+
+@pytest.mark.asyncio
+async def test_search_faqs(db_session):
+    """FAQ検索テスト"""
+    service = OperatorFaqService(db_session)
+    
+    results = await service.search_faqs(query='アカウント', language='ja')
+    
+    assert len(results) > 0
+    assert 'アカウント' in results[0]['question'] or 'アカウント' in results[0]['answer']
+
+
+@pytest.mark.asyncio
+async def test_get_categories(db_session):
+    """カテゴリ一覧取得テスト"""
+    service = OperatorFaqService(db_session)
+    
+    categories = await service.get_categories(language='ja')
+    
+    assert len(categories) > 0
+    assert 'category' in categories[0]
+    assert 'count' in categories[0]
+```
+
+### tests/test_help_chat.py
+
+```python
+"""
+AIヘルプチャットサービステスト
+"""
+import pytest
+from app.services.operator_help_chat_service import OperatorHelpChatService
+from unittest.mock import AsyncMock, patch
+
+
+@pytest.mark.asyncio
+async def test_process_message(db_session):
+    """チャットメッセージ処理テスト"""
+    service = OperatorHelpChatService(db_session)
+    
+    # OpenAI APIをモック
+    with patch.object(service.openai_client, 'chat_completion', new=AsyncMock(return_value='モック回答')):
+        result = await service.process_message(
+            message='FAQの登録方法は?',
+            language='ja'
+        )
+    
+    assert result['response'] == 'モック回答'
+    assert 'related_faqs' in result
+    assert 'timestamp' in result
+
+
+@pytest.mark.asyncio
+async def test_process_message_error_handling(db_session):
+    """エラーハンドリングテスト"""
+    service = OperatorHelpChatService(db_session)
+    
+    # OpenAI API失敗をシミュレート
+    with patch.object(service.openai_client, 'chat_completion', side_effect=Exception('API Error')):
+        result = await service.process_message(
+            message='テスト',
+            language='ja'
+        )
+    
+    assert 'エラーが発生しました' in result['response']
+```
+
+### tests/test_help_api.py
+
+```python
+"""
+ヘルプAPIエンドポイントテスト
+"""
+import pytest
+from httpx import AsyncClient
+from app.main import app
+
+
+@pytest.mark.asyncio
+async def test_get_faqs_api(auth_headers):
+    """FAQ一覧取得APIテスト"""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        response = await client.get(
+            "/api/v1/help/faqs",
+            headers=auth_headers
+        )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert 'faqs' in data
+    assert 'total' in data
+    assert len(data['faqs']) > 0
+
+
+@pytest.mark.asyncio
+async def test_search_faqs_api(auth_headers):
+    """FAQ検索APIテスト"""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        response = await client.get(
+            "/api/v1/help/search?q=アカウント",
+            headers=auth_headers
+        )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert 'results' in data
+    assert data['query'] == 'アカウント'
+
+
+@pytest.mark.asyncio
+async def test_chat_api(auth_headers):
+    """チャットAPIテスト"""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/help/chat",
+            headers=auth_headers,
+            json={
+                'message': 'FAQの登録方法は?',
+                'language': 'ja'
+            }
+        )
+    
+    assert response.status_code == 200
+    data = response.json()
+    assert 'response' in data
+    assert 'related_faqs' in data
+    assert 'timestamp' in data
+
+
+@pytest.mark.asyncio
+async def test_rate_limit(auth_headers):
+    """レート制限テスト"""
+    async with AsyncClient(app=app, base_url="http://test") as client:
+        # 11回リクエスト（制限は10/分）
+        for i in range(11):
+            response = await client.post(
+                "/api/v1/help/chat",
+                headers=auth_headers,
+                json={'message': f'テスト{i}', 'language': 'ja'}
+            )
+            
+            if i < 10:
+                assert response.status_code == 200
+            else:
+                assert response.status_code == 429  # Too Many Requests
+```
+
+### app/main.py
+
+```python
+"""
+FastAPIアプリケーションエントリポイント
+"""
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
+from app.api.v1.endpoints import help
+from app.core.cache import redis_client
+from app.db.session import close_db
+import logging
+
+# ロギング設定
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    アプリケーションライフサイクル管理
+    起動時と終了時の処理を定義
+    """
+    # 起動時処理
+    logger.info("Starting up...")
+    await redis_client.connect()
+    yield
+    # 終了時処理
+    logger.info("Shutting down...")
+    await redis_client.disconnect()
+    await close_db()
+
+
+# FastAPIアプリケーション作成
+app = FastAPI(
+    title="YadOPERA API",
+    description="宿泊施設管理システムAPI",
+    version="0.3.9",
+    lifespan=lifespan
+)
+
+# CORS設定
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "https://admin.yadopera.com"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ルーター登録
+app.include_router(help.router, prefix="/api/v1/help", tags=["help"])
+
+
+@app.get("/")
+async def root():
+    """ヘルスチェック"""
+    return {"status": "ok", "message": "YadOPERA API is running"}
+
+
+@app.get("/health")
+async def health_check():
+    """詳細ヘルスチェック"""
+    return {
+        "status": "healthy",
+        "redis": "connected" if redis_client.redis else "disconnected"
+    }
+```
+
+---
+
+## 10. デプロイメント設定
+
+### requirements.txt
+
+```txt
+# FastAPI
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy[asyncio]==2.0.25
+asyncpg==0.29.0
+alembic==1.13.1
+
+# OpenAI
+openai==1.10.0
+
+# Redis
+redis[hiredis]==5.0.1
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
+
+# Validation
+pydantic==2.5.3
+pydantic-settings==2.1.0
+email-validator==2.1.0
+
+# Utils
+python-dotenv==1.0.0
+httpx==0.26.0
+
+# Testing
+pytest==7.4.4
+pytest-asyncio==0.23.3
+pytest-cov==4.1.0
+```
+
+### .env.example
+
+```bash
+# Database
+DATABASE_URL=postgresql+asyncpg://user:password@localhost:5432/yadopera
+
+# Redis
+REDIS_URL=redis://localhost:6379/0
+
+# OpenAI
+OPENAI_API_KEY=sk-...
+
+# JWT
+JWT_SECRET_KEY=your-secret-key-here
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_DAYS=7
+
+# Environment
+ENVIRONMENT=development
+DEBUG=True
+```
+
+### docker-compose.yml
+
+```yaml
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:password@db:5432/yadopera
+      - REDIS_URL=redis://redis:6379/0
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      - db
+      - redis
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: yadopera
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  postgres_data:
+  redis_data:
+```
+
+### Dockerfile
+
+```dockerfile
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 依存パッケージインストール
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# アプリケーションコピー
+COPY . .
+
+# ポート公開
+EXPOSE 8000
+
+# アプリケーション起動
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+```
+
+---
+
+## まとめ
+
+このドキュメントでは、Phase 2統合ヘルプシステムのBackend実装を完全に網羅しました。
+
+### 実装内容
+1. **データベース**: 2テーブル設計 + 初期FAQデータ30項目
+2. **サービス層**: FAQ管理 + AIチャットサービス
+3. **API**: 3エンドポイント（FAQ一覧、検索、チャット）
+4. **OpenAI統合**: GPT-4o-mini使用
+5. **キャッシュ**: Redis活用
+6. **エラーハンドリング**: カスタム例外 + レート制限
+7. **テスト**: 単体・統合テスト完備
+8. **デプロイ**: Docker Compose構成
+
+### 次のステップ
+- Frontend実装（Vue.js 3）
+- 統合テスト
+- Staging環境デプロイ
+- PoC実施
+
+**実装期間**: Backend部分は2日間で完了可能 'setup',
+            'intent_key': 'setup_account_creation',
+            'display_order': 100,
+            'translations': {
+                'ja': {
+                    'question': 'アカウント作成の手順は?',
+                    'answer': '管理画面トップページから「新規登録」をクリックし、メールアドレス・パスワード・施設情報を入力してください。メール認証後、ログインできます。',
+                    'keywords': 'アカウント作成,新規登録,サインアップ,初期設定',
+                    'related_url': '/admin/register'
+                },
+                'en': {
+                    'question': 'How to create an account?',
+                    'answer': 'Click "Sign Up" from the top page, enter your email, password, and facility information. After email verification, you can log in.',
+                    'keywords': 'account creation,sign up,registration,initial setup',
+                    'related_url': '/admin/register'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_facility_registration',
+            'display_order': 110,
+            'translations': {
+                'ja': {
+                    'question': '施設情報はどこで登録しますか?',
+                    'answer': 'ログイン後、「設定」→「施設情報」から登録・編集できます。施設名、住所、電話番号、チェックイン/アウト時間などを設定してください。',
+                    'keywords': '施設情報,施設登録,設定,プロフィール',
+                    'related_url': '/admin/settings/facility'
+                },
+                'en': {
+                    'question': 'Where to register facility information?',
+                    'answer': 'After login, go to "Settings" → "Facility Info". You can set facility name, address, phone number, check-in/out times, etc.',
+                    'keywords': 'facility info,registration,settings,profile',
+                    'related_url': '/admin/settings/facility'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_first_steps',
+            'display_order': 120,
+            'translations': {
+                'ja': {
+                    'question': '初回ログイン後にまずやるべきことは?',
+                    'answer': '1. 施設情報の登録、2. 基本FAQの登録（10問程度）、3. QRコードの生成・印刷、4. テスト用にQRコードをスキャンして動作確認、の順で進めてください。',
+                    'keywords': '初回ログイン,はじめに,チュートリアル,スタートガイド',
+                    'related_url': '/admin/dashboard'
+                },
+                'en': {
+                    'question': 'What to do after first login?',
+                    'answer': '1. Register facility info, 2. Add basic FAQs (about 10), 3. Generate and print QR code, 4. Test by scanning QR code.',
+                    'keywords': 'first login,getting started,tutorial,start guide',
+                    'related_url': '/admin/dashboard'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_staff_accounts',
+            'display_order': 130,
+            'translations': {
+                'ja': {
+                    'question': 'スタッフアカウントを追加できますか?',
+                    'answer': '「設定」→「スタッフ管理」から追加できます。メールアドレスを登録すると、招待メールが送信されます。権限は「管理者」「編集者」「閲覧者」から選択可能です。',
+                    'keywords': 'スタッフ追加,ユーザー管理,権限,招待',
+                    'related_url': '/admin/settings/staff'
+                },
+                'en': {
+                    'question': 'Can I add staff accounts?',
+                    'answer': 'Go to "Settings" → "Staff Management". Register email and invitation will be sent. Roles: Admin, Editor, Viewer.',
+                    'keywords': 'add staff,user management,permissions,invitation',
+                    'related_url': '/admin/settings/staff'
+                }
+            }
+        },
+        {
+            'category': 'setup',
+            'intent_key': 'setup_password_reset',
+            'display_order': 140,
+            'translations': {
+                'ja': {
+                    'question': 'パスワードを忘れた場合は?',
+                    'answer': 'ログイン画面の「パスワードを忘れた方」リンクから、登録メールアドレスを入力してください。パスワードリセット用のリンクが送信されます。',
+                    'keywords': 'パスワード忘れ,リセット,再設定,ログインできない',
+                    'related_url': '/admin/password-reset'
+                },
+                'en': {
+                    'question': 'Forgot password?',
+                    'answer': 'Click "Forgot password?" on login page, enter your email. Password reset link will be sent.',
+                    'keywords': 'forgot password,reset,recovery,cannot login',
+                    'related_url': '/admin/password-reset'
+                }
+            }
+        },
+
+        # カテゴリ: qrcode（QRコード） - 4項目
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_placement',
+            'display_order': 200,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードはどこに貼るのがベストですか?',
+                    'answer': 'フロント受付、客室内のテーブル、エレベーター前など、ゲストが立ち止まりやすい場所がおすすめです。A4サイズで印刷し、目線の高さに掲示してください。',
+                    'keywords': 'QRコード設置場所,掲示場所,配置,おすすめ',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Best place to put QR code?',
+                    'answer': 'Front desk, in-room tables, elevator area are recommended. Print in A4 size at eye level.',
+                    'keywords': 'QR code placement,location,position,best practice',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_multiple',
+            'display_order': 210,
+            'translations': {
+                'ja': {
+                    'question': '複数のQRコードを使い分けられますか?',
+                    'answer': '現在は1施設1つのQRコードです。将来的には客室タイプ別・言語別QRコードに対応予定です。',
+                    'keywords': '複数QRコード,使い分け,客室別,言語別',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Can I use multiple QR codes?',
+                    'answer': 'Currently one QR code per facility. Room-type specific and language-specific codes are planned.',
+                    'keywords': 'multiple QR codes,room specific,language specific',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_print_size',
+            'display_order': 220,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードの印刷サイズの推奨は?',
+                    'answer': 'A4サイズ（210×297mm）を推奨します。スマートフォンで3m以内から読み取れるサイズです。',
+                    'keywords': 'QRコード印刷,サイズ,推奨サイズ,A4',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'Recommended QR code print size?',
+                    'answer': 'A4 size (210×297mm) is recommended. Readable from 3m with smartphone.',
+                    'keywords': 'QR code print,size,recommended size,A4',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+        {
+            'category': 'qrcode',
+            'intent_key': 'qrcode_reissue',
+            'display_order': 230,
+            'translations': {
+                'ja': {
+                    'question': 'QRコードを再発行したい場合は?',
+                    'answer': '「QRコード管理」→「再発行」ボタンから再生成できます。ただし、旧QRコードは無効化されますのでご注意ください。',
+                    'keywords': 'QRコード再発行,再生成,更新,変更',
+                    'related_url': '/admin/qrcode'
+                },
+                'en': {
+                    'question': 'How to reissue QR code?',
+                    'answer': 'Go to "QR Code Management" → "Reissue". Note that old QR code will be invalidated.',
+                    'keywords': 'QR code reissue,regenerate,update,change',
+                    'related_url': '/admin/qrcode'
+                }
+            }
+        },
+
+        # カテゴリ: faq_management（FAQ管理） - 5項目
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_template_usage',
+            'display_order': 300,
+            'translations': {
+                'ja': {
+                    'question': 'FAQテンプレートの使い方は?',
+                    'answer': '「FAQ管理」→「テンプレートから追加」で、宿泊施設向けの一般的なFAQ（Wi-Fi、チェックイン時間など）を一括登録できます。',
+                    'keywords': 'FAQテンプレート,一括登録,初期FAQ,サンプル',
+                    'related_url': '/admin/faqs/templates'
+                },
+                'en': {
+                    'question': 'How to use FAQ templates?',
+                    'answer': 'Go to "FAQ Management" → "Add from Template" to bulk-add common FAQs (Wi-Fi, check-in time, etc.).',
+                    'keywords': 'FAQ template,bulk add,initial FAQ,sample',
+                    'related_url': '/admin/faqs/templates'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_add_custom',
+            'display_order': 310,
+            'translations': {
+                'ja': {
+                    'question': '自分でFAQを追加する方法は?',
+                    'answer': '「FAQ管理」→「新規FAQ追加」から、質問文・回答文・カテゴリを入力して保存してください。優先度を高く設定すると、AI回答時に優先されます。',
+                    'keywords': 'FAQ追加,新規作成,独自FAQ,カスタム',
+                    'related_url': '/admin/faqs/new'
+                },
+                'en': {
+                    'question': 'How to add custom FAQ?',
+                    'answer': 'Go to "FAQ Management" → "Add New FAQ", enter question, answer, and category. Higher priority FAQs are preferred by AI.',
+                    'keywords': 'add FAQ,create new,custom FAQ',
+                    'related_url': '/admin/faqs/new'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_priority',
+            'display_order': 320,
+            'translations': {
+                'ja': {
+                    'question': 'FAQの優先度とは何ですか?',
+                    'answer': '優先度が高いFAQは、AI回答時に優先的に参照されます。重要な情報（チェックイン時間、Wi-Fiパスワードなど）は優先度を高く設定してください。',
+                    'keywords': 'FAQ優先度,重要度,ランク,設定',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'What is FAQ priority?',
+                    'answer': 'Higher priority FAQs are preferred by AI. Set high priority for important info (check-in time, Wi-Fi password, etc.).',
+                    'keywords': 'FAQ priority,importance,rank,settings',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_categorization',
+            'display_order': 330,
+            'translations': {
+                'ja': {
+                    'question': 'カテゴリはどう分けるべきですか?',
+                    'answer': '「施設情報」「客室」「食事」「周辺観光」「アクセス」など、ゲストの質問傾向に応じて分類してください。1カテゴリ5-10問が目安です。',
+                    'keywords': 'FAQカテゴリ,分類,整理,おすすめ',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'How to categorize FAQs?',
+                    'answer': 'Categorize by guest question trends: Facility Info, Rooms, Dining, Sightseeing, Access. 5-10 FAQs per category is recommended.',
+                    'keywords': 'FAQ categories,classification,organization,best practice',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'faq_management',
+            'intent_key': 'faq_bulk_import',
+            'display_order': 340,
+            'translations': {
+                'ja': {
+                    'question': 'FAQを一括登録できますか?',
+                    'answer': 'CSV/Excelファイルでの一括インポート機能は開発中です。現在はテンプレート利用または手動登録をお願いします。',
+                    'keywords': 'FAQ一括登録,インポート,CSV,Excel',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'Can I bulk import FAQs?',
+                    'answer': 'CSV/Excel bulk import is under development. Please use templates or manual entry for now.',
+                    'keywords': 'FAQ bulk import,CSV,Excel',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+
+        # カテゴリ: ai_logic（AI仕組み） - 4項目
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_how_it_works',
+            'display_order': 400,
+            'translations': {
+                'ja': {
+                    'question': 'AIはどうやって質問に答えていますか?',
+                    'answer': 'OpenAI GPT-4oを使用し、登録されたFAQから最適な回答を生成します。ゲストの質問意図を理解し、自然な会話形式で回答します。',
+                    'keywords': 'AI仕組み,回答生成,GPT,仕組み',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'How does AI answer questions?',
+                    'answer': 'Uses OpenAI GPT-4o to generate answers from registered FAQs. Understands guest intent and responds naturally.',
+                    'keywords': 'AI mechanism,answer generation,GPT,how it works',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_accuracy_improvement',
+            'display_order': 410,
+            'translations': {
+                'ja': {
+                    'question': 'AIの回答精度を上げるには?',
+                    'answer': 'FAQを充実させること、キーワードを適切に設定すること、ログから「答えられなかった質問」を確認して追加することが効果的です。',
+                    'keywords': 'AI精度向上,改善,最適化,品質',
+                    'related_url': '/admin/faqs'
+                },
+                'en': {
+                    'question': 'How to improve AI accuracy?',
+                    'answer': 'Enrich FAQs, set appropriate keywords, review unanswered questions from logs and add them.',
+                    'keywords': 'AI accuracy,improvement,optimization,quality',
+                    'related_url': '/admin/faqs'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_supported_languages',
+            'display_order': 420,
+            'translations': {
+                'ja': {
+                    'question': '対応言語は何語ですか?',
+                    'answer': '現在、日本語・英語・中国語（簡体字/繁体字）・韓国語に対応しています。ゲストの質問言語を自動検出し、同じ言語で回答します。',
+                    'keywords': '対応言語,多言語,翻訳,Language',
+                    'related_url': '/admin/settings/language'
+                },
+                'en': {
+                    'question': 'What languages are supported?',
+                    'answer': 'Currently supports Japanese, English, Chinese (Simplified/Traditional), Korean. Auto-detects guest language and responds accordingly.',
+                    'keywords': 'supported languages,multilingual,translation',
+                    'related_url': '/admin/settings/language'
+                }
+            }
+        },
+        {
+            'category': 'ai_logic',
+            'intent_key': 'ai_limitations',
+            'display_order': 430,
+            'translations': {
+                'ja': {
+                    'question': 'AIが答えられない質問はありますか?',
+                    'answer': 'FAQに登録されていない内容や、リアルタイムの空室状況などは回答できません。その場合、スタッフへの問い合わせ案内を表示します。',
+                    'keywords': 'AI制限,答えられない,対応範囲,限界',
+                    'related_url': '/admin/help'
+                },
+                'en': {
+                    'question': 'Are there questions AI cannot answer?',
+                    'answer': 'Cannot answer unregistered FAQs or real-time availability. In such cases, directs guests to contact staff.',
+                    'keywords': 'AI limitations,cannot answer,coverage,limits',
+                    'related_url': '/admin/help'
+                }
+            }
+        },
+
+        # カテゴリ: logs（ログ分析） - 3項目
+        {
+            'category': 'logs',
+            'intent_key': 'logs_view_history',
+            'display_order': 500,
+            'translations': {
+                'ja': {
+                    'question': 'ゲストの質問履歴はどこで見られますか?',
+                    'answer': '「ログ分析」→「質問履歴」から確認できます。日付・カテゴリ・キーワードで絞り込み可能です。',
+                    'keywords': 'ログ確認,質問履歴,履歴閲覧,分析',
+                    'related_url': '/admin/logs'
+                },
+                'en': {
+                    'question': 'Where to view guest question history?',
+                    'answer': 'Go to "Log Analysis" → "Question History". Filter by date, category, and keywords.',
+                    'keywords': 'view logs,question history,analysis',
+                    'related_url': '/admin/logs'
+                }
+            }
+        },
+        {
+            'category':

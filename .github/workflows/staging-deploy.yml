@@ -1,5 +1,6 @@
 # ステージング環境自動デプロイワークフロー
 # developブランチへのプッシュ時に自動デプロイ
+# テストがパスした場合のみデプロイを実行
 
 name: Staging Deploy
 
@@ -12,28 +13,59 @@ on:
       - develop
 
 jobs:
-  deploy-backend:
-    name: Deploy Backend to Render.com
+  test:
+    name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Setup Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
+          cache: 'pip'
       
       - name: Install dependencies
         run: |
           cd backend
+          pip install --upgrade pip
           pip install -r requirements.txt
       
-      - name: Run tests
+      - name: Run tests with coverage
         run: |
           cd backend
-          pytest tests/ -v
-        continue-on-error: true  # テスト失敗でもデプロイを続行（オプション）
+          pytest tests/ -v --cov=app --cov-report=xml --cov-report=html --cov-report=term
+        env:
+          USE_POSTGRES_TEST: 'false'  # SQLiteを使用（高速）
+          USE_OPENAI_MOCK: 'true'  # OpenAI APIをモック（コスト削減）
+      
+      - name: Upload coverage reports
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./backend/coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false  # カバレッジレポートのアップロード失敗でCIを失敗させない
+      
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results
+          path: |
+            backend/coverage.xml
+            backend/htmlcov/
+          retention-days: 7
+
+  deploy-backend:
+    name: Deploy Backend to Render.com
+    runs-on: ubuntu-latest
+    needs: test  # テストがパスした場合のみデプロイを実行
+    if: github.event_name == 'push'  # プルリクエストではデプロイしない
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
       
       - name: Deploy to Render.com
         run: |
