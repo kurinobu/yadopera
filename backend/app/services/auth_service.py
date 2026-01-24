@@ -3,6 +3,8 @@
 認証ビジネスロジック
 """
 
+from __future__ import annotations
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime
@@ -16,7 +18,7 @@ from app.schemas.faq import FAQRequest
 from app.services.faq_service import FAQService
 from app.data.faq_presets import FAQ_PRESETS
 from app.core.plan_limits import filter_faq_presets_by_plan
-from fastapi import HTTPException, status, BackgroundTasks
+from fastapi import HTTPException, status, BackgroundTasks, Request
 from typing import Optional
 import logging
 
@@ -167,7 +169,8 @@ class AuthService:
     @staticmethod
     async def login(
         db: AsyncSession,
-        login_data: LoginRequest
+        login_data: LoginRequest,
+        request: Optional["Request"] = None
     ) -> LoginResponse:
         """
         ログイン処理
@@ -175,6 +178,7 @@ class AuthService:
         Args:
             db: データベースセッション
             login_data: ログインリクエストデータ
+            request: リクエストオブジェクト（IPアドレス、User-Agent取得用）
             
         Returns:
             ログインレスポンス
@@ -196,6 +200,19 @@ class AuthService:
         user.last_login_at = datetime.utcnow()
         await db.commit()
         await db.refresh(user)
+        
+        # 管理者ログインログ記録（非同期）
+        if request:
+            from app.models.admin_activity_log import AdminActivityLog
+            activity_log = AdminActivityLog(
+                user_id=user.id,
+                facility_id=user.facility_id,
+                action_type="login",
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent")
+            )
+            db.add(activity_log)
+            await db.commit()
         
         # JWTトークン生成
         # JWT仕様（RFC 7519）に準拠: subフィールドは文字列であるべき

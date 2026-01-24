@@ -108,6 +108,20 @@ class ChatService:
         self.db.add(ai_message)
         await self.db.flush()
         
+        # FAQ閲覧ログ記録（非同期）
+        if rag_response.matched_faq_ids:
+            from app.models.faq_view_log import FAQViewLog
+            for faq_id in rag_response.matched_faq_ids:
+                faq_view_log = FAQViewLog(
+                    faq_id=faq_id,
+                    facility_id=conversation.facility_id,
+                    conversation_id=conversation.id,
+                    message_id=ai_message.id,
+                    guest_language=conversation.guest_language
+                )
+                self.db.add(faq_view_log)
+            await self.db.commit()
+        
         # エスカレーション処理
         escalation_id = None
         if rag_response.escalation.needed:

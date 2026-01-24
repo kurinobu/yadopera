@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     # CORS (comma-separated string to List[str])
     cors_origins: str = "http://localhost:5173,http://localhost:3000"
     
+    # Developer Management Page (Phase 2)
+    developer_password: str = ""  # 開発者ログインパスワード（環境変数から取得）
+    developer_session_expire_hours: int = 24  # セッション有効期限（時間）
+    
     @property
     def cors_origins_list(self) -> List[str]:
         """CORS originsをリストに変換"""

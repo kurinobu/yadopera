@@ -20,6 +20,9 @@ from app.models.processed_feedback import ProcessedFeedback
 from app.models.faq_suggestion import FAQSuggestion
 from app.models.qr_code import QRCode
 from app.models.operator_help import OperatorFaq, OperatorFaqTranslation
+from app.models.error_log import ErrorLog
+from app.models.admin_activity_log import AdminActivityLog
+from app.models.faq_view_log import FAQViewLog
 
 __all__ = [
     "Base",
@@ -41,5 +44,8 @@ __all__ = [
     "QRCode",
     "OperatorFaq",
     "OperatorFaqTranslation",
+    "ErrorLog",
+    "AdminActivityLog",
+    "FAQViewLog",
 ]
 
