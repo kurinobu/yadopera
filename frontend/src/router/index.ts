@@ -164,7 +164,7 @@ router.onError((error) => {
 })
 
 // ナビゲーション後のエラーハンドラー
-router.afterEach((to, from, failure) => {
+router.afterEach((to, _from, failure) => {
   if (failure) {
     console.warn('Navigation cancelled or failed:', failure)
     
