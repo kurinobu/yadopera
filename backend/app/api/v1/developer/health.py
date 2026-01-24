@@ -32,7 +32,7 @@ async def system_health(
     try:
         start = time.time()
         result = await db.execute(text("SELECT 1"))
-        await result.scalar()  # 結果を取得
+        result.scalar()  # 結果を取得（await不要：scalar()は同期的メソッド）
         db_time = (time.time() - start) * 1000
         health_status["database"] = HealthStatusResponse(
             status="ok",

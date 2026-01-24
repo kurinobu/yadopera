@@ -54,24 +54,37 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   // 開発者ページの認証チェック
   const requiresDeveloperAuth = to.matched.some(record => record.meta.requiresDeveloperAuth)
   if (requiresDeveloperAuth) {
-    // 開発者ストアを初期化
-    developerStore.initAuth()
-    
-    if (!developerStore.isAuthenticated) {
-      // 開発者認証が必要なページに未認証でアクセスした場合
+    try {
+      // 開発者ストアを初期化
+      developerStore.initAuth()
+      
+      if (!developerStore.isAuthenticated) {
+        // 開発者認証が必要なページに未認証でアクセスした場合
+        console.info('Developer authentication required, redirecting to login')
+        return next({
+          name: 'DeveloperLogin',
+          query: { redirect: to.fullPath }
+        })
+      }
+      
+      // 開発者ログインページで既に認証済みの場合
+      if (to.name === 'DeveloperLogin' && developerStore.isAuthenticated) {
+        console.info('Developer already authenticated, redirecting to dashboard')
+        return next({ name: 'DeveloperDashboard' })
+      }
+      
+      // 開発者ページの場合は、通常の認証チェックをスキップ
+      return next()
+    } catch (error) {
+      // 開発者認証処理でエラーが発生した場合
+      console.error('Error in developer authentication guard:', error)
+      
+      // エラーが発生した場合はログインページにリダイレクト
       return next({
         name: 'DeveloperLogin',
-        query: { redirect: to.fullPath }
+        query: { redirect: to.fullPath, error: 'auth_error' }
       })
     }
-    
-    // 開発者ログインページで既に認証済みの場合
-    if (to.name === 'DeveloperLogin' && developerStore.isAuthenticated) {
-      return next({ name: 'DeveloperDashboard' })
-    }
-    
-    // 開発者ページの場合は、通常の認証チェックをスキップ
-    return next()
   }
   
   // ゲスト側のルート（/f/:facilityId）にアクセスした際、localStorageに施設URLを保存
@@ -124,6 +137,49 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   
   // その他は通常通り遷移
   next()
+})
+
+// グローバルナビゲーションエラーハンドラー
+router.onError((error) => {
+  console.error('Vue Router navigation error:', error)
+  
+  // ルートが見つからないエラーの場合
+  if (error.message.includes('No match')) {
+    console.warn('Route not found, redirecting to appropriate fallback')
+    
+    // 開発者ページでエラーが発生した場合はダッシュボードにリダイレクト
+    if (window.location.pathname.startsWith('/developer')) {
+      router.push('/developer/dashboard').catch(fallbackError => {
+        console.error('Fallback navigation failed:', fallbackError)
+        // 最終的なフォールバック：ログインページ
+        window.location.href = '/developer/login'
+      })
+    } else {
+      // その他の場合は404ページ
+      router.push('/404').catch(fallbackError => {
+        console.error('404 navigation failed:', fallbackError)
+      })
+    }
+  }
+})
+
+// ナビゲーション後のエラーハンドラー
+router.afterEach((to, from, failure) => {
+  if (failure) {
+    console.warn('Navigation cancelled or failed:', failure)
+    
+    // 開発者ページでナビゲーション失敗した場合の処理
+    if (to.path.startsWith('/developer') && failure.type === 4 /* NavigationFailureType.aborted */) {
+      console.info('Developer navigation aborted, attempting fallback')
+      
+      // ダッシュボードへのフォールバック
+      setTimeout(() => {
+        router.push('/developer/dashboard').catch(error => {
+          console.error('Fallback navigation error:', error)
+        })
+      }, 100)
+    }
+  }
 })
 
 export default router

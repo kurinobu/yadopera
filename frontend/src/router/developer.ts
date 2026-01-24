@@ -47,6 +47,15 @@ export const developerRoutes: RouteRecordRaw[] = [
       layout: 'developer',
       requiresDeveloperAuth: true
     }
+  },
+  {
+    path: '/developer/health',
+    name: 'DeveloperSystemHealth',
+    component: () => import('@/views/developer/SystemHealth.vue'),
+    meta: {
+      layout: 'developer',
+      requiresDeveloperAuth: true
+    }
   }
 ]
 

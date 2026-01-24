@@ -13,14 +13,23 @@
             <router-link
               :to="{ name: 'DeveloperDashboard' }"
               class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              @click.prevent="navigateTo('DeveloperDashboard')"
             >
               ダッシュボード
             </router-link>
             <router-link
               :to="{ name: 'DeveloperErrorLogs' }"
               class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              @click.prevent="navigateTo('DeveloperErrorLogs')"
             >
               エラーログ
+            </router-link>
+            <router-link
+              :to="{ name: 'DeveloperSystemHealth' }"
+              class="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+              @click.prevent="navigateTo('DeveloperSystemHealth')"
+            >
+              システムヘルス
             </router-link>
             <button
               @click="handleLogout"
@@ -47,9 +56,41 @@ import { useDeveloperStore } from '@/stores/developer'
 const router = useRouter()
 const developerStore = useDeveloperStore()
 
-const handleLogout = () => {
-  developerStore.logout()
-  router.push({ name: 'DeveloperLogin' })
+const navigateTo = async (routeName: string) => {
+  try {
+    await router.push({ name: routeName })
+  } catch (error) {
+    console.error(`Navigation to ${routeName} failed:`, error)
+    
+    // フォールバック：パスベースでのナビゲーション
+    const routeMap: Record<string, string> = {
+      'DeveloperDashboard': '/developer/dashboard',
+      'DeveloperErrorLogs': '/developer/errors',
+      'DeveloperSystemHealth': '/developer/health'
+    }
+    
+    const fallbackPath = routeMap[routeName]
+    if (fallbackPath) {
+      try {
+        await router.push(fallbackPath)
+      } catch (fallbackError) {
+        console.error(`Fallback navigation to ${fallbackPath} failed:`, fallbackError)
+        // 最終フォールバック：ページリロード
+        window.location.href = fallbackPath
+      }
+    }
+  }
+}
+
+const handleLogout = async () => {
+  try {
+    developerStore.logout()
+    await router.push({ name: 'DeveloperLogin' })
+  } catch (error) {
+    console.error('Logout navigation error:', error)
+    // フォールバック：直接リダイレクト
+    window.location.href = '/developer/login'
+  }
 }
 </script>
 

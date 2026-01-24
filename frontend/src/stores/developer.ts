@@ -14,13 +14,21 @@ export const useDeveloperStore = defineStore('developer', () => {
     if (!token.value) {
       return false
     }
-    // トークンの有効期限をチェック
-    if (isDeveloperTokenExpired()) {
-      // 期限切れの場合はログアウト
-      logoutDeveloper()
+    
+    try {
+      // トークンの有効期限をチェック
+      if (isDeveloperTokenExpired()) {
+        // 期限切れの場合はログアウト
+        console.info('Developer token expired, logging out')
+        logoutDeveloper()
+        return false
+      }
+      return true
+    } catch (error) {
+      // エラーが発生した場合は認証失敗とみなす
+      console.warn('Error checking developer authentication:', error)
       return false
     }
-    return true
   })
 
   // Actions
@@ -53,19 +61,34 @@ export const useDeveloperStore = defineStore('developer', () => {
 
   function initAuth() {
     try {
+      // ブラウザ環境でない場合は何もしない
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        console.warn('Cannot initialize auth: not in browser environment')
+        return
+      }
+
       const storedToken = localStorage.getItem('developer_token')
       if (storedToken) {
-        // トークンの有効期限をチェック
-        if (isDeveloperTokenExpired()) {
-          // 期限切れの場合は削除
+        try {
+          // トークンの有効期限をチェック
+          if (isDeveloperTokenExpired()) {
+            // 期限切れの場合は削除
+            console.info('Stored developer token expired, removing')
+            localStorage.removeItem('developer_token')
+            token.value = null
+          } else {
+            console.info('Developer token loaded from storage')
+            token.value = storedToken
+          }
+        } catch (tokenError) {
+          console.warn('Error checking stored token, removing:', tokenError)
           localStorage.removeItem('developer_token')
           token.value = null
-        } else {
-          token.value = storedToken
         }
       }
     } catch (error) {
       console.warn('Failed to access localStorage, continuing without auth:', error)
+      token.value = null
     }
   }
 

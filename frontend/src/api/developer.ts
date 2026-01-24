@@ -16,29 +16,40 @@ const DEVELOPER_API_BASE = '/developer'
 
 // 開発者用のAPIクライアント（認証トークンを手動で設定）
 const getDeveloperApiClient = () => {
-  const token = localStorage.getItem('developer_token')
-  if (!token) {
-    throw new Error('Developer token not found')
-  }
-  
-  // トークンの有効期限をチェック
-  if (isDeveloperTokenExpired()) {
-    logoutDeveloper()
-    throw new Error('Developer token expired')
-  }
-  
-  // 既存のapiClientを使用し、Authorizationヘッダーを追加
-  const config = {
-    headers: {
-      Authorization: `Bearer ${token}`
+  try {
+    // ブラウザ環境でない場合はエラー
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+      throw new Error('API client not available in non-browser environment')
     }
-  }
-  
-  return {
-    get: (url: string, options?: any) => apiClient.get(`${DEVELOPER_API_BASE}${url}`, { ...config, ...options }),
-    post: (url: string, data?: any, options?: any) => apiClient.post(`${DEVELOPER_API_BASE}${url}`, data, { ...config, ...options }),
-    put: (url: string, data?: any, options?: any) => apiClient.put(`${DEVELOPER_API_BASE}${url}`, data, { ...config, ...options }),
-    delete: (url: string, options?: any) => apiClient.delete(`${DEVELOPER_API_BASE}${url}`, { ...config, ...options })
+
+    const token = localStorage.getItem('developer_token')
+    if (!token) {
+      throw new Error('Developer token not found')
+    }
+    
+    // トークンの有効期限をチェック
+    if (isDeveloperTokenExpired()) {
+      console.warn('Developer token expired during API call')
+      logoutDeveloper()
+      throw new Error('Developer token expired')
+    }
+    
+    // 既存のapiClientを使用し、Authorizationヘッダーを追加
+    const config = {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    }
+    
+    return {
+      get: (url: string, options?: any) => apiClient.get(`${DEVELOPER_API_BASE}${url}`, { ...config, ...options }),
+      post: (url: string, data?: any, options?: any) => apiClient.post(`${DEVELOPER_API_BASE}${url}`, data, { ...config, ...options }),
+      put: (url: string, data?: any, options?: any) => apiClient.put(`${DEVELOPER_API_BASE}${url}`, data, { ...config, ...options }),
+      delete: (url: string, options?: any) => apiClient.delete(`${DEVELOPER_API_BASE}${url}`, { ...config, ...options })
+    }
+  } catch (error) {
+    console.error('Error creating developer API client:', error)
+    throw error
   }
 }
 
