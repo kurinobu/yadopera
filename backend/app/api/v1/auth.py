@@ -2,7 +2,7 @@
 認証APIエンドポイント
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
@@ -18,6 +18,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/login", response_model=LoginResponse)
 async def login(
     login_data: LoginRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -28,7 +29,7 @@ async def login(
     
     成功時はJWTアクセストークンを返却
     """
-    return await AuthService.login(db, login_data)
+    return await AuthService.login(db, login_data, request)
 
 
 @router.post("/register", response_model=LoginResponse)

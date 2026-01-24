@@ -14,6 +14,7 @@ API v1 ルーター統合
 from fastapi import APIRouter
 from app.api.v1 import auth, session, facility, chat, health, help
 from app.api.v1.admin import dashboard, faqs, faq_suggestions, overnight_queue, qr_code, escalations, feedback, facility as admin_facility, facilities, users
+from app.api.v1.developer import developer_router
 
 # API v1 ルーター作成
 api_router = APIRouter()
@@ -36,4 +37,5 @@ api_router.include_router(feedback.router, tags=["admin"])
 api_router.include_router(admin_facility.router, tags=["admin"])
 api_router.include_router(facilities.router, tags=["admin"])
 api_router.include_router(users.router, tags=["admin"])
+api_router.include_router(developer_router)
 

@@ -2,7 +2,7 @@
 FAQ管理APIエンドポイント
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -83,6 +83,7 @@ async def get_faqs(
 @router.post("", response_model=FAQResponse, status_code=status.HTTP_201_CREATED)
 async def create_faq(
     request: FAQRequest,
+    http_request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -118,6 +119,22 @@ async def create_faq(
             user_id=current_user.id
         )
         
+        # アクティビティログ記録（非同期）
+        from app.models.admin_activity_log import AdminActivityLog
+        question_preview = request.translations[0].question[:50] if request.translations else 'N/A'
+        activity_log = AdminActivityLog(
+            user_id=current_user.id,
+            facility_id=facility_id,
+            action_type="faq_create",
+            target_resource_type="faq",
+            target_resource_id=faq.id,
+            description=f"FAQ作成: {question_preview}...",
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent")
+        )
+        db.add(activity_log)
+        await db.commit()
+        
         return faq
     
     except ValueError as e:
@@ -140,6 +157,7 @@ async def create_faq(
 async def update_faq(
     faq_id: int,
     request: FAQUpdateRequest,
+    http_request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -177,6 +195,22 @@ async def update_faq(
             user_id=current_user.id
         )
         
+        # アクティビティログ記録（非同期）
+        from app.models.admin_activity_log import AdminActivityLog
+        question_preview = request.translations[0].question[:50] if request.translations and len(request.translations) > 0 else 'N/A'
+        activity_log = AdminActivityLog(
+            user_id=current_user.id,
+            facility_id=facility_id,
+            action_type="faq_update",
+            target_resource_type="faq",
+            target_resource_id=faq_id,
+            description=f"FAQ更新: {question_preview}...",
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent")
+        )
+        db.add(activity_log)
+        await db.commit()
+        
         return faq
     
     except ValueError as e:
@@ -198,6 +232,7 @@ async def update_faq(
 @router.delete("/{faq_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_faq(
     faq_id: int,
+    http_request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -223,6 +258,21 @@ async def delete_faq(
             faq_id=faq_id,
             facility_id=facility_id
         )
+        
+        # アクティビティログ記録（非同期）
+        from app.models.admin_activity_log import AdminActivityLog
+        activity_log = AdminActivityLog(
+            user_id=current_user.id,
+            facility_id=facility_id,
+            action_type="faq_delete",
+            target_resource_type="faq",
+            target_resource_id=faq_id,
+            description=f"FAQ削除: FAQ ID {faq_id}",
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent")
+        )
+        db.add(activity_log)
+        await db.commit()
         
         return None
     

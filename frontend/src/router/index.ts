@@ -7,7 +7,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
 import { guestRoutes } from './guest'
 import { adminRoutes } from './admin'
+import { developerRoutes } from './developer'
 import { useAuthStore } from '@/stores/auth'
+import { useDeveloperStore } from '@/stores/developer'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -20,6 +22,7 @@ const routes: RouteRecordRaw[] = [
   },
   ...guestRoutes,
   ...adminRoutes,
+  ...developerRoutes,
   {
     path: '/500',
     name: 'Error500',
@@ -46,6 +49,30 @@ const router = createRouter({
 // 認証ガード
 router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
   const authStore = useAuthStore()
+  const developerStore = useDeveloperStore()
+  
+  // 開発者ページの認証チェック
+  const requiresDeveloperAuth = to.matched.some(record => record.meta.requiresDeveloperAuth)
+  if (requiresDeveloperAuth) {
+    // 開発者ストアを初期化
+    developerStore.initAuth()
+    
+    if (!developerStore.isAuthenticated) {
+      // 開発者認証が必要なページに未認証でアクセスした場合
+      return next({
+        name: 'DeveloperLogin',
+        query: { redirect: to.fullPath }
+      })
+    }
+    
+    // 開発者ログインページで既に認証済みの場合
+    if (to.name === 'DeveloperLogin' && developerStore.isAuthenticated) {
+      return next({ name: 'DeveloperDashboard' })
+    }
+    
+    // 開発者ページの場合は、通常の認証チェックをスキップ
+    return next()
+  }
   
   // ゲスト側のルート（/f/:facilityId）にアクセスした際、localStorageに施設URLを保存
   // 常に最新の施設URLを保持する（PWAインストール時にも確実に保存される）

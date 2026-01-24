@@ -7,7 +7,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from typing import Optional
+from typing import Optional, Dict, Any
 from app.database import get_db
 from app.models.user import User
 from app.core.jwt import decode_token
@@ -82,4 +82,43 @@ async def get_current_user(
         )
     
     return user
+
+
+async def get_current_developer(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> Dict[str, Any]:
+    """
+    開発者認証チェック（JWT認証）
+    
+    Args:
+        credentials: HTTPBearer認証情報
+        
+    Returns:
+        認証された開発者のペイロード
+        
+    Raises:
+        HTTPException: 認証失敗時
+    """
+    token = credentials.credentials
+    
+    # トークンデコード
+    payload = decode_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid developer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 開発者トークンかどうかを確認（type='developer'を含む）
+    if payload.get("type") != "developer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid developer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 有効期限チェック（JWTのexpフィールドで自動チェック済み）
+    
+    return payload  # 認証成功時、ペイロード返却
 
