@@ -57,8 +57,5 @@ services:
         source: /sw.js
         destination: /sw.js
       - type: rewrite
-        source: /webauth.html
-        destination: /webauth.html
-      - type: rewrite
         source: /*
         destination: /index.html

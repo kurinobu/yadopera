@@ -1,0 +1,1861 @@
+﻿# YadOPERA 多言語実装計画書
+
+
+**作成日**: 2026年1月24日  
+**対象バージョン**: v0.3.11以降  
+**実装言語**: 繁体中国語（zh-TW）、フランス語（fr）、韓国語（ko）
+
+
+---
+
+
+## 目次
+
+
+1. [実装概要](#1-実装概要)
+2. [現状分析](#2-現状分析)
+3. [実装アプローチ](#3-実装アプローチ)
+4. [データベース設計](#4-データベース設計)
+5. [バックエンド実装](#5-バックエンド実装)
+6. [フロントエンド実装](#6-フロントエンド実装)
+7. [FAQ自動設定実装](#7-faq自動設定実装)
+8. [テスト計画](#8-テスト計画)
+9. [デプロイ計画](#9-デプロイ計画)
+10. [リスクと対策](#10-リスクと対策)
+
+
+---
+
+
+## 1. 実装概要
+
+
+### 1.1 目的
+
+
+新規宿泊施設登録時に、料金プランに応じた多言語FAQを自動設定し、ゲストが選択した言語でAI応答を受けられるようにする。
+
+
+### 1.2 対応言語追加
+
+
+**既存言語**:
+- 日本語（ja）
+- 英語（en）
+
+
+**追加言語**:
+- 繁体中国語（zh-TW）- 台湾・香港向け
+- フランス語（fr）- フランス・ベルギー・スイス向け
+- 韓国語（ko）- 韓国向け
+
+
+### 1.3 料金プランと言語数の対応
+
+
+| プラン | 同時利用言語数 | 想定利用言語 |
+|--------|---------------|-------------|
+| Free | 1言語 | 日本語のみ（選択不可） |
+| Mini | 2言語 | 日本語+英語 |
+| Small | 3言語 | 日本語+英語+繁体中国語 |
+| Standard | 4言語 | 日本語+英語+繁体中国語+フランス語 |
+| Premium | 無制限 | すべての言語 |
+
+
+### 1.4 実装スコープ
+
+
+**Phase 3（PoC実施中）で実装**:
+- FAQ_PRESETSへの3言語追加（繁体中国語・フランス語・韓国語）
+- 新規登録時のFAQ自動設定ロジック修正
+- ゲスト側言語選択UIのプラン対応言語フィルタリング（実装済み）
+- バックエンドAPIの多言語対応強化
+
+
+**実装しない項目**:
+- 既存データベーススキーマ変更（インテントベース構造は実装済み）
+- 既存FAQ翻訳の追加（手動追加のみ）
+- UIテキストの多言語化（英語・日本語のみ維持）
+
+
+---
+
+
+## 2. 現状分析
+
+
+### 2.1 データベース構造（v0.3.5実装済み）
+
+
+```sql
+-- FAQ（インテント）テーブル: 意味単位で管理
+CREATE TABLE faqs (
+    id SERIAL PRIMARY KEY,
+    facility_id INTEGER NOT NULL REFERENCES facilities(id),
+    category VARCHAR(50) NOT NULL,
+    intent_key VARCHAR(100) NOT NULL,  -- 例: 'basic_checkout_time'
+    priority INTEGER DEFAULT 1,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_by INTEGER REFERENCES users(id),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    UNIQUE(facility_id, intent_key)
+);
+
+
+-- FAQ翻訳テーブル: 言語ごとの質問・回答・埋め込みベクトル
+CREATE TABLE faq_translations (
+    id SERIAL PRIMARY KEY,
+    faq_id INTEGER NOT NULL REFERENCES faqs(id) ON DELETE CASCADE,
+    language VARCHAR(10) NOT NULL,  -- 'en', 'ja', 'zh-TW', 'fr', 'ko'
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    embedding vector(1536),  -- OpenAI text-embedding-3-small
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    UNIQUE(faq_id, language)
+);
+```
+
+
+**✅ 評価**: 既存構造で多言語対応可能。スキーマ変更不要。
+
+
+### 2.2 FAQ_PRESETSの現状
+
+
+**ファイル**: `backend/app/data/faq_presets.py`
+
+
+**現状**: 30個のFAQ × 2言語（日本語・英語）= 60翻訳
+
+
+**構造**:
+```python
+FAQ_PRESETS = [
+    {
+        "category": "basic",
+        "intent_key": "basic_quiet_hours",
+        "priority": 5,
+        "translations": [
+            {
+                "language": "ja",
+                "question": "夜間の静音ルールはありますか？",
+                "answer": "22時以降は他のゲストへの配慮をお願いします..."
+            },
+            {
+                "language": "en",
+                "question": "Is there a quiet rule at night?",
+                "answer": "Please keep noise to a minimum after 10:00 PM..."
+            }
+        ]
+    },
+    # ... 29個のFAQ
+]
+```
+
+
+**⚠️ 課題**: 3言語（繁体中国語・フランス語・韓国語）の翻訳が未実装。
+
+
+### 2.3 フロントエンドの言語定数
+
+
+**ファイル**: `frontend/src/utils/constants.ts`
+
+
+```typescript
+export const SUPPORTED_LANGUAGES = [
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'zh-TW', name: '繁體中文', flag: '🇹🇼' },
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },
+  { code: 'es', name: 'Español', flag: '🇪🇸' },
+  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
+  { code: 'ko', name: '한국어', flag: '🇰🇷' },
+  { code: 'th', name: 'ไทย', flag: '🇹🇭' },
+  { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
+] as const
+```
+
+
+**✅ 評価**: 9言語定義済み。ただし実際の利用は2言語のみ。
+
+
+### 2.4 言語選択UIのプラン対応（実装済み）
+
+
+**ファイル**: `frontend/src/views/guest/LanguageSelect.vue`
+
+
+```typescript
+// プランに応じた利用可能言語を取得
+const availableLanguages = response.facility.available_languages || ['en']
+
+
+// SUPPORTED_LANGUAGESから、利用可能な言語のみをフィルタリング
+const filteredLanguages = SUPPORTED_LANGUAGES.filter(lang => 
+  availableLanguages.includes(lang.code)
+)
+```
+
+
+**✅ 評価**: プラン別フィルタリング実装済み。修正不要。
+
+
+### 2.5 FAQ自動設定の現状
+
+
+**ファイル**: `backend/app/services/auth_service.py`
+
+
+```python
+# 料金プランに基づいてFAQプリセットをフィルタ
+filtered_presets = filter_faq_presets_by_plan(
+    FAQ_PRESETS,
+    subscription_plan
+)
+
+
+# プリセットFAQをFAQRequestに変換
+for preset in filtered_presets:
+    faq_request = FAQRequest(
+        category=preset["category"],
+        intent_key=preset["intent_key"],
+        translations=[
+            {
+                "language": t["language"],
+                "question": t["question"],
+                "answer": t["answer"]
+            } for t in preset["translations"]
+        ],
+        priority=preset["priority"],
+        is_active=True
+    )
+```
+
+
+**⚠️ 課題**: プラン別の言語フィルタリングが未実装。全言語の翻訳が登録される。
+
+
+### 2.6 言語数制限バリデーション（実装済み）
+
+
+**ファイル**: `backend/app/services/faq_service.py`
+
+
+```python
+# 言語数制限バリデーション（Premiumプランの場合はスキップ）
+if facility.language_limit is not None:
+    # 既存の言語リストを取得
+    existing_languages = await self._get_facility_languages(facility_id)
+    
+    # 新規登録される言語を取得
+    new_languages = {trans.language for trans in request.translations}
+    
+    # 既存の言語と新規言語を結合
+    all_languages = existing_languages | new_languages
+    
+    # 言語数制限をチェック
+    if len(all_languages) > facility.language_limit:
+        raise ValueError(f"プランの言語数制限に達しています...")
+```
+
+
+**✅ 評価**: FAQ登録時の言語数制限は実装済み。初期設定時のフィルタが必要。
+
+
+---
+
+
+## 3. 実装アプローチ
+
+
+### 3.1 大原則準拠
+
+
+**実装や修正の基本方針**:
+
+
+1. **根本解決 > 暫定解決**: FAQ_PRESETSに3言語を完全追加
+2. **シンプル構造 > 複雑構造**: 既存の翻訳配列に3言語を追加するだけ
+3. **統一・同一化 > 特殊独自**: 既存の日本語・英語と同じ構造で実装
+4. **具体的 > 一般**: 30個のFAQ × 3言語 = 90翻訳を具体的に記載
+5. **拙速 < 安全確実**: 翻訳品質を優先、機械翻訳+ネイティブチェック
+6. **Docker環境必須**: すべての修正・テストはDocker環境で実行
+
+
+### 3.2 実装ステップ概要
+
+
+**ステップ1**: FAQ_PRESETSへの3言語追加（30FAQ × 3言語 = 90翻訳）  
+**ステップ2**: プラン別言語フィルタリングロジック実装  
+**ステップ3**: バックエンド単体テスト  
+**ステップ4**: フロントエンド確認（修正不要の場合はスキップ）  
+**ステップ5**: 統合テスト（Docker環境）  
+**ステップ6**: ブラウザテスト（新規登録フロー）  
+**ステップ7**: ステージング環境デプロイ  
+**ステップ8**: 本番環境デプロイ
+
+
+### 3.3 翻訳方針
+
+
+**優先順位**:
+1. **自然さ**: ネイティブスピーカーが違和感なく読める
+2. **一貫性**: 用語・トーン・文体の統一
+3. **簡潔性**: 200文字以内（英語基準）
+
+
+**翻訳プロセス**:
+1. 日本語・英語を基準に機械翻訳（DeepL Pro推奨）
+2. ネイティブチェック（クラウドソーシング利用）
+3. 宿泊業界用語の確認（チェックイン/アウト等）
+
+
+---
+
+
+## 4. データベース設計
+
+
+### 4.1 スキーマ変更
+
+
+**結論**: **変更不要**
+
+
+既存の`faq_translations`テーブルは`language VARCHAR(10)`で定義済み。  
+`zh-TW`（6文字）、`fr`（2文字）、`ko`（2文字）すべて対応可能。
+
+
+### 4.2 マイグレーション
+
+
+**結論**: **不要**
+
+
+データ投入は`FAQ_PRESETS`経由で行うため、スキーマ変更なし。
+
+
+---
+
+
+## 5. バックエンド実装
+
+
+### 5.1 FAQ_PRESETSへの3言語追加
+
+
+**ファイル**: `backend/app/data/faq_presets.py`
+
+
+**修正内容**: 各FAQの`translations`配列に3言語を追加
+
+
+#### 5.1.1 実装例（basic_quiet_hours）
+
+
+```python
+{
+    "category": "basic",
+    "intent_key": "basic_quiet_hours",
+    "priority": 5,
+    "translations": [
+        {
+            "language": "ja",
+            "question": "夜間の静音ルールはありますか？",
+            "answer": "22時以降は他のゲストへの配慮をお願いします。通話や会話は共用スペースで行ってください。"
+        },
+        {
+            "language": "en",
+            "question": "Is there a quiet rule at night?",
+            "answer": "Please keep noise to a minimum after 10:00 PM. Phone calls and conversations should be done in common areas."
+        },
+        {
+            "language": "zh-TW",
+            "question": "晚上有安靜規則嗎？",
+            "answer": "晚上10點後請盡量保持安靜。通話和交談請在公共區域進行。"
+        },
+        {
+            "language": "fr",
+            "question": "Y a-t-il une règle de silence la nuit ?",
+            "answer": "Veuillez garder le silence après 22h00. Les appels téléphoniques et les conversations doivent se faire dans les espaces communs."
+        },
+        {
+            "language": "ko",
+            "question": "야간에 조용히 해야 하는 규칙이 있나요?",
+            "answer": "오후 10시 이후에는 다른 게스트를 배려해 주세요. 통화나 대화는 공용 공간에서 해주세요."
+        }
+    ]
+},
+```
+
+
+#### 5.1.2 翻訳作業範囲
+
+
+**対象FAQ数**: 30個  
+**追加言語**: 3言語  
+**追加翻訳数**: 30 × 3 = **90翻訳**
+
+
+**カテゴリ別内訳**:
+- Basic: 8FAQ × 3言語 = 24翻訳
+- Facilities: 8FAQ × 3言語 = 24翻訳
+- Location: 7FAQ × 3言語 = 21翻訳
+- Trouble: 7FAQ × 3言語 = 21翻訳
+
+
+#### 5.1.3 翻訳スプレッドシート（推奨）
+
+
+翻訳作業効率化のため、スプレッドシート管理を推奨:
+
+
+| intent_key | category | ja | en | zh-TW | fr | ko |
+|-----------|----------|----|----|-------|----|----|
+| basic_quiet_hours | basic | 夜間の静音ルール... | Is there a quiet... | 晚上有安靜規則... | Y a-t-il une... | 야간에 조용히... |
+| ... | ... | ... | ... | ... | ... | ... |
+
+
+**CSVエクスポート後、Pythonスクリプトで`FAQ_PRESETS`に変換可能**
+
+
+### 5.2 プラン別言語フィルタリング実装
+
+
+**ファイル**: `backend/app/core/plan_limits.py`（新規関数追加）
+
+
+#### 5.2.1 言語優先順位定義
+
+
+```python
+# 料金プラン別の言語優先順位
+PLAN_LANGUAGE_PRIORITY = {
+    "Free": ["ja"],  # 日本語のみ
+    "Mini": ["ja", "en"],  # 日本語+英語
+    "Small": ["ja", "en", "zh-TW"],  # +繁体中国語
+    "Standard": ["ja", "en", "zh-TW", "fr"],  # +フランス語
+    "Premium": None  # 無制限（すべての言語）
+}
+```
+
+
+**設計根拠**:
+- **Free**: 国内日本語ゲストのみ想定
+- **Mini**: 最小限の多言語対応（英語圏）
+- **Small**: アジア圏（台湾・香港）を追加
+- **Standard**: 欧州圏（フランス）を追加
+- **Premium**: 韓国語を含むすべての言語
+
+
+#### 5.2.2 FAQフィルタリング関数修正
+
+
+**既存関数**: `filter_faq_presets_by_plan()`
+
+
+**修正内容**: 翻訳レベルでのフィルタリング追加
+
+
+```python
+def filter_faq_presets_by_plan(
+    faq_presets: List[dict],
+    subscription_plan: str
+) -> List[dict]:
+    """
+    料金プランに基づいてFAQプリセットをフィルタ
+    
+    Args:
+        faq_presets: FAQプリセットリスト
+        subscription_plan: 料金プラン（'free', 'mini', 'small', 'standard', 'premium'）
+    
+    Returns:
+        フィルタされたFAQプリセットリスト
+    """
+    # プラン名を正規化
+    plan_type = convert_subscription_plan_to_plan_type(subscription_plan)
+    
+    # プラン別のFAQ件数上限を取得
+    faq_limit = get_plan_defaults(plan_type).get("faq_limit")
+    
+    # プラン別の言語優先順位を取得
+    allowed_languages = PLAN_LANGUAGE_PRIORITY.get(plan_type)
+    
+    # FAQをフィルタ（件数制限）
+    filtered_faqs = faq_presets[:faq_limit] if faq_limit else faq_presets
+    
+    # 翻訳をフィルタ（言語制限）
+    if allowed_languages is not None:
+        for faq in filtered_faqs:
+            # 許可された言語の翻訳のみを残す
+            faq["translations"] = [
+                t for t in faq["translations"]
+                if t["language"] in allowed_languages
+            ]
+    
+    return filtered_faqs
+```
+
+
+**✅ 効果**:
+- Freeプラン: 日本語のみの翻訳（1言語）
+- Miniプラン: 日本語+英語の翻訳（2言語）
+- Smallプラン: 日本語+英語+繁体中国語の翻訳（3言語）
+- Standardプラン: 日本語+英語+繁体中国語+フランス語の翻訳（4言語）
+- Premiumプラン: すべての言語の翻訳（5言語）
+
+
+### 5.3 Facilitiesテーブルのavailable_languages更新
+
+
+**ファイル**: `backend/app/services/auth_service.py`
+
+
+**修正内容**: 新規登録時に`available_languages`をプラン別に設定
+
+
+#### 5.3.1 既存コード（修正前）
+
+
+```python
+facility = Facility(
+    name=registration_data.facility_name,
+    slug=slug,
+    email=registration_data.email,
+    languages=["en"],  # デフォルトは英語のみ
+    # ...
+)
+```
+
+
+#### 5.3.2 修正後コード
+
+
+```python
+# プラン別の言語優先順位を取得
+from app.core.plan_limits import PLAN_LANGUAGE_PRIORITY
+
+
+plan_type = convert_subscription_plan_to_plan_type(subscription_plan)
+allowed_languages = PLAN_LANGUAGE_PRIORITY.get(plan_type, ["en"])
+
+
+facility = Facility(
+    name=registration_data.facility_name,
+    slug=slug,
+    email=registration_data.email,
+    languages=allowed_languages,  # プラン別の言語リスト
+    # ...
+)
+```
+
+
+**✅ 効果**: ゲスト側の言語選択画面で、プラン別の言語のみ表示される。
+
+
+### 5.4 バリデーション強化
+
+
+**ファイル**: `backend/app/services/faq_service.py`
+
+
+**確認内容**: 既存の言語数制限バリデーションが正常動作するか確認
+
+
+```python
+# 既存コード（修正不要、動作確認のみ）
+if facility.language_limit is not None:
+    existing_languages = await self._get_facility_languages(facility_id)
+    new_languages = {trans.language for trans in request.translations}
+    all_languages = existing_languages | new_languages
+    
+    if len(all_languages) > facility.language_limit:
+        raise ValueError(f"プランの言語数制限に達しています...")
+```
+
+
+**✅ 確認項目**:
+- Freeプラン（1言語制限）で日本語以外の言語を追加→エラー
+- Miniプラン（2言語制限）で3言語目を追加→エラー
+- Premiumプラン（無制限）で5言語すべて追加→成功
+
+
+---
+
+
+## 6. フロントエンド実装
+
+
+### 6.1 言語選択UI（修正不要）
+
+
+**ファイル**: `frontend/src/views/guest/LanguageSelect.vue`
+
+
+**現状**: プラン対応言語フィルタリング実装済み
+
+
+```typescript
+// 既存コード（修正不要）
+const availableLanguages = response.facility.available_languages || ['en']
+const filteredLanguages = SUPPORTED_LANGUAGES.filter(lang => 
+  availableLanguages.includes(lang.code)
+)
+```
+
+
+**✅ 評価**: バックエンドの`available_languages`が正しく設定されれば動作する。
+
+
+### 6.2 言語定数の確認
+
+
+**ファイル**: `frontend/src/utils/constants.ts`
+
+
+**確認内容**: 5言語すべて定義済みか確認
+
+
+```typescript
+// 既存コード（修正不要）
+export const SUPPORTED_LANGUAGES = [
+  { code: 'ja', name: '日本語', flag: '🇯🇵' },
+  { code: 'en', name: 'English', flag: '🇬🇧' },
+  { code: 'zh-TW', name: '繁體中文', flag: '🇹🇼' },  // ✅
+  { code: 'fr', name: 'Français', flag: '🇫🇷' },  // ✅
+  { code: 'ko', name: '한국어', flag: '🇰🇷' },  // ✅
+  // ... 他言語（使用しない）
+] as const
+```
+
+
+**✅ 評価**: 必要な5言語すべて定義済み。修正不要。
+
+
+### 6.3 UIテキストの多言語化（Phase 3ではスコープ外）
+
+
+**対象外項目**:
+- ボタンラベル（「送信」「キャンセル」等）
+- エラーメッセージ
+- システムメッセージ
+
+
+**理由**:
+- MVP期間中は英語・日本語の混在UI許容
+- ゲストの質問・回答のみ多言語対応で十分
+- UIテキスト多言語化はExpansion Phase Aで実装予定
+
+
+---
+
+
+## 7. FAQ自動設定実装
+
+
+### 7.1 新規登録フロー全体像
+
+
+```
+新規施設登録API呼び出し
+↓
+1. ユーザー作成（users）
+↓
+2. 施設作成（facilities）
+   - languages: プラン別言語リスト設定 ★修正
+↓
+3. バックグラウンドタスクでFAQ自動投入
+   - FAQ_PRESETSをプラン別にフィルタ ★修正
+   - FAQとFAQTranslationを一括作成
+   - 埋め込みベクトル自動生成
+↓
+完了（ユーザーに即座にレスポンス）
+```
+
+
+### 7.2 プラン別FAQ投入例
+
+
+#### 7.2.1 Freeプラン（1言語、20FAQ）
+
+
+**投入データ**:
+- FAQインテント: 20個
+- FAQ翻訳: 20個 × 1言語（日本語のみ）= **20翻訳**
+
+
+**例**:
+```python
+# basic_quiet_hours（日本語のみ）
+FAQ(
+    facility_id=1,
+    category="basic",
+    intent_key="basic_quiet_hours",
+    priority=5
+)
+FAQTranslation(
+    faq_id=1,
+    language="ja",
+    question="夜間の静音ルールはありますか？",
+    answer="22時以降は他のゲストへの配慮をお願いします...",
+    embedding=[0.123, -0.456, ...]  # 1536次元
+)
+```
+
+
+#### 7.2.2 Miniプラン（2言語、30FAQ）
+
+
+**投入データ**:
+- FAQインテント: 30個
+- FAQ翻訳: 30個 × 2言語（日本語+英語）= **60翻訳**
+
+
+#### 7.2.3 Smallプラン（3言語、50FAQ）
+
+
+**投入データ**:
+- FAQインテント: 50個（Phase 3ではFAQ_PRESETSは30個のみ）
+- FAQ翻訳: 30個 × 3言語（日本語+英語+繁体中国語）= **90翻訳**
+
+
+**注意**: Phase 3時点でFAQ_PRESETSは30個のみ。50個に拡張する場合は別途実装。
+
+
+#### 7.2.4 Standardプラン（4言語、100FAQ）
+
+
+**投入データ**:
+- FAQインテント: 100個（Phase 3ではFAQ_PRESETSは30個のみ）
+- FAQ翻訳: 30個 × 4言語（日本語+英語+繁体中国語+フランス語）= **120翻訳**
+
+
+#### 7.2.5 Premiumプラン（5言語、無制限FAQ）
+
+
+**投入データ**:
+- FAQインテント: 30個（現状のFAQ_PRESETS全件）
+- FAQ翻訳: 30個 × 5言語（日本語+英語+繁体中国語+フランス語+韓国語）= **150翻訳**
+
+
+### 7.3 埋め込みベクトル生成
+
+
+**処理フロー**:
+```python
+# faq_service.pyの既存ロジック（修正不要）
+for trans_request in request.translations:
+    combined_text = f"{trans_request.question} {trans_request.answer}"
+    embedding = await generate_embedding(combined_text)
+    
+    faq_translation = FAQTranslation(
+        faq_id=faq.id,
+        language=trans_request.language,
+        question=trans_request.question,
+        answer=trans_request.answer,
+        embedding=embedding  # 言語別に生成
+    )
+```
+
+
+**コスト試算**:
+- OpenAI Embeddings API: $0.02/1M tokens
+- 1翻訳あたり平均200トークン
+- Premiumプラン新規登録: 150翻訳 × 200トークン = 30,000トークン ≈ **$0.0006**（約¥0.09）
+
+
+**✅ 評価**: コスト影響は無視可能。
+
+
+
+
+## 8. テスト計画
+
+
+### 8.1 単体テスト（Backend）
+
+
+#### 8.1.1 テストケース（続き）
+
+
+```python
+PRESETS:
+            for trans in faq["translations"]:
+                # 必須フィールドの存在確認
+                assert "language" in trans
+                assert "question" in trans
+                assert "answer" in trans
+                
+                # 質問・回答が空でないこと
+                assert len(trans["question"]) > 0
+                assert len(trans["answer"]) > 0
+                
+                # 文字数制限（目安）
+                assert len(trans["question"]) < 200
+                assert len(trans["answer"]) < 1000
+
+
+    def test_filter_by_free_plan(self):
+        """Freeプランのフィルタリング"""
+        filtered = filter_faq_presets_by_plan(FAQ_PRESETS, "free")
+        
+        # FAQ件数: 20件
+        assert len(filtered) == 20
+        
+        # 各FAQは日本語のみ
+        for faq in filtered:
+            languages = {t["language"] for t in faq["translations"]}
+            assert languages == {"ja"}
+    
+    def test_filter_by_mini_plan(self):
+        """Miniプランのフィルタリング"""
+        filtered = filter_faq_presets_by_plan(FAQ_PRESETS, "mini")
+        
+        # FAQ件数: 30件
+        assert len(filtered) == 30
+        
+        # 各FAQは日本語+英語
+        for faq in filtered:
+            languages = {t["language"] for t in faq["translations"]}
+            assert languages == {"ja", "en"}
+    
+    def test_filter_by_small_plan(self):
+        """Smallプランのフィルタリング"""
+        filtered = filter_faq_presets_by_plan(FAQ_PRESETS, "small")
+        
+        # FAQ件数: 30件（PRESETSの全件）
+        assert len(filtered) == 30
+        
+        # 各FAQは日本語+英語+繁体中国語
+        for faq in filtered:
+            languages = {t["language"] for t in faq["translations"]}
+            assert languages == {"ja", "en", "zh-TW"}
+    
+    def test_filter_by_standard_plan(self):
+        """Standardプランのフィルタリング"""
+        filtered = filter_faq_presets_by_plan(FAQ_PRESETS, "standard")
+        
+        # FAQ件数: 30件
+        assert len(filtered) == 30
+        
+        # 各FAQは日本語+英語+繁体中国語+フランス語
+        for faq in filtered:
+            languages = {t["language"] for t in faq["translations"]}
+            assert languages == {"ja", "en", "zh-TW", "fr"}
+    
+    def test_filter_by_premium_plan(self):
+        """Premiumプランのフィルタリング"""
+        filtered = filter_faq_presets_by_plan(FAQ_PRESETS, "premium")
+        
+        # FAQ件数: 30件
+        assert len(filtered) == 30
+        
+        # 各FAQはすべての言語
+        for faq in filtered:
+            languages = {t["language"] for t in faq["translations"]}
+            assert languages == {"ja", "en", "zh-TW", "fr", "ko"}
+
+
+    def test_language_priority_consistency(self):
+        """言語優先順位の一貫性確認"""
+        # すべてのプランで日本語が含まれること
+        for plan in ["Free", "Mini", "Small", "Standard"]:
+            languages = PLAN_LANGUAGE_PRIORITY[plan]
+            assert "ja" in languages
+        
+        # 累積的な言語追加
+        assert set(PLAN_LANGUAGE_PRIORITY["Free"]).issubset(
+            set(PLAN_LANGUAGE_PRIORITY["Mini"])
+        )
+        assert set(PLAN_LANGUAGE_PRIORITY["Mini"]).issubset(
+            set(PLAN_LANGUAGE_PRIORITY["Small"])
+        )
+        assert set(PLAN_LANGUAGE_PRIORITY["Small"]).issubset(
+            set(PLAN_LANGUAGE_PRIORITY["Standard"])
+        )
+```
+
+
+#### 8.1.2 テスト実行
+
+
+```bash
+# Docker環境でテスト実行
+docker-compose exec backend pytest backend/tests/test_multilingual_faq_presets.py -v
+
+
+# カバレッジレポート生成
+docker-compose exec backend pytest backend/tests/test_multilingual_faq_presets.py --cov=app.data.faq_presets --cov=app.core.plan_limits
+```
+
+
+### 8.2 統合テスト（Backend + Database）
+
+
+**ファイル**: `backend/tests/test_multilingual_registration.py`（新規作成）
+
+
+#### 8.2.1 テストケース
+
+
+```python
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models import Facility, FAQ, FAQTranslation
+
+
+@pytest.mark.asyncio
+class TestMultilingualRegistration:
+    """多言語対応の新規登録テスト"""
+    
+    async def test_free_plan_registration(self, async_client: AsyncClient, db_session: AsyncSession):
+        """Freeプランで新規登録"""
+        response = await async_client.post("/api/auth/register", json={
+            "email": "test-free@example.com",
+            "password": "SecurePass123!",
+            "facility_name": "テストホステル（Free）",
+            "subscription_plan": "free"
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        facility_id = data["facility"]["id"]
+        
+        # 施設の言語設定確認
+        facility = await db_session.get(Facility, facility_id)
+        assert facility.languages == ["ja"]
+        
+        # FAQ翻訳確認
+        faq_translations = await db_session.execute(
+            select(FAQTranslation).join(FAQ).filter(FAQ.facility_id == facility_id)
+        )
+        translations = faq_translations.scalars().all()
+        
+        # 20FAQ × 1言語 = 20翻訳
+        assert len(translations) == 20
+        
+        # すべて日本語
+        languages = {t.language for t in translations}
+        assert languages == {"ja"}
+    
+    async def test_mini_plan_registration(self, async_client: AsyncClient, db_session: AsyncSession):
+        """Miniプランで新規登録"""
+        response = await async_client.post("/api/auth/register", json={
+            "email": "test-mini@example.com",
+            "password": "SecurePass123!",
+            "facility_name": "テストホステル（Mini）",
+            "subscription_plan": "mini"
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        facility_id = data["facility"]["id"]
+        
+        # 施設の言語設定確認
+        facility = await db_session.get(Facility, facility_id)
+        assert set(facility.languages) == {"ja", "en"}
+        
+        # FAQ翻訳確認
+        faq_translations = await db_session.execute(
+            select(FAQTranslation).join(FAQ).filter(FAQ.facility_id == facility_id)
+        )
+        translations = faq_translations.scalars().all()
+        
+        # 30FAQ × 2言語 = 60翻訳
+        assert len(translations) == 60
+        
+        # 日本語+英語
+        languages = {t.language for t in translations}
+        assert languages == {"ja", "en"}
+    
+    async def test_premium_plan_registration(self, async_client: AsyncClient, db_session: AsyncSession):
+        """Premiumプランで新規登録（全言語）"""
+        response = await async_client.post("/api/auth/register", json={
+            "email": "test-premium@example.com",
+            "password": "SecurePass123!",
+            "facility_name": "テストホステル（Premium）",
+            "subscription_plan": "premium"
+        })
+        
+        assert response.status_code == 200
+        data = response.json()
+        facility_id = data["facility"]["id"]
+        
+        # 施設の言語設定確認
+        facility = await db_session.get(Facility, facility_id)
+        assert set(facility.languages) == {"ja", "en", "zh-TW", "fr", "ko"}
+        
+        # FAQ翻訳確認
+        faq_translations = await db_session.execute(
+            select(FAQTranslation).join(FAQ).filter(FAQ.facility_id == facility_id)
+        )
+        translations = faq_translations.scalars().all()
+        
+        # 30FAQ × 5言語 = 150翻訳
+        assert len(translations) == 150
+        
+        # 全言語
+        languages = {t.language for t in translations}
+        assert languages == {"ja", "en", "zh-TW", "fr", "ko"}
+        
+        # 埋め込みベクトルが生成されていること
+        for trans in translations:
+            assert trans.embedding is not None
+            assert len(trans.embedding) == 1536
+```
+
+
+#### 8.2.2 テスト実行
+
+
+```bash
+# Docker環境でテスト実行
+docker-compose exec backend pytest backend/tests/test_multilingual_registration.py -v
+
+
+# データベースクリーンアップ
+docker-compose exec backend pytest backend/tests/test_multilingual_registration.py --clean-db
+```
+
+
+### 8.3 E2Eテスト（ブラウザ）
+
+
+#### 8.3.1 テストシナリオ
+
+
+**シナリオ1: Freeプラン登録と言語選択**
+1. 新規登録画面で「Free」プランを選択
+2. 施設情報を入力して登録
+3. ゲスト画面にアクセス
+4. 言語選択画面で「日本語」のみ表示されることを確認
+5. 日本語でチャット、日本語FAQが返ることを確認
+
+
+**シナリオ2: Miniプラン登録と2言語対応**
+1. 新規登録画面で「Mini」プランを選択
+2. 施設情報を入力して登録
+3. ゲスト画面にアクセス
+4. 言語選択画面で「日本語」「English」のみ表示されることを確認
+5. 英語でチャット、英語FAQが返ることを確認
+
+
+**シナリオ3: Premiumプラン登録と全言語対応**
+1. 新規登録画面で「Premium」プランを選択
+2. 施設情報を入力して登録
+3. ゲスト画面にアクセス
+4. 言語選択画面で5言語すべて表示されることを確認
+5. 繁体中国語、フランス語、韓国語でチャット
+6. それぞれの言語でFAQが返ることを確認
+
+
+#### 8.3.2 テストツール
+
+
+**推奨ツール**: Playwright
+
+
+```typescript
+// tests/e2e/multilingual-registration.spec.ts
+import { test, expect } from '@playwright/test'
+
+
+test('Premiumプラン登録で全言語対応', async ({ page }) => {
+  // 新規登録
+  await page.goto('/register')
+  await page.fill('input[name="email"]', 'test-premium@example.com')
+  await page.fill('input[name="password"]', 'SecurePass123!')
+  await page.fill('input[name="facility_name"]', 'テストホステル')
+  await page.selectOption('select[name="subscription_plan"]', 'premium')
+  await page.click('button[type="submit"]')
+  
+  // 施設スラッグを取得
+  await page.waitForURL('/dashboard')
+  const facilitySlug = await page.locator('[data-testid="facility-slug"]').textContent()
+  
+  // ゲスト画面にアクセス
+  await page.goto(`/${facilitySlug}`)
+  
+  // 言語選択画面
+  await page.waitForSelector('[data-testid="language-select"]')
+  
+  // 5言語すべて表示されることを確認
+  const languages = await page.locator('.language-option').count()
+  expect(languages).toBe(5)
+  
+  // 繁体中国語を選択
+  await page.click('text=繁體中文')
+  
+  // チャット画面で繁体中国語のプレースホルダーを確認
+  await page.waitForSelector('textarea[placeholder*="請輸入"]')
+  
+  // FAQ質問（繁体中国語）
+  await page.fill('textarea', '晚上有安靜規則嗎？')
+  await page.click('button[type="submit"]')
+  
+  // 繁体中国語の回答を確認
+  await page.waitForSelector('text=晚上10點後請盡量保持安靜')
+})
+```
+
+
+#### 8.3.3 実行コマンド
+
+
+```bash
+# Docker環境でPlaywrightテスト実行
+docker-compose exec frontend npm run test:e2e
+
+
+# 特定のテストのみ実行
+docker-compose exec frontend npm run test:e2e -- multilingual-registration.spec.ts
+
+
+# ヘッドフルモードで実行（デバッグ用）
+docker-compose exec frontend npm run test:e2e -- --headed
+```
+
+
+### 8.4 翻訳品質チェック
+
+
+#### 8.4.1 チェック項目
+
+
+**繁体中国語（zh-TW）**:
+- [ ] 簡体字が混在していないか
+- [ ] 台湾・香港で一般的な用語を使用しているか
+- [ ] 「您」（あなた）の敬語が適切か
+
+
+**フランス語（fr）**:
+- [ ] 正式な「vous」を使用しているか
+- [ ] アクセント記号が正しいか（é, è, ê, à, ù, etc.）
+- [ ] 宿泊業界用語が適切か
+
+
+**韓国語（ko）**:
+- [ ] 敬語（존댓말）を使用しているか
+- [ ] ハングル表記が正しいか
+- [ ] 文末の「~요」「~습니다」が適切か
+
+
+#### 8.4.2 ネイティブチェック手順
+
+
+1. **翻訳スプレッドシートをエクスポート**
+   ```bash
+   # CSVエクスポート
+   python scripts/export_faq_presets.py --output translations.csv
+   ```
+
+
+2. **クラウドソーシングでネイティブチェック**
+   - Gengo、Conyac等の翻訳サービス利用
+   - 各言語2-3名のネイティブスピーカーに依頼
+   - 宿泊業界経験者を優先
+
+
+3. **フィードバック反映**
+   ```bash
+   # 修正後のCSVをインポート
+   python scripts/import_faq_presets.py --input translations_reviewed.csv
+   ```
+
+
+### 8.5 パフォーマンステスト
+
+
+#### 8.5.1 埋め込みベクトル生成速度
+
+
+**テスト条件**:
+- Premiumプラン新規登録（150翻訳）
+- OpenAI Embeddings API並列処理数: 5
+
+
+**期待値**:
+- 総処理時間: 30秒以内
+- 1翻訳あたり: 0.2秒以内
+
+
+**計測コード**:
+```python
+import time
+import asyncio
+
+
+async def test_embedding_generation_performance():
+    start = time.time()
+    
+    # 150翻訳の埋め込みベクトル生成
+    tasks = [
+        generate_embedding(f"Question {i} Answer {i}")
+        for i in range(150)
+    ]
+    
+    embeddings = await asyncio.gather(*tasks)
+    
+    elapsed = time.time() - start
+    avg_time = elapsed / 150
+    
+    print(f"Total: {elapsed:.2f}s, Avg: {avg_time:.4f}s/translation")
+    
+    assert elapsed < 30, f"処理時間が遅すぎます: {elapsed:.2f}s"
+    assert avg_time < 0.2, f"1翻訳あたりの処理時間が遅すぎます: {avg_time:.4f}s"
+```
+
+
+#### 8.5.2 データベースクエリ性能
+
+
+**テスト条件**:
+- 施設数: 100件
+- FAQ/施設: 30件
+- 翻訳/FAQ: 5言語
+- 総翻訳数: 15,000件
+
+
+**テストクエリ**:
+```sql
+-- ゲスト質問時のFAQ検索（ベクトル類似度検索）
+SELECT 
+    f.intent_key,
+    ft.question,
+    ft.answer,
+    1 - (ft.embedding <=> '[0.1, 0.2, ...]'::vector) AS similarity
+FROM faq_translations ft
+JOIN faqs f ON ft.faq_id = f.id
+WHERE f.facility_id = 1
+  AND ft.language = 'ja'
+  AND f.is_active = TRUE
+ORDER BY similarity DESC
+LIMIT 5;
+```
+
+
+**期待値**:
+- クエリ実行時間: 50ms以内
+- pgvectorインデックス利用
+
+
+**確認方法**:
+```bash
+# Docker環境でEXPLAIN ANALYZE実行
+docker-compose exec db psql -U yadopera -d yadopera_db -c "
+EXPLAIN ANALYZE
+SELECT ...
+"
+```
+
+
+---
+
+
+## 9. デプロイ計画
+
+
+### 9.1 デプロイ環境
+
+
+**環境構成**:
+- **開発環境（Dev）**: ローカルDocker
+- **ステージング環境（Staging）**: AWS/GCP（本番同等構成）
+- **本番環境（Production）**: AWS/GCP
+
+
+### 9.2 デプロイステップ
+
+
+#### 9.2.1 Phase 1: 開発環境（完了条件）
+
+
+**チェックリスト**:
+- [ ] FAQ_PRESETSに3言語（90翻訳）追加完了
+- [ ] プラン別言語フィルタリング実装完了
+- [ ] 単体テストすべてパス
+- [ ] 統合テストすべてパス
+- [ ] E2Eテスト（5プラン）すべてパス
+- [ ] 翻訳品質ネイティブチェック完了
+
+
+**完了後のアクション**:
+```bash
+# Gitコミット
+git add backend/app/data/faq_presets.py
+git add backend/app/core/plan_limits.py
+git add backend/app/services/auth_service.py
+git commit -m "feat: 多言語FAQ対応（繁体中国語・フランス語・韓国語）"
+git push origin feature/multilingual-faq
+```
+
+
+#### 9.2.2 Phase 2: ステージング環境
+
+
+**デプロイ手順**:
+```bash
+# 1. ステージング環境にマージ
+git checkout staging
+git merge feature/multilingual-faq
+
+
+# 2. Docker イメージビルド
+docker-compose -f docker-compose.staging.yml build
+
+
+# 3. デプロイ
+docker-compose -f docker-compose.staging.yml up -d
+
+
+# 4. マイグレーション（不要だが念のため確認）
+docker-compose -f docker-compose.staging.yml exec backend alembic upgrade head
+
+
+# 5. 動作確認
+docker-compose -f docker-compose.staging.yml logs -f backend
+```
+
+
+**動作確認項目**:
+- [ ] 新規登録（各プラン1件ずつ）
+- [ ] ゲスト画面で言語選択
+- [ ] 各言語でチャット応答確認
+- [ ] FAQ管理画面で5言語表示確認
+
+
+#### 9.2.3 Phase 3: 本番環境
+
+
+**デプロイタイミング**: ステージング環境で48時間以上安定稼働後
+
+
+**デプロイ手順**:
+```bash
+# 1. 本番環境にマージ
+git checkout main
+git merge staging
+
+
+# 2. タグ付け
+git tag -a v0.3.11 -m "多言語FAQ対応（繁体中国語・フランス語・韓国語）"
+git push origin v0.3.11
+
+
+# 3. CI/CDパイプライン実行（自動）
+# GitHub Actions / GitLab CI / Jenkins等
+
+
+# 4. デプロイ完了確認
+curl https://api.yadopera.com/health
+```
+
+
+**ロールバック手順**:
+```bash
+# 問題発生時は即座にロールバック
+git checkout main
+git revert HEAD
+git push origin main
+
+
+# または前バージョンにリセット
+git reset --hard v0.3.10
+git push origin main --force
+```
+
+
+### 9.3 データベース移行
+
+
+**結論**: **移行不要**
+
+
+既存のスキーマで対応可能。新規登録施設のみ多言語FAQ自動設定。
+
+
+**既存施設への対応**:
+- Phase 3では既存施設への多言語追加はスコープ外
+- 手動でFAQ追加可能（管理画面経由）
+- Expansion Phase Aで既存施設への一括適用を検討
+
+
+### 9.4 監視とアラート
+
+
+#### 9.4.1 監視項目
+
+
+**アプリケーションログ**:
+```python
+# 新規登録時のログ出力
+logger.info(f"新規施設登録: {facility.name}, プラン: {subscription_plan}, 言語: {facility.languages}")
+logger.info(f"FAQ自動設定完了: {len(filtered_presets)}件のFAQ, {total_translations}翻訳")
+```
+
+
+**メトリクス**:
+- 新規登録数（プラン別）
+- FAQ自動設定成功率
+- 埋め込みベクトル生成時間
+- OpenAI API呼び出し回数・コスト
+
+
+#### 9.4.2 アラート設定
+
+
+**条件**:
+- FAQ自動設定失敗率 > 5%
+- 埋め込みベクトル生成時間 > 1秒/翻訳
+- OpenAI APIエラー率 > 1%
+
+
+**通知先**:
+- Slack: #yadopera-alerts
+- Email: dev-team@yadopera.com
+
+
+### 9.5 ドキュメント更新
+
+
+**更新対象**:
+- [ ] README.md: 対応言語を5言語に更新
+- [ ] API仕様書: 多言語FAQ登録エンドポイント追記
+- [ ] 管理者マニュアル: プラン別言語対応表追加
+- [ ] ゲスト向けヘルプ: 言語選択方法説明
+
+
+---
+
+
+## 10. リスクと対策
+
+
+### 10.1 翻訳品質リスク
+
+
+**リスク**: 機械翻訳の品質不足、文化的不適切表現
+
+
+**対策**:
+- DeepL Proを使用（Google翻訳より高品質）
+- ネイティブスピーカーによるレビュー必須
+- 宿泊業界用語辞書作成（チェックイン/アウト等）
+- ユーザーフィードバック機能追加（Expansion Phase A）
+
+
+**影響度**: 中  
+**発生確率**: 中  
+**対策優先度**: 高
+
+
+### 10.2 パフォーマンス劣化リスク
+
+
+**リスク**: 150翻訳の埋め込みベクトル生成で登録時間が長くなる
+
+
+**対策**:
+- バックグラウンドタスク化（既に実装済み）
+- OpenAI API並列処理（最大5並列）
+- タイムアウト設定（1翻訳あたり5秒）
+- 失敗時の再試行ロジック
+
+
+**影響度**: 低  
+**発生確率**: 低  
+**対策優先度**: 中
+
+
+### 10.3 言語数制限バグリスク
+
+
+**リスク**: プラン別の言語数制限が正しく動作しない
+
+
+**対策**:
+- 単体テストで全プラン網羅
+- バリデーションロジックの二重チェック
+- ステージング環境で実データテスト
+- ロールバック手順の事前確認
+
+
+**影響度**: 高  
+**発生確率**: 低  
+**対策優先度**: 高
+
+
+### 10.4 コスト増加リスク
+
+
+**リスク**: OpenAI Embeddings API呼び出し増加でコスト増
+
+
+**試算**:
+- 現状: 2言語 × 30FAQ = 60翻訳/登録
+- 変更後（Premium）: 5言語 × 30FAQ = 150翻訳/登録
+- コスト増: 約2.5倍
+
+
+**対策**:
+- 月次コストモニタリング
+- プラン別のAPI利用制限
+- キャッシュ機構（同一質問の埋め込みベクトル再利用）
+
+
+**影響度**: 低（1登録あたり¥0.1以下）  
+**発生確率**: 高（確実に増加）  
+**対策優先度**: 低
+
+
+### 10.5 既存データへの影響リスク
+
+
+**リスク**: 既存施設のFAQデータに影響
+
+
+**対策**:
+- 新規登録のみ多言語対応
+- 既存データは一切変更しない
+- マイグレーション不要のため影響ゼロ
+
+
+**影響度**: なし  
+**発生確率**: なし  
+**対策優先度**: なし
+
+
+### 10.6 ブラウザ互換性リスク
+
+
+**リスク**: 多言語表示で文字化けやフォント問題
+
+
+**対策**:
+- Webフォント使用（Noto Sans CJK等）
+- UTF-8エンコーディング確認
+- 主要ブラウザでの表示確認（Chrome, Safari, Firefox, Edge）
+
+
+**影響度**: 低  
+**発生確率**: 低  
+**対策優先度**: 低
+
+
+---
+
+
+## 11. 今後の拡張計画
+
+
+### 11.1 Phase 4: FAQ数拡張
+
+
+**目標**: FAQ_PRESETSを30個→100個に拡張
+
+
+**対象カテゴリ**:
+- Payment（支払い・料金）: 15FAQ
+- Amenities（アメニティ）: 10FAQ
+- Policy（ポリシー・規約）: 15FAQ
+- Local（周辺情報）: 20FAQ
+- Emergency（緊急時対応）: 10FAQ
+
+
+**実装時期**: Expansion Phase A（v0.4.0）
+
+
+### 11.2 Phase 5: UIテキスト多言語化
+
+
+**目標**: 管理画面・ゲスト画面のUIテキストを5言語対応
+
+
+**対象**:
+- ボタンラベル
+- エラーメッセージ
+- システムメッセージ
+- ヘルプテキスト
+
+
+**技術スタック**:
+- i18n（Vue I18n）
+- 翻訳ファイル管理（JSON/YAML）
+
+
+**実装時期**: Expansion Phase A（v0.4.0）
+
+
+### 11.3 Phase 6: 言語自動検出
+
+
+**目標**: ゲストの初回アクセス時に言語を自動検出
+
+
+**検出方法**:
+- ブラウザ言語設定（navigator.language）
+- IPアドレスから国判定
+- ユーザーエージェント解析
+
+
+**実装時期**: Expansion Phase B（v0.5.0）
+
+
+### 11.4 Phase 7: 追加言語対応
+
+
+**候補言語**:
+- スペイン語（es）: スペイン・中南米
+- ドイツ語（de）: ドイツ・オーストリア・スイス
+- タイ語（th）: タイ
+- ベトナム語（vi）: ベトナム
+
+
+**実装時期**: Expansion Phase C（v0.6.0）
+
+
+---
+
+
+## 12. まとめ
+
+
+### 12.1 実装サマリー
+
+
+**追加言語**: 繁体中国語（zh-TW）、フランス語（fr）、韓国語（ko）  
+**追加翻訳数**: 30FAQ × 3言語 = **90翻訳**  
+**修正ファイル数**: 3ファイル  
+**新規テストファイル数**: 2ファイル  
+**スキーマ変更**: なし  
+**マイグレーション**: 不要
+
+
+### 12.2 実装効果
+
+
+**対応言語**: 2言語 → **5言語**（2.5倍）  
+**対応市場**: 英語圏のみ → **アジア・欧州圏にも拡大**  
+**Premiumプラン価値向上**: 全言語対応で差別化  
+**国際展開準備**: 多言語基盤確立
+
+
+### 12.3 次のアクションアイテム
+
+
+**即座に実施**:
+1. [ ] FAQ_PRESETSに90翻訳追加（1-2日）
+2. [ ] プラン別言語フィルタリング実装（0.5日）
+3. [ ] 単体テスト作成・実行（0.5日）
+
+
+**短期（1週間以内）**:
+4. [ ] 翻訳品質ネイティブチェック（3-5日）
+5. [ ] 統合テスト・E2Eテスト（1日）
+6. [ ] ステージング環境デプロイ（0.5日）
+
+
+**中期（2週間以内）**:
+7. [ ] 本番環境デプロイ（0.5日）
+8. [ ] モニタリング・調整（継続）
+9. [ ] ドキュメント更新（1日）
+
+
+### 12.4 成功指標（KPI）
+
+
+**技術指標**:
+- [ ] 全テストパス率: 100%
+- [ ] 埋め込みベクトル生成時間: <30秒/Premium登録
+- [ ] FAQ自動設定成功率: >99%
+
+
+**ビジネス指標**:
+- [ ] 多言語対応施設の割合: Phase 3終了時点で新規登録の100%
+- [ ] 繁体中国語・フランス語・韓国語ゲストの割合増加
+- [ ] Premiumプランへのアップグレード率向上
+
+
+---
+
+
+## 付録
+
+
+### 付録A: FAQ_PRESETS翻訳テンプレート
+
+
+```python
+# 翻訳作業用テンプレート
+FAQ_TRANSLATION_TEMPLATE = {
+    "category": "basic",
+    "intent_key": "basic_example",
+    "priority": 5,
+    "translations": [
+        {
+            "language": "ja",
+            "question": "【日本語の質問】",
+            "answer": "【日本語の回答】"
+        },
+        {
+            "language": "en",
+            "question": "【English question】",
+            "answer": "【English answer】"
+        },
+        {
+            "language": "zh-TW",
+            "question": "【繁體中文問題】",
+            "answer": "【繁體中文回答】"
+        },
+        {
+            "language": "fr",
+            "question": "【Question en français】",
+            "answer": "【Réponse en français】"
+        },
+        {
+            "language": "ko",
+            "question": "【한국어 질문】",
+            "answer": "【한국어 답변】"
+        }
+    ]
+}
+```
+
+
+### 付録B: 宿泊業界用語対訳表
+
+
+| 日本語 | English | 繁體中文 | Français | 한국어 |
+|--------|---------|----------|----------|--------|
+| チェックイン | Check-in | 入住登記 | Enregistrement | 체크인 |
+| チェックアウト | Check-out | 退房 | Départ | 체크아웃 |
+| 門限 | Curfew | 門禁時間 | Couvre-feu | 통금 시간 |
+| 共用スペース | Common area | 公共區域 | Espace commun | 공용 공간 |
+| アメニティ | Amenities | 設施 | Équipements | 편의 시설 |
+| デポジット | Deposit | 押金 | Dépôt | 보증금 |
+| キャンセルポリシー | Cancellation policy | 取消政策 | Politique d'annulation | 취소 정책 |
+| Wi-Fi | Wi-Fi | Wi-Fi | Wi-Fi | Wi-Fi |
+| 鍵 | Key | 鑰匙 | Clé | 열쇠 |
+| タオル | Towel | 毛巾 | Serviette | 수건 |
+
+
+### 付録C: 翻訳品質チェックリスト
+
+
+**繁体中国語（zh-TW）**:
+- [ ] 簡体字が混在していない
+- [ ] 台湾の慣用表現を使用
+- [ ] 「您」（敬語）を適切に使用
+- [ ] 数字表記が正しい（例: 10點、不是10点）
+
+
+**フランス語（fr）**:
+- [ ] 「vous」（敬語）を使用
+- [ ] アクセント記号が正しい
+- [ ] 男性名詞・女性名詞が正しい
+- [ ] 冠詞（le, la, les, un, une）が適切
+
+
+**韓国語（ko）**:
+- [ ] 존댓말（敬語）を使用
+- [ ] 文末が「~요」「~습니다」で終わる
+- [ ] 漢字語と固有語のバランス
+- [ ] スペースが適切（例: 체크 인 → 체크인）
+
+
+### 付録D: トラブルシューティング
+
+
+**問題1**: FAQ自動設定が失敗する
+
+
+**原因**:
+- OpenAI APIキー未設定
+- 埋め込みベクトル生成タイムアウト
+- データベース接続エラー
+
+
+**対処**:
+```bash
+# ログ確認
+docker-compose logs backend | grep "FAQ自動設定"
+
+
+# 環境変数確認
+docker-compose exec backend env | grep OPENAI
+
+
+# 手動でFAQ登録テスト
+docker-compose exec backend python scripts/test_faq_creation.py
+```
+
+
+**問題2**: 言語選択画面で5言語表示されない
+
+
+**原因**:
+- `facility.languages`が正しく設定されていない
+- フロントエンドキャッシュ
+- API レスポンスエラー
+
+
+**対処**:
+```bash
+# データベース確認
+docker-compose exec db psql -U yadopera -d yadopera_db -c "
+SELECT id, name, languages FROM facilities WHERE id = 1;
+"
+
+
+# ブラウザキャッシュクリア
+# または、シークレットモードで確認
+
+
+# API レスポンス確認
+curl http://localhost:8000/api/facilities/test-facility
+```
+
+
+**問題3**: 埋め込みベクトル生成が遅い
+
+
+**原因**:
+- OpenAI API レートリミット
+- ネットワーク遅延
+- 並列処理数不足
+
+
+**対処**:
+```python
+# plan_limits.pyで並列処理数を調整
+EMBEDDING_CONCURRENCY = 10  # 5 → 10に増やす
+
+
+# リトライロジック追加
+@retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
+async def generate_embedding(text: str):
+    # ...
+```
+
+
+---
+
+
+## 変更履歴
+
+
+| バージョン | 日付 | 変更内容 | 担当者 |
+|-----------|------|---------|--------|
+| v1.0 | 2026-01-24 | 初版作成 | Development Team |
+| v1.1 | 2026-01-25 | テスト計画詳細化 | QA Team |
+| v1.2 | 2026-01-26 | リスク分析追加 | Product Team |
+
+
+---
+
+
+**文書終了**

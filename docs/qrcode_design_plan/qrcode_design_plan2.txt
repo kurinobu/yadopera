@@ -1,0 +1,1534 @@
+================================================================================
+QRコードデザイン変更計画書（修正版）
+================================================================================
+
+作成日: 2026年1月25日
+修正日: 2026年1月25日（修正版2）
+対象フェーズ: Phase 3（PoC実施中）
+優先度: 中
+実装予定時期: Phase 3
+状態: ⚠️ 未実装（計画段階）
+
+================================================================================
+0. 重要な前提事項
+================================================================================
+
+0.1 要約定義書v0.3.4との関係
+----------------------------
+本変更は、要約定義書v0.3.4（2025-12-21追加）の「QRコードデザイン変更」とは
+**別の新しい変更**です。
+
+【v0.3.4の既存変更（実装済みを想定）】
+- QRコードの中央に「YadOPERA」テキストを配置
+- PNG/PDF/SVG形式すべてに対応
+
+【今回の新規変更（本計画書）】
+- 「YadOPERA中央配置」を維持しつつ、追加情報を配置
+- PDF: 施設名・タイトル上部配置 + 設置場所・生成日時下部配置
+- PNG/SVG: 「YadOPERA中央配置」のみ実装（追加情報なし）
+
+0.2 変更の全体像
+----------------
+【PDF形式】
+┌─────────────────────────────────────────────────────────────┐
+│  「FAQ & AI ChatBot」（12pt、太字、中央揃え、黒色）         │
+│  【施設名】（14pt、太字、中央揃え、黒色）                   │
+│                                                             │
+│      ┌─────────────────────────────┐                       │
+│      │                             │                       │
+│      │         QRコード            │                       │
+│      │      （中央: YadOPERA）     │  ← 既存実装を維持    │
+│      │                             │                       │
+│      └─────────────────────────────┘                       │
+│                                                             │
+│  設置場所: 【設置場所】（8pt、左揃え、グレー）              │
+│  生成日時: 【YYYY-MM-DD HH:MM】（8pt、左揃え、グレー）      │
+└─────────────────────────────────────────────────────────────┘
+
+【PNG/SVG形式】
+┌─────────────────────────────┐
+│                             │
+│      ┌─────────────┐        │
+│      │             │        │
+│      │  QRコード   │        │
+│      │ (中央:      │        │
+│      │  YadOPERA)  │        │
+│      │             │        │
+│      └─────────────┘        │
+│                             │
+└─────────────────────────────┘
+
+================================================================================
+1. 変更概要
+================================================================================
+
+1.1 目的
+--------
+QRコードPDF出力のデザインを改善し、以下を実現する:
+1. ブランディング強化（タイトル追加）
+2. 施設名の明示
+3. スタッフ向け運用情報の追加（設置場所・生成日時）
+4. PNG/SVG形式では「YadOPERA中央配置」のみを実装
+
+1.2 変更対象
+------------
+【PDF形式】
+- 対象ファイル: backend/app/services/qr_code_service.py
+- 対象メソッド: generate_qr_code（194-229行目のPDF生成部分）
+- 変更内容:
+  1. QRコード上部にタイトル「FAQ & AI ChatBot」追加
+  2. タイトル下部に施設名追加
+  3. QRコード下部に設置場所・生成日時追加
+  4. 「YadOPERA中央配置」は既存実装を維持
+
+【PNG/SVG形式】
+- 対象ファイル: backend/app/services/qr_code_service.py
+- 対象メソッド: generate_qr_code（156-193行目のPNG/SVG生成部分）
+- 変更内容:
+  1. QRコード中央に「YadOPERA」テキストを配置
+  2. エラー訂正レベルをERROR_CORRECT_Hに変更（中央部分のテキスト対応）
+
+1.3 既存実装の確認事項
+----------------------
+要約定義書v0.3.4によると、以下が実装済みのはずです：
+- 「QRコードの中央に「YadOPERA」テキストを配置」
+- 「PNG/PDF/SVG形式すべてに対応」
+
+→ 実装確認が必要です。未実装の場合は、本計画書で合わせて実装します。
+
+================================================================================
+2. 現状分析
+================================================================================
+
+2.1 現在の実装箇所
+------------------
+ファイル: backend/app/services/qr_code_service.py
+
+【インポート部分（1-30行目）】
+```python
+"""
+QRコード生成サービス
+"""
+
+import logging
+import io
+import base64
+from typing import Optional
+from datetime import datetime  # 既にインポート済み
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models.facility import Facility
+from app.services.session_token_service import SessionTokenService
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+try:
+    import qrcode
+    from qrcode.image.pil import PilImage
+    QRCODE_AVAILABLE = True
+except ImportError:
+    QRCODE_AVAILABLE = False
+    logger.warning("qrcode library not available. QR code generation will be limited.")
+
+try:
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.units import mm
+    from reportlab.pdfgen import canvas
+    from reportlab.lib.utils import ImageReader
+    from PIL import Image
+    PDF_AVAILABLE = True
+except ImportError:
+    PDF_AVAILABLE = False
+    logger.warning("reportlab/PIL not available. PDF generation will be limited.")
+```
+
+【PNG生成部分（156-163行目）】
+```python
+if format == "png":
+    img = qr.make_image(fill_color="black", back_color="white")
+    img_buffer = io.BytesIO()
+    img.save(img_buffer, format="PNG")
+    img_buffer.seek(0)
+    qr_code_url = f"data:image/png;base64,{base64.b64encode(img_buffer.getvalue()).decode()}"
+```
+
+【SVG生成部分（165-193行目）】
+```python
+elif format == "svg":
+    # SVG形式のQRコードを生成
+    try:
+        from qrcode.image.svg import SvgImage
+        
+        # QRコードオブジェクトを作成（image_factoryを指定）
+        qr_svg = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+            image_factory=SvgImage
+        )
+        qr_svg.add_data(qr_code_data)
+        qr_svg.make(fit=True)
+        
+        # SVG形式で画像を生成
+        img_svg = qr_svg.make_image(fill_color="black", back_color="white")
+        
+        # SVGデータをBytesIOに保存
+        svg_buffer = io.BytesIO()
+        img_svg.save(svg_buffer)
+        svg_buffer.seek(0)
+        
+        # Base64エンコードしてData URL形式で返す
+        qr_code_url = f"data:image/svg+xml;base64,{base64.b64encode(svg_buffer.getvalue()).decode()}"
+    except ImportError as e:
+        # SvgImageが利用できない場合のフォールバック
+        logger.warning(f"SvgImage not available: {str(e)}. Falling back to external API.")
+        qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_code_data}&format=svg"
+    except Exception as e:
+        # その他のエラーの場合のフォールバック
+        logger.error(f"Error generating SVG QR code: {str(e)}. Falling back to external API.")
+        qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_code_data}&format=svg"
+```
+
+【PDF生成部分（195-229行目）】
+```python
+elif format == "pdf":
+    if PDF_AVAILABLE:
+        # PDF生成
+        img = qr.make_image(fill_color="black", back_color="white")
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        
+        pdf_buffer = io.BytesIO()
+        c = canvas.Canvas(pdf_buffer, pagesize=A4)
+        
+        # QRコードを中央に配置（10cm × 10cm）
+        qr_size = 100 * mm  # 10cm
+        x = (A4[0] - qr_size) / 2
+        y = (A4[1] - qr_size) / 2
+        
+        img_pil = Image.open(img_buffer)
+        c.drawImage(ImageReader(img_pil), x, y, width=qr_size, height=qr_size)
+        c.save()
+        
+        pdf_buffer.seek(0)
+        qr_code_url = f"data:application/pdf;base64,{base64.b64encode(pdf_buffer.getvalue()).decode()}"
+    else:
+        # フォールバック: PNGを返す
+        img = qr.make_image(fill_color="black", back_color="white")
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        qr_code_url = f"data:image/png;base64,{base64.b64encode(img_buffer.getvalue()).decode()}"
+        format = "png"  # フォールバック形式
+```
+
+2.2 使用ライブラリ
+------------------
+- reportlab >= 4.0.0: PDF生成（canvas.Canvas使用）
+- Pillow >= 10.0.0: 画像処理（Image, ImageDraw, ImageFont使用）
+- qrcode: QRコード生成
+
+2.3 データ取得元
+----------------
+以下のデータは既に取得可能:
+1. 施設名: facility.name（Facilityモデル、137行目で取得済み）
+2. 設置場所: location（引数として渡される）
+3. カスタム設置場所名: custom_location_name（引数として渡される、オプション）
+4. 生成日時: datetime.utcnow()（インポート済み、9行目）
+
+【Facilityモデルの構造（確認済み）】
+```python
+class Facility(Base):
+    __tablename__ = "facilities"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(255), nullable=False)  # ← 施設名
+    slug = Column(String(100), unique=True, nullable=False, index=True)
+    # ... その他のカラム
+```
+
+2.4 設置場所ラベル変換
+----------------------
+設置場所コードから日本語表示への変換が必要:
+- entrance → 入口
+- room → 客室
+- kitchen → キッチン
+- lounge → ラウンジ
+- custom → {custom_location_name}（カスタム設置場所名を使用）
+
+================================================================================
+3. 変更仕様
+================================================================================
+
+3.1 PNG形式の変更仕様
+---------------------
+【変更内容】
+QRコード中央に「YadOPERA」テキストを配置
+
+【実装方法】
+1. エラー訂正レベルをERROR_CORRECT_Lから ERROR_CORRECT_Hに変更
+2. PILのImageDrawを使用してテキストを描画
+3. QRコード画像の中央に白背景の矩形を描画
+4. その上に「YadOPERA」テキストを描画
+
+【技術仕様】
+- フォント: デフォルトフォント（Pillow組み込み）
+- フォントサイズ: QRコードサイズの1/10程度
+- テキスト色: 黒（0, 0, 0）
+- 背景色: 白（255, 255, 255）
+- 配置: 中央揃え
+
+【注意事項】
+- エラー訂正レベルHは約30%のデータ損失に耐えられる
+- 中央部分のテキストがQRコード読み取りに影響しないようにサイズ調整が必要
+
+3.2 SVG形式の変更仕様
+---------------------
+【変更内容】
+QRコード中央に「YadOPERA」テキストを配置
+
+【実装方法】
+1. エラー訂正レベルをERROR_CORRECT_Lから ERROR_CORRECT_Hに変更
+2. SVG生成後、XMLを解析してテキスト要素を追加
+3. viewBoxの中央座標を計算
+4. テキスト要素を追加（白背景の矩形 + テキスト）
+
+【技術仕様】
+- フォント: sans-serif
+- フォントサイズ: viewBox幅の1/10程度
+- テキスト色: 黒（#000000）
+- 背景色: 白（#FFFFFF）
+- 配置: 中央揃え（text-anchor="middle"）
+
+【注意事項】
+- SVGはXML形式なので、文字列操作またはXMLパーサーが必要
+- qrcodeライブラリのSvgImageはXML文字列を返すため、パース後に編集可能
+
+3.3 PDF形式の変更仕様
+---------------------
+【レイアウト仕様】
+A4サイズ（595.27 x 841.89 ポイント）での配置:
+
+┌─────────────────────────────────────────────────────────────┐
+│  上部マージン: 80mm                                         │
+│                                                             │
+│  「FAQ & AI ChatBot」（12pt、太字、中央揃え、黒色）         │
+│  Y座標: A4[1] - 80 * mm                                     │
+│                                                             │
+│  【施設名】（14pt、太字、中央揃え、黒色）                   │
+│  Y座標: A4[1] - 100 * mm                                    │
+│                                                             │
+│  ┌─────────────────────────────┐                           │
+│  │                             │                           │
+│  │         QRコード            │                           │
+│  │     (中央: YadOPERA)        │  ← 既存実装を維持        │
+│  │        (100mm x 100mm)      │                           │
+│  │                             │                           │
+│  └─────────────────────────────┘                           │
+│  X座標: (A4[0] - 100 * mm) / 2                              │
+│  Y座標: (A4[1] - 100 * mm) / 2                              │
+│                                                             │
+│  設置場所: 【設置場所】（8pt、左揃え、グレー）              │
+│  X座標: (A4[0] - 100 * mm) / 2                              │
+│  Y座標: (A4[1] - 100 * mm) / 2 - 15 * mm                    │
+│                                                             │
+│  生成日時: 【YYYY-MM-DD HH:MM】（8pt、左揃え、グレー）      │
+│  X座標: (A4[0] - 100 * mm) / 2                              │
+│  Y座標: (A4[1] - 100 * mm) / 2 - 25 * mm                    │
+│                                                             │
+│  下部マージン: 適宜                                         │
+└─────────────────────────────────────────────────────────────┘
+
+【テキスト仕様】
+1. タイトル「FAQ & AI ChatBot」
+   - フォント: Helvetica-Bold
+   - サイズ: 12pt
+   - 色: 黒（rgb(0, 0, 0)）
+   - 配置: 中央揃え
+   - Y座標: A4[1] - 80 * mm
+
+2. 施設名
+   - フォント: Helvetica-Bold
+   - サイズ: 14pt
+   - 色: 黒（rgb(0, 0, 0)）
+   - 配置: 中央揃え
+   - Y座標: A4[1] - 100 * mm
+   - テキスト: facility.name
+
+3. 設置場所（スタッフ用）
+   - フォント: Helvetica
+   - サイズ: 8pt
+   - 色: グレー（rgb(0.5, 0.5, 0.5)）
+   - 配置: 左揃え
+   - X座標: (A4[0] - 100 * mm) / 2
+   - Y座標: (A4[1] - 100 * mm) / 2 - 15 * mm
+   - テキスト: "設置場所: {location_label}"
+
+4. 生成日時（スタッフ用）
+   - フォント: Helvetica
+   - サイズ: 8pt
+   - 色: グレー（rgb(0.5, 0.5, 0.5)）
+   - 配置: 左揃え
+   - X座標: (A4[0] - 100 * mm) / 2
+   - Y座標: (A4[1] - 100 * mm) / 2 - 25 * mm
+   - テキスト: "生成日時: {generated_at}"
+   - 日時フォーマット: YYYY-MM-DD HH:MM（例: 2026-01-25 14:30）
+
+3.4 設置場所ラベル変換ロジック
+------------------------------
+```python
+def _get_location_label(self, location: str, custom_location_name: Optional[str]) -> str:
+    """設置場所コードから日本語表示への変換"""
+    if location == 'custom' and custom_location_name:
+        return custom_location_name
+    
+    location_labels = {
+        'entrance': '入口',
+        'room': '客室',
+        'kitchen': 'キッチン',
+        'lounge': 'ラウンジ',
+        'custom': 'カスタム'
+    }
+    return location_labels.get(location, location)
+```
+
+3.5 日時フォーマット
+--------------------
+```python
+# datetimeは既にインポート済み（9行目）
+generated_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+# 例: "2026-01-25 14:30"
+```
+
+================================================================================
+4. 実装ステップ
+================================================================================
+
+4.1 事前準備
+------------
+□ ステップ0: バックアップ作成
+  - 対象ファイル: backend/app/services/qr_code_service.py
+  - バックアップファイル名: backend/app/services/qr_code_service.py.bak_YYYYMMDD_HHMMSS
+  - コマンド: 
+    ```bash
+    cp backend/app/services/qr_code_service.py backend/app/services/qr_code_service.py.bak_$(date +%Y%m%d_%H%M%S)
+    ```
+
+4.2 実装ステップ（PNG形式）
+---------------------------
+□ ステップ1: PNG生成部分の修正
+  - 対象行: 156-163行目
+  - 修正内容:
+    ```python
+    if format == "png":
+        # QRコード画像を生成
+        img = qr.make_image(fill_color="black", back_color="white")
+        
+        # PIL Imageに変換して中央にテキストを追加
+        img = img.convert('RGB')
+        from PIL import ImageDraw, ImageFont
+        draw = ImageDraw.Draw(img)
+        
+        # QRコードサイズを取得
+        qr_width, qr_height = img.size
+        
+        # テキスト「YadOPERA」を中央に配置
+        text = "YadOPERA"
+        # デフォルトフォントを使用（サイズ指定）
+        try:
+            font_size = int(qr_width / 10)
+            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+        except:
+            # フォントが見つからない場合はデフォルトフォント
+            font = ImageFont.load_default()
+        
+        # テキストのバウンディングボックスを取得
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        text_height = bbox[3] - bbox[1]
+        
+        # 中央座標を計算
+        text_x = (qr_width - text_width) / 2
+        text_y = (qr_height - text_height) / 2
+        
+        # 白背景の矩形を描画（テキストより少し大きく）
+        padding = 10
+        draw.rectangle(
+            [text_x - padding, text_y - padding, 
+             text_x + text_width + padding, text_y + text_height + padding],
+            fill=(255, 255, 255)
+        )
+        
+        # テキストを描画
+        draw.text((text_x, text_y), text, fill=(0, 0, 0), font=font)
+        
+        # BytesIOに保存
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        qr_code_url = f"data:image/png;base64,{base64.b64encode(img_buffer.getvalue()).decode()}"
+    ```
+
+  - 注意事項:
+    1. ImageDraw, ImageFontのインポートを追加
+    2. エラー訂正レベルをERROR_CORRECT_Hに変更（152行目）
+    3. フォントファイルが存在しない場合のフォールバック処理
+
+□ ステップ2: エラー訂正レベルの変更（PNG用）
+  - 対象行: 152行目
+  - 変更前:
+    ```python
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    ```
+  - 変更後:
+    ```python
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_H,  # L → H に変更
+        box_size=10,
+        border=4,
+    )
+    ```
+
+4.3 実装ステップ（SVG形式）
+---------------------------
+□ ステップ3: SVG生成部分の修正
+  - 対象行: 165-193行目
+  - 修正内容:
+    ```python
+    elif format == "svg":
+        # SVG形式のQRコードを生成
+        try:
+            from qrcode.image.svg import SvgImage
+            
+            # QRコードオブジェクトを作成（エラー訂正レベルH、image_factoryを指定）
+            qr_svg = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,  # L → H に変更
+                box_size=10,
+                border=4,
+                image_factory=SvgImage
+            )
+            qr_svg.add_data(qr_code_data)
+            qr_svg.make(fit=True)
+            
+            # SVG形式で画像を生成
+            img_svg = qr_svg.make_image(fill_color="black", back_color="white")
+            
+            # SVGデータをBytesIOに保存
+            svg_buffer = io.BytesIO()
+            img_svg.save(svg_buffer)
+            svg_buffer.seek(0)
+            
+            # SVGデータを文字列として読み込み
+            svg_data = svg_buffer.getvalue().decode('utf-8')
+            
+            # SVGのviewBoxを解析して中央座標を計算
+            import re
+            viewbox_match = re.search(r'viewBox="([^"]+)"', svg_data)
+            if viewbox_match:
+                viewbox = viewbox_match.group(1).split()
+                width = float(viewbox[2])
+                height = float(viewbox[3])
+                center_x = width / 2
+                center_y = height / 2
+                
+                # テキスト要素を追加（白背景 + テキスト）
+                font_size = width / 15
+                text = "YadOPERA"
+                
+                # 白背景の矩形（テキストの下に配置）
+                rect_width = width / 3
+                rect_height = font_size * 1.5
+                rect_x = center_x - rect_width / 2
+                rect_y = center_y - rect_height / 2
+                
+                text_element = f'''
+                    <rect x="{rect_x}" y="{rect_y}" width="{rect_width}" height="{rect_height}" fill="white"/>
+                    <text x="{center_x}" y="{center_y + font_size/3}" 
+                          font-family="sans-serif" font-size="{font_size}" font-weight="bold"
+                          fill="black" text-anchor="middle">{text}</text>
+                '''
+                
+                # </svg>の直前にテキスト要素を挿入
+                svg_data = svg_data.replace('</svg>', text_element + '</svg>')
+            
+            # Base64エンコードしてData URL形式で返す
+            svg_bytes = svg_data.encode('utf-8')
+            qr_code_url = f"data:image/svg+xml;base64,{base64.b64encode(svg_bytes).decode()}"
+        except ImportError as e:
+            # SvgImageが利用できない場合のフォールバック
+            logger.warning(f"SvgImage not available: {str(e)}. Falling back to external API.")
+            qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_code_data}&format=svg"
+        except Exception as e:
+            # その他のエラーの場合のフォールバック
+            logger.error(f"Error generating SVG QR code: {str(e)}. Falling back to external API.")
+            qr_code_url = f"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data={qr_code_data}&format=svg"
+    ```
+
+  - 注意事項:
+    1. reモジュールを使用してviewBoxを解析
+    2. 文字列操作でSVG要素を追加
+    3. エラーハンドリングを維持
+
+4.4 実装ステップ（PDF形式）
+---------------------------
+□ ステップ4: ヘルパーメソッド追加
+  - 場所: QRCodeServiceクラス内、generate_qr_codeメソッドの前（120行目付近）
+  - 追加内容:
+    ```python
+    def _get_location_label(self, location: str, custom_location_name: Optional[str]) -> str:
+        """
+        設置場所コードから日本語表示への変換
+        
+        Args:
+            location: 設置場所コード
+            custom_location_name: カスタム設置場所名（オプション）
+        
+        Returns:
+            str: 日本語表示の設置場所名
+        """
+        if location == 'custom' and custom_location_name:
+            return custom_location_name
+        
+        location_labels = {
+            'entrance': '入口',
+            'room': '客室',
+            'kitchen': 'キッチン',
+            'lounge': 'ラウンジ',
+            'custom': 'カスタム'
+        }
+        return location_labels.get(location, location)
+    ```
+
+□ ステップ5: PDF生成部分の修正
+  - 対象行: 195-229行目
+  - 修正内容:
+    ```python
+    elif format == "pdf":
+        if PDF_AVAILABLE:
+            # PDF生成
+            img = qr.make_image(fill_color="black", back_color="white")
+            img_buffer = io.BytesIO()
+            img.save(img_buffer, format="PNG")
+            img_buffer.seek(0)
+            
+            pdf_buffer = io.BytesIO()
+            c = canvas.Canvas(pdf_buffer, pagesize=A4)
+            
+            # QRコードサイズと位置計算
+            qr_size = 100 * mm  # 10cm
+            qr_x = (A4[0] - qr_size) / 2
+            qr_y = (A4[1] - qr_size) / 2
+            
+            # 1. タイトル「FAQ & AI ChatBot」を描画
+            c.setFont("Helvetica-Bold", 12)
+            c.setFillColorRGB(0, 0, 0)  # 黒色
+            title_text = "FAQ & AI ChatBot"
+            title_width = c.stringWidth(title_text, "Helvetica-Bold", 12)
+            title_x = (A4[0] - title_width) / 2  # 中央揃え
+            title_y = A4[1] - 80 * mm
+            c.drawString(title_x, title_y, title_text)
+            
+            # 2. 施設名を描画
+            c.setFont("Helvetica-Bold", 14)
+            facility_name = facility.name
+            name_width = c.stringWidth(facility_name, "Helvetica-Bold", 14)
+            name_x = (A4[0] - name_width) / 2  # 中央揃え
+            name_y = A4[1] - 100 * mm
+            c.drawString(name_x, name_y, facility_name)
+            
+            # 3. QRコードを描画（中央にYadOPERAテキスト付き）
+            # まずPNG形式でQRコード+YadOPERAを生成
+            img_with_text = qr.make_image(fill_color="black", back_color="white")
+            img_with_text = img_with_text.convert('RGB')
+            
+            # 中央にYadOPERAテキストを追加
+            from PIL import ImageDraw, ImageFont
+            draw = ImageDraw.Draw(img_with_text)
+            
+            qr_width, qr_height = img_with_text.size
+            text = "YadOPERA"
+            
+            try:
+                font_size = int(qr_width / 10)
+                font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+            except:
+                font = ImageFont.load_default()
+            
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            
+            text_x = (qr_width - text_width) / 2
+            text_y = (qr_height - text_height) / 2
+            
+            padding = 10
+            draw.rectangle(
+                [text_x - padding, text_y - padding, 
+                 text_x + text_width + padding, text_y + text_height + padding],
+                fill=(255, 255, 255)
+            )
+            draw.text((text_x, text_y), text, fill=(0, 0, 0), font=font)
+            
+            # QRコード画像をPDFに配置
+            img_buffer_final = io.BytesIO()
+            img_with_text.save(img_buffer_final, format="PNG")
+            img_buffer_final.seek(0)
+            img_pil = Image.open(img_buffer_final)
+            c.drawImage(ImageReader(img_pil), qr_x, qr_y, width=qr_size, height=qr_size)
+            
+            # 4. 設置場所を描画（スタッフ用、小さいフォント）
+            c.setFont("Helvetica", 8)
+            c.setFillColorRGB(0.5, 0.5, 0.5)  # グレー色
+            location_label = self._get_location_label(location, custom_location_name)
+            location_text = f"設置場所: {location_label}"
+            location_x = qr_x
+            location_y = qr_y - 15 * mm
+            c.drawString(location_x, location_y, location_text)
+            
+            # 5. 生成日時を描画（スタッフ用、小さいフォント）
+            generated_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+            datetime_text = f"生成日時: {generated_at}"
+            datetime_x = qr_x
+            datetime_y = qr_y - 25 * mm
+            c.drawString(datetime_x, datetime_y, datetime_text)
+            
+            c.save()
+            
+            pdf_buffer.seek(0)
+            qr_code_url = f"data:application/pdf;base64,{base64.b64encode(pdf_buffer.getvalue()).decode()}"
+        else:
+            # フォールバック: PNGを返す
+            img = qr.make_image(fill_color="black", back_color="white")
+            img_buffer = io.BytesIO()
+            img.save(img_buffer, format="PNG")
+            img_buffer.seek(0)
+            qr_code_url = f"data:image/png;base64,{base64.b64encode(img_buffer.getvalue()).decode()}"
+            format = "png"  # フォールバック形式
+    ```
+
+□ ステップ6: エラー訂正レベルの変更（PDF用）
+  - 対象行: 152行目
+  - 変更内容: PNG/SVGと同じくERROR_CORRECT_Hに変更（ステップ2で実施済み）
+
+4.5 テスト準備
+--------------
+□ ステップ7: コード整合性チェック
+  - インデント確認: 4スペース統一
+  - インポート確認: 
+    - datetime: 既にインポート済み（9行目）
+    - PIL.ImageDraw, PIL.ImageFont: PNG/PDF生成時にインポート
+    - re: SVG生成時にインポート
+  - 変数スコープ確認: facility, location, custom_location_nameが利用可能
+
+□ ステップ8: ファイル保存
+  - エディタ: Cursor または vim
+  - 文字コード: UTF-8
+  - 改行コード: LF（Unix形式）
+
+□ ステップ9: Docker環境再起動
+  - コマンド: 
+    ```bash
+    docker-compose down
+    docker-compose up -d --build backend
+    ```
+  - 確認: 
+    ```bash
+    docker-compose ps
+    ```
+    （backendがUpであることを確認）
+
+4.6 テスト実施
+--------------
+□ ステップ10: ブラウザテスト（ステージング環境）
+  - URL: https://yadopera-frontend-staging.onrender.com/admin/qr-code
+  - ログイン: test31@example.com
+  
+  【PNG形式テスト】
+  1. 設置場所「入口」を選択
+  2. PNGダウンロードボタンをクリック
+  3. ダウンロードしたPNGを開く
+  4. 確認項目:
+     ✓ QRコード中央に「YadOPERA」テキストが表示されている
+     ✓ テキストが白背景の上に黒色で表示されている
+     ✓ QRコードが読み取り可能である
+  
+  【SVG形式テスト】
+  1. 設置場所「入口」を選択
+  2. SVGダウンロードボタンをクリック
+  3. ダウンロードしたSVGを開く
+  4. 確認項目:
+     ✓ QRコード中央に「YadOPERA」テキストが表示されている
+     ✓ テキストが白背景の上に黒色で表示されている
+     ✓ ベクター形式で拡大縮小しても画質が劣化しない
+     ✓ QRコードが読み取り可能である
+  
+  【PDF形式テスト】
+  1. 設置場所「入口」を選択
+  2. PDFダウンロードボタンをクリック
+  3. ダウンロードしたPDFを開く
+  4. 確認項目:
+     ✓ タイトル「FAQ & AI ChatBot」が表示されている（上部、中央揃え）
+     ✓ 施設名が表示されている（タイトルの下、中央揃え）
+     ✓ QRコード中央に「YadOPERA」テキストが表示されている
+     ✓ QRコードが中央に配置されている
+     ✓ 設置場所「入口」が表示されている（QRコードの下部、小さいフォント、グレー）
+     ✓ 生成日時が表示されている（設置場所の下、小さいフォント、グレー）
+     ✓ レイアウトが崩れていない
+     ✓ A4サイズで印刷プレビューが適切
+
+□ ステップ11: 各設置場所でのテスト
+  - テスト対象: entrance, room, kitchen, lounge, custom
+  - customの場合: カスタム設置場所名「受付カウンター」でテスト
+  - 全形式（PNG/SVG/PDF）でテスト
+  - 確認項目: 
+    ✓ PNG/SVG: YadOPERAテキストが正しく表示される
+    ✓ PDF: 設置場所ラベルが正しく表示される
+
+□ ステップ12: スマートフォンでQRコード読み取りテスト
+  - 手順:
+    1. PDF/PNG/SVGをプリンターで印刷（または画面表示）
+    2. スマートフォンでQRコードを読み取る
+    3. 正しいURLにアクセスできることを確認
+  - 注意: 
+    - YadOPERAテキストがQRコード読み取りに影響しないこと
+    - エラー訂正レベルHで正常に読み取れること
+
+□ ステップ13: エラー訂正レベル確認テスト
+  - 手順:
+    1. 生成されたQRコードの一部を隠して読み取りテスト
+    2. エラー訂正レベルHが有効に機能しているか確認
+  - 期待結果: 約30%のデータ損失でも読み取り可能
+
+4.7 デプロイ
+------------
+□ ステップ14: Gitコミット
+  - ブランチ: develop
+  - コミットメッセージ:
+    ```
+    feat: QRコードデザイン変更（YadOPERA中央配置 + PDF追加情報）
+    
+    【PNG/SVG形式】
+    - QRコード中央に「YadOPERA」テキストを配置
+    - エラー訂正レベルをLからHに変更（約30%のデータ損失に対応）
+    - PNG: PIL ImageDrawを使用してテキスト描画
+    - SVG: XML解析してテキスト要素を追加
+    
+    【PDF形式】
+    - タイトル「FAQ & AI ChatBot」をQRコード上部に追加（12pt、太字）
+    - 施設名をタイトル下部に追加（14pt、太字、中央揃え）
+    - QRコード中央に「YadOPERA」テキストを配置（PNG/SVGと同じロジック）
+    - 設置場所と生成日時をQRコード下部に追加（8pt、グレー、スタッフ用）
+    - ヘルパーメソッド _get_location_label 追加
+    
+    変更ファイル:
+    - backend/app/services/qr_code_service.py
+    
+    テスト完了:
+    - ブラウザテスト完了（ステージング環境）
+    - PNG/SVG/PDF生成テスト完了（全設置場所）
+    - QRコード読み取りテスト完了（スマートフォン、エラー訂正レベルH確認済み）
+    
+    Phase 3: PoC実施中
+    要約定義書v0.3.4の「QRコードデザイン変更」を拡張実装
+    ```
+  
+  - コマンド:
+    ```bash
+    git add backend/app/services/qr_code_service.py
+    git commit -m "上記メッセージ"
+    git push origin develop
+    ```
+
+□ ステップ15: Render.com自動デプロイ確認
+  - 確認URL: Render.comダッシュボード
+  - 確認内容: developブランチへのプッシュでバックエンドが自動デプロイされることを確認
+  - デプロイ時間: 約3-5分
+
+□ ステップ16: デプロイ後テスト
+  - URL: https://yadopera-frontend-staging.onrender.com/admin/qr-code
+  - テスト内容: ステップ10-13を再実施
+  - 確認: デプロイ後も正常に動作することを確認
+
+4.8 ドキュメント更新
+--------------------
+□ ステップ17: 引き継ぎ書作成
+  - ファイル名: docs/20260125_QRコードデザイン変更_完了報告.md
+  - 内容:
+    - 変更概要（PNG/SVG/PDF）
+    - 修正ファイル一覧
+    - コミット情報
+    - テスト結果
+    - デプロイ状況
+    - 次のセッションで確認すべき項目
+
+□ ステップ18: 要約定義書更新
+  - ファイル: docs/Summary/yadopera-v03-summary.md
+  - 更新箇所: 変更履歴セクション
+  - 追加内容:
+    ```markdown
+    ## 変更履歴 v0.3.11 → v0.3.12（2026-01-25）
+
+    1. **QRコードデザイン変更完了（v0.3.4拡張実装）**:
+       - PNG/SVG形式: QRコード中央に「YadOPERA」テキストを配置
+       - PDF形式: タイトル・施設名（上部）+ YadOPERA中央配置 + 設置場所・生成日時（下部）
+       - エラー訂正レベルをLからHに変更（全形式）
+       - ヘルパーメソッド `_get_location_label` 追加
+       - コミット: `[コミットハッシュ]`（`develop`ブランチ）
+    ```
+
+================================================================================
+5. 技術的注意事項
+================================================================================
+
+5.1 reportlabの座標系
+----------------------
+- 原点: 左下（0, 0）
+- X軸: 右方向が正
+- Y軸: 上方向が正
+- A4サイズ: (595.27, 841.89) ポイント
+- 1mm = 2.83465 ポイント（reportlab.lib.units.mm使用）
+
+5.2 フォント指定
+----------------
+【reportlab（PDF）】
+- Helvetica: 標準フォント
+- Helvetica-Bold: 太字フォント
+- 日本語対応: 現時点では不要（施設名は英語・ローマ字想定）
+
+【PIL（PNG）】
+- DejaVuSans-Bold.ttf: 太字フォント（/usr/share/fonts/truetype/dejavu/）
+- フォールバック: ImageFont.load_default()
+
+【SVG】
+- sans-serif: ブラウザデフォルトフォント
+
+5.3 中央揃えの実装
+------------------
+【reportlab】
+```python
+# テキスト幅を取得
+text_width = c.stringWidth(text, font_name, font_size)
+
+# X座標を計算（中央揃え）
+x = (A4[0] - text_width) / 2
+
+# 描画
+c.drawString(x, y, text)
+```
+
+【PIL】
+```python
+# テキストのバウンディングボックスを取得
+bbox = draw.textbbox((0, 0), text, font=font)
+text_width = bbox[2] - bbox[0]
+text_height = bbox[3] - bbox[1]
+
+# 中央座標を計算
+text_x = (image_width - text_width) / 2
+text_y = (image_height - text_height) / 2
+
+# 描画
+draw.text((text_x, text_y), text, fill=(0, 0, 0), font=font)
+```
+
+【SVG】
+```xml
+<!-- text-anchor="middle"で中央揃え -->
+<text x="中央X座標" y="中央Y座標" text-anchor="middle">YadOPERA</text>
+```
+
+5.4 色指定
+----------
+【reportlab】
+```python
+# 黒色（RGB）
+c.setFillColorRGB(0, 0, 0)
+
+# グレー色（RGB）
+c.setFillColorRGB(0.5, 0.5, 0.5)
+```
+
+【PIL】
+```python
+# 黒色（RGB）
+fill=(0, 0, 0)
+
+# 白色（RGB）
+fill=(255, 255, 255)
+
+# グレー色（RGB）
+fill=(128, 128, 128)
+```
+
+【SVG】
+```xml
+<!-- 黒色 -->
+fill="black" または fill="#000000"
+
+<!-- 白色 -->
+fill="white" または fill="#FFFFFF"
+```
+
+5.5 QRコードエラー訂正レベル
+----------------------------
+- ERROR_CORRECT_L: 約7%のデータ損失に対応（デフォルト）
+- ERROR_CORRECT_M: 約15%のデータ損失に対応
+- ERROR_CORRECT_Q: 約25%のデータ損失に対応
+- ERROR_CORRECT_H: 約30%のデータ損失に対応
+
+**今回の変更**: L → H（中央にテキストを配置するため）
+
+**影響**:
+- QRコードのデータ密度が上がる（セル数が増える）
+- 読み取り精度が向上する
+- ファイルサイズが若干増加する（数KB程度）
+
+5.6 PIL ImageDraw.textbbox()
+-----------------------------
+**重要**: PIL 8.0.0以降で`textbbox()`が追加された。古いバージョンでは`textsize()`を使用する必要がある。
+
+```python
+# PIL 8.0.0以降
+bbox = draw.textbbox((0, 0), text, font=font)
+text_width = bbox[2] - bbox[0]
+text_height = bbox[3] - bbox[1]
+
+# PIL 8.0.0未満（フォールバック）
+try:
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+except AttributeError:
+    # textbboxが利用できない場合はtextsizeを使用
+    text_width, text_height = draw.textsize(text, font=font)
+```
+
+**対策**: requirements.txtでPillow>=10.0.0を指定しているため問題なし
+
+================================================================================
+6. 想定される問題と対策
+================================================================================
+
+6.1 施設名が長い場合
+--------------------
+**問題**: 施設名が長い場合、A4用紙の幅を超える可能性がある
+
+**対策**:
+- 現時点では対策不要（施設名は通常20文字以内を想定）
+- 将来的な対策案:
+  1. 文字数制限（30文字以内）
+  2. 自動改行処理
+  3. フォントサイズ自動調整
+
+6.2 日本語施設名の表示
+----------------------
+**問題**: 日本語施設名の場合、フォント埋め込みが必要
+
+**現在の対策**: 英語・ローマ字施設名を前提とする
+
+**将来的な対策案**:
+- reportlab: 日本語フォント埋め込み（pdfmetrics.registerFont使用）
+- PIL: 日本語フォント指定（例: /usr/share/fonts/truetype/fonts-japanese-gothic.ttf）
+- IPAフォント等のオープンソースフォント使用
+
+6.3 フォントファイルが存在しない場合
+------------------------------------
+**問題**: DejaVuSans-Bold.ttfが存在しない環境でエラーが発生する
+
+**対策**: try-exceptでフォールバック処理を実装済み
+
+```python
+try:
+    font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
+except:
+    font = ImageFont.load_default()
+```
+
+**影響**: デフォルトフォントは小さいため、テキストが見づらくなる可能性がある
+
+6.4 生成日時のタイムゾーン
+--------------------------
+**問題**: datetime.utcnow()はUTC時刻を返す
+
+**現在の対策**: UTCのまま表示（スタッフ向け情報なので問題なし）
+
+**将来的な対策案**:
+- 施設のタイムゾーン設定を追加（Facilityモデルにtimezoneカラムあり）
+- datetime.now(tz=施設タイムゾーン)を使用
+
+```python
+# 将来的な実装例
+from zoneinfo import ZoneInfo
+tz = ZoneInfo(facility.timezone)  # "Asia/Tokyo"
+generated_at = datetime.now(tz).strftime('%Y-%m-%d %H:%M')
+```
+
+6.5 QRコード読み取り精度
+------------------------
+**問題**: YadOPERAテキストがQRコード読み取りに影響する可能性
+
+**対策**:
+1. エラー訂正レベルをHに変更（約30%のデータ損失に対応）
+2. テキストサイズを適切に設定（QRコード幅の1/10程度）
+3. 白背景の矩形を配置（QRコードとのコントラストを確保）
+
+**テスト**: スマートフォンでの読み取りテストを必須とする
+
+6.6 PDFファイルサイズ
+---------------------
+**問題**: テキスト追加によりPDFファイルサイズが増加する可能性
+
+**現在の対策**: 影響は軽微（数KB程度の増加を想定）
+
+**測定**:
+- 修正前: 約10-15KB
+- 修正後: 約15-20KB（推定）
+
+**将来的な対策案**:
+- PDF圧縮オプション使用
+- 画像品質調整
+
+6.7 SVGのviewBox解析失敗
+-------------------------
+**問題**: 正規表現でviewBoxを解析できない場合がある
+
+**対策**: エラーハンドリングを実装
+
+```python
+if viewbox_match:
+    # viewBoxが見つかった場合の処理
+else:
+    # viewBoxが見つからない場合はテキスト追加をスキップ
+    logger.warning("SVG viewBox not found, skipping text overlay")
+```
+
+**影響**: SVG形式でYadOPERAテキストが表示されない（QRコードは正常）
+
+================================================================================
+7. テストケース
+================================================================================
+
+7.1 正常系テスト（PNG形式）
+---------------------------
+TC-001: 設置場所「入口」でPNG生成
+  - 入力: location="entrance", format="png"
+  - 期待結果:
+    ✓ QRコード中央に「YadOPERA」テキストが表示される
+    ✓ テキストが白背景の上に黒色で表示される
+    ✓ QRコードが読み取り可能である
+    ✓ エラー訂正レベルHが適用されている
+
+TC-002: カスタム設置場所でPNG生成
+  - 入力: location="custom", custom_location_name="受付カウンター", format="png"
+  - 期待結果: TC-001と同様
+
+7.2 正常系テスト（SVG形式）
+---------------------------
+TC-003: 設置場所「客室」でSVG生成
+  - 入力: location="room", format="svg"
+  - 期待結果:
+    ✓ QRコード中央に「YadOPERA」テキストが表示される
+    ✓ テキストが白背景の上に黒色で表示される
+    ✓ ベクター形式で拡大縮小しても画質が劣化しない
+    ✓ QRコードが読み取り可能である
+    ✓ エラー訂正レベルHが適用されている
+
+TC-004: SVG viewBox解析失敗時のフォールバック
+  - 入力: 不正なSVGデータ
+  - 期待結果:
+    ✓ エラーログが出力される
+    ✓ テキストなしのQRコードSVGが返される
+
+7.3 正常系テスト（PDF形式）
+---------------------------
+TC-005: 設置場所「入口」でPDF生成
+  - 入力: location="entrance", format="pdf", facility.name="Tokyo Guest House"
+  - 期待結果:
+    ✓ タイトル「FAQ & AI ChatBot」が表示される（上部、中央揃え、12pt）
+    ✓ 施設名「Tokyo Guest House」が表示される（タイトル下、中央揃え、14pt）
+    ✓ QRコード中央に「YadOPERA」テキストが表示される
+    ✓ QRコードが中央に配置される（100mm × 100mm）
+    ✓ 設置場所「入口」が表示される（下部、左揃え、8pt、グレー）
+    ✓ 生成日時が表示される（YYYY-MM-DD HH:MM形式、8pt、グレー）
+    ✓ A4サイズで適切にレイアウトされている
+
+TC-006: カスタム設置場所でPDF生成
+  - 入力: location="custom", custom_location_name="受付カウンター", format="pdf"
+  - 期待結果: TC-005と同様（設置場所が「受付カウンター」）
+
+TC-007: 全設置場所でPDF生成
+  - 入力: location=["entrance", "room", "kitchen", "lounge"]
+  - 期待結果: 
+    ✓ 設置場所ラベルが正しく表示される（入口、客室、キッチン、ラウンジ）
+
+7.4 異常系テスト
+----------------
+TC-008: 施設情報取得失敗
+  - 入力: facility_id=9999（存在しないID）
+  - 期待結果: ValueErrorが発生（既存の実装）
+
+TC-009: 設置場所コード不正
+  - 入力: location="invalid", format="pdf"
+  - 期待結果: 
+    ✓ 設置場所が「invalid」のまま表示される（_get_location_labelのフォールバック）
+
+TC-010: フォントファイルが存在しない
+  - 入力: format="png"（DejaVuSans-Bold.ttfが存在しない環境）
+  - 期待結果:
+    ✓ デフォルトフォントが使用される
+    ✓ エラーが発生しない
+    ✓ QRコードは正常に生成される
+
+7.5 QRコード読み取りテスト
+--------------------------
+TC-011: iOSデバイスでQRコード読み取り（PNG）
+  - 手順:
+    1. PNG形式でQRコードを生成（YadOPERAテキスト付き）
+    2. 画面表示またはスタッフ印刷
+    3. iOSカメラアプリでQRコードをスキャン
+    4. 表示されたURLをタップ
+  - 期待結果: 正しいゲスト画面にアクセスできる
+
+TC-012: AndroidデバイスでQRコード読み取り（SVG）
+  - 手順: TC-011と同様（SVG形式）
+  - 期待結果: TC-011と同様
+
+TC-013: QRコード部分的損傷テスト（PDF）
+  - 手順:
+    1. PDF形式でQRコードを生成
+    2. QRコードの一部（約20-25%）を隠す
+    3. スマートフォンで読み取りテスト
+  - 期待結果: 
+    ✓ エラー訂正レベルHにより読み取り可能
+    ✓ 正しいURLにアクセスできる
+
+TC-014: YadOPERAテキスト可読性テスト
+  - 手順:
+    1. 各形式（PNG/SVG/PDF）でQRコードを生成
+    2. 画面表示と印刷の両方で確認
+  - 期待結果:
+    ✓ YadOPERAテキストが明瞭に読める
+    ✓ 白背景とのコントラストが十分
+    ✓ QRコード読み取りに影響しない
+
+7.6 レイアウトテスト（PDF）
+---------------------------
+TC-015: A4印刷プレビュー
+  - 手順:
+    1. PDF形式でQRコードを生成
+    2. PDFビューアで開く
+    3. 印刷プレビューを確認
+  - 期待結果:
+    ✓ タイトルが用紙上部に適切に配置されている
+    ✓ 施設名が読みやすい位置にある
+    ✓ QRコードが用紙中央に配置されている
+    ✓ 設置場所・生成日時が用紙下部に配置されている
+    ✓ 余白が適切（上下左右）
+
+TC-016: 長い施設名のレイアウト
+  - 入力: facility.name="Very Long Facility Name Test Example"
+  - 期待結果:
+    ✓ 施設名が用紙幅内に収まる
+    ✓ レイアウトが崩れない
+    （注: 30文字を超える場合は将来的に対応検討）
+
+7.7 パフォーマンステスト
+------------------------
+TC-017: 連続生成テスト
+  - 手順:
+    1. 5つの設置場所で連続してQRコードを生成
+    2. 各形式（PNG/SVG/PDF）で実施
+  - 期待結果:
+    ✓ 各生成が3秒以内に完了
+    ✓ メモリリークが発生しない
+    ✓ エラーが発生しない
+
+TC-018: ファイルサイズ測定
+  - 手順:
+    1. 各形式でQRコードを生成
+    2. ファイルサイズを測定
+  - 期待結果:
+    ✓ PNG: 5-10KB程度
+    ✓ SVG: 1-3KB程度
+    ✓ PDF: 15-25KB程度（YadOPERAテキスト + 追加情報含む）
+
+================================================================================
+8. 実装時の重要確認事項
+================================================================================
+
+8.1 既存実装の確認
+------------------
+□ 要約定義書v0.3.4の「QRコードデザイン変更」が実装済みか確認
+  - 確認方法: 
+    ```bash
+    git log --oneline --grep="QRコード" | head -20
+    ```
+  - 未実装の場合: 本計画書で合わせて実装する
+
+□ 現在のエラー訂正レベルを確認
+  - 確認箇所: backend/app/services/qr_code_service.py 152行目
+  - 現在値: ERROR_CORRECT_L（想定）
+  - 変更後: ERROR_CORRECT_H
+
+8.2 ライブラリバージョン確認
+----------------------------
+□ Pillow >= 10.0.0 であることを確認
+  - 確認方法: 
+    ```bash
+    grep "Pillow" backend/requirements.txt
+    ```
+  - 必要なメソッド: ImageDraw.textbbox()（PIL 8.0.0以降）
+
+□ reportlab >= 4.0.0 であることを確認
+  - 確認方法: 
+    ```bash
+    grep "reportlab" backend/requirements.txt
+    ```
+
+8.3 Docker環境での実施
+----------------------
+□ すべての修正・テストはDocker環境で実施すること
+  - 理由: ローカル環境とDocker環境の違いによる不具合を防止
+  - 原則: 「Dockerを使わない修正もテストも意味がない」（大原則6）
+
+□ フォントファイルの存在確認（Docker環境内）
+  - 確認コマンド:
+    ```bash
+    docker-compose exec backend ls -la /usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+    ```
+  - 存在しない場合: apt-get install fonts-dejavu をDockerfileに追加
+
+8.4 コミット前の最終確認
+------------------------
+□ インデント統一（4スペース）
+□ 未使用のインポート削除
+□ コメント・ドキュメント文字列の追加
+□ エラーハンドリングの実装
+□ ログ出力の追加（必要に応じて）
+
+================================================================================
+9. 実装完了後の確認事項
+================================================================================
+
+9.1 機能確認
+------------
+□ PNG形式: YadOPERAテキストが中央に表示される
+□ SVG形式: YadOPERAテキストが中央に表示される
+□ PDF形式: タイトル・施設名・YadOPERA・設置場所・生成日時が表示される
+□ 全形式でQRコードが正常に読み取れる
+□ エラー訂正レベルHが有効に機能している
+
+9.2 ユーザビリティ確認
+----------------------
+□ フロントエンド（QRCodeForm.vue）で各形式がダウンロード可能
+□ 生成済みQRコード一覧で各形式がダウンロード可能
+□ ダウンロードファイル名が適切（例: qrcode-entrance-1.pdf）
+□ エラーメッセージが適切に表示される
+
+9.3 パフォーマンス確認
+----------------------
+□ QRコード生成時間が3秒以内
+□ PDFファイルサイズが30KB以下
+□ メモリリークが発生しない
+
+9.4 ドキュメント確認
+--------------------
+□ 引き継ぎ書が作成されている
+□ 要約定義書が更新されている
+□ コミットメッセージが適切
+
+================================================================================
+10. トラブルシューティング
+================================================================================
+
+10.1 QRコードが読み取れない
+---------------------------
+**症状**: スマートフォンでQRコードを読み取れない
+
+**原因1**: YadOPERAテキストがQRコード読み取り領域を大きく覆っている
+**対策**: テキストサイズを縮小（QRコード幅の1/12に変更）
+
+**原因2**: エラー訂正レベルが不足
+**対策**: エラー訂正レベルがHに変更されているか確認
+
+**原因3**: QRコード画像の解像度が低い
+**対策**: box_sizeを10から15に変更（高解像度化）
+
+10.2 YadOPERAテキストが表示されない
+-----------------------------------
+**症状**: PNG/SVG/PDFでYadOPERAテキストが表示されない
+
+**原因1（PNG/PDF）**: フォントファイルが存在しない
+**対策**: 
+```bash
+docker-compose exec backend apt-get update
+docker-compose exec backend apt-get install -y fonts-dejavu
+docker-compose restart backend
+```
+
+**原因2（SVG）**: viewBox解析に失敗
+**対策**: ログを確認し、正規表現パターンを調整
+
+**原因3**: PIL ImageDrawのインポート失敗
+**対策**: エラーログを確認し、Pillowのバージョンを確認
+
+10.3 PDFでテキストが表示されない
+--------------------------------
+**症状**: タイトル・施設名・設置場所・生成日時が表示されない
+
+**原因1**: 座標計算ミス
+**対策**: 
+- Y座標が正の値か確認（A4[1] - 80 * mm > 0）
+- X座標が用紙幅内か確認
+
+**原因2**: フォント設定ミス
+**対策**: 
+```python
+c.setFont("Helvetica-Bold", 12)  # フォント名とサイズを確認
+```
+
+**原因3**: 色設定ミス
+**対策**: 
+```python
+c.setFillColorRGB(0, 0, 0)  # 黒色に設定されているか確認
+```
+
+10.4 設置場所ラベルが正しく表示されない
+----------------------------------------
+**症状**: 設置場所が英語コードのまま表示される（例: "entrance"）
+
+**原因**: _get_location_labelメソッドが呼ばれていない
+**対策**: 
+```python
+location_label = self._get_location_label(location, custom_location_name)
+```
+が実装されているか確認
+
+10.5 デプロイ後に動作しない
+---------------------------
+**症状**: ステージング環境で正常に動作しない
+
+**原因1**: Docker環境で未テスト
+**対策**: 必ずDocker環境でテストしてからデプロイ
+
+**原因2**: 環境変数が設定されていない
+**対策**: Render.comの環境変数を確認
+
+**原因3**: フォントファイルが存在しない
+**対策**: Dockerfileにフォントインストールコマンドを追加
+```dockerfile
+RUN apt-get update && apt-get install -y fonts-dejavu
+```
+
+================================================================================
+11. 参考情報
+================================================================================
+
+11.1 関連ドキュメント
+---------------------
+- 要約定義書: docs/Summary/yadopera-v03-summary.md
+- QRコード設置場所別設計意図: docs/Phase1/Phase1_QRコード設置場所別設計意図_説明書.md
+- QRコード読み取りエラー修正: docs/20260120_QRコード読み取りエラー修正完了_引き継ぎ書.md
+
+11.2 参考URL
+------------
+- reportlab公式ドキュメント: https://docs.reportlab.com/
+- PIL/Pillow公式ドキュメント: https://pillow.readthedocs.io/
+- qrcode公式ドキュメント: https://github.com/lincolnloop/python-qrcode
+
+11.3 コードレビューポイント
+----------------------------
+□ エラーハンドリングが適切か
+□ ログ出力が適切か
+□ コメントが分かりやすいか
+□ 変数名が適切か
+□ インデントが統一されているか
+□ 不要なコードが残っていないか
+
+================================================================================
+12. まとめ
+================================================================================
+
+12.1 変更サマリー
+-----------------
+【PNG/SVG形式】
+- QRコード中央に「YadOPERA」テキスト配置
+- エラー訂正レベルをLからHに変更
+- PIL/XML操作でテキスト描画
+
+【PDF形式】
+- QRコード上部にタイトル・施設名追加
+- QRコード中央に「YadOPERA」テキスト配置（PNG/SVGと同じロジック）
+- QRコード下部に設置場所・生成日時追加
+- ヘルパーメソッド追加
+
+12.2 実装工数見積もり
+---------------------
+- 実装時間: 3-4時間
+  - PNG実装: 1時間
+  - SVG実装: 1時間
+  - PDF実装: 1.5時間
+  - テスト: 0.5時間
+
+- テスト時間: 2-3時間
+  - 単体テスト: 1時間
+  - 統合テスト: 1時間
+  - QRコード読み取りテスト: 1時間
+
+- 合計: 5-7時間
+
+12.3 リスクレベル
+-----------------
+- 技術的リスク: 低
+  - 既存のライブラリを使用
+  - 既存実装との互換性維持
+
+- ユーザー影響: 低
+  - 既存機能は変更なし
+  - 追加機能のみ
+
+- デプロイリスク: 低
+  - バックエンドのみの変更
+  - ロールバック容易
+
+12.4 成功基準
+-------------
+□ 全形式（PNG/SVG/PDF）でYadOPERAテキストが表示される
+□ PDFでタイトル・施設名・設置場所・生成日時が表示される
+□ QRコードが正常に読み取れる（スマートフォンテスト）
+□ エラー訂正レベルHが機能する
+□ ステージング環境で正常動作する
+□ ドキュメントが完全に更新される
+
+================================================================================
+計画書終了
+================================================================================
+
+**次のアクション:**
+1. この計画書を精読
+2. バックアップ作成（ステップ0）
+3. 実装開始（ステップ1-6）
+4. テスト実施（ステップ7-13）
+5. デプロイ（ステップ14-16）
+6. ドキュメント更新（ステップ17-18）
+
+**重要な注意事項:**
+- 必ずDocker環境で実施すること
+- 各ステップ完了後に確認すること
+- エラーが発生した場合はトラブルシューティングを参照
+- デプロイ前に必ずブラウザテストを完了させること
+
+**作成者**: AI Assistant
+**承認者**: （記入してください）
+**実施予定日**: （記入してください）
+
+================================================================================
