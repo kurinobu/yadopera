@@ -148,7 +148,7 @@ const handleRegister = async () => {
     isLoading.value = true
     errorMessage.value = ''
 
-    const response = await authApi.register({
+    await authApi.register({
       email: form.email,
       password: form.password,
       facility_name: form.facility_name,
