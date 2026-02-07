@@ -25,6 +25,7 @@ class UserResponse(BaseModel):
     role: str
     facility_id: int
     is_active: bool
+    email_verified: bool  # ★追加
 
     class Config:
         from_attributes = True
@@ -71,3 +72,42 @@ class FacilityRegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, description="パスワード（最小8文字）")
     facility_name: str = Field(..., min_length=1, max_length=255, description="施設名")
     subscription_plan: str = Field(default="small", description="料金プラン（free/mini/small/standard/premium）")
+
+
+class FacilityRegisterResponse(BaseModel):
+    """
+    施設登録レスポンス（メール確認待ち）
+    """
+    message: str = Field(..., description="登録完了メッセージ")
+    email: str = Field(..., description="登録メールアドレス")
+    facility_name: str = Field(..., description="施設名")
+
+
+class VerifyEmailRequest(BaseModel):
+    """
+    メールアドレス確認リクエスト
+    """
+    token: str = Field(..., min_length=1, description="確認トークン")
+
+
+class VerifyEmailResponse(BaseModel):
+    """
+    メールアドレス確認レスポンス
+    """
+    message: str = Field(..., description="確認完了メッセージ")
+    email: str = Field(..., description="確認済みメールアドレス")
+
+
+class ResendVerificationRequest(BaseModel):
+    """
+    確認メール再送信リクエスト
+    """
+    email: EmailStr = Field(..., description="メールアドレス")
+
+
+class ResendVerificationResponse(BaseModel):
+    """
+    確認メール再送信レスポンス
+    """
+    message: str = Field(..., description="再送信完了メッセージ")
+    email: str = Field(..., description="送信先メールアドレス")

@@ -7,7 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.api.deps import get_current_user
-from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, UserResponse, PasswordChangeRequest, PasswordChangeResponse, FacilityRegisterRequest
+from app.core.rate_limit import check_resend_rate_limit
+from app.schemas.auth import (
+    LoginRequest, LoginResponse, LogoutResponse, UserResponse, 
+    PasswordChangeRequest, PasswordChangeResponse,
+    FacilityRegisterRequest, FacilityRegisterResponse,
+    VerifyEmailRequest, VerifyEmailResponse,
+    ResendVerificationRequest, ResendVerificationResponse
+)
 from app.services.auth_service import AuthService
 from app.models.user import User
 from app.core.security import hash_password, verify_password
@@ -32,7 +39,7 @@ async def login(
     return await AuthService.login(db, login_data, request)
 
 
-@router.post("/register", response_model=LoginResponse)
+@router.post("/register", response_model=FacilityRegisterResponse)
 async def register_facility(
     request: FacilityRegisterRequest,
     background_tasks: BackgroundTasks,
@@ -46,8 +53,10 @@ async def register_facility(
     - **facility_name**: 施設名
     - **subscription_plan**: 料金プラン（デフォルト: small）
     
-    成功時は施設・ユーザー作成、JWTアクセストークンを返却
-    FAQ自動投入はバックグラウンドで実行されます
+    ★変更点:
+    - 登録後、メール確認が必要になりました
+    - 確認メールを送信し、メール内のリンクをクリックするとアカウントが有効化されます
+    - FAQ自動投入はバックグラウンドで実行されます
     """
     try:
         return await AuthService.register_facility(db, request, background_tasks)
@@ -95,7 +104,8 @@ async def get_current_user_info(
         full_name=current_user.full_name,
         role=current_user.role,
         facility_id=current_user.facility_id,
-        is_active=current_user.is_active
+        is_active=current_user.is_active,
+        email_verified=current_user.email_verified
     )
 
 
@@ -171,4 +181,39 @@ async def change_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error changing password: {str(e)}"
         )
+
+
+@router.post("/verify-email", response_model=VerifyEmailResponse)
+async def verify_email(
+    request: VerifyEmailRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    メールアドレス確認
+    
+    - **token**: 確認トークン（メールに記載されたURL内のトークン）
+    
+    確認成功時はアカウントが有効化され、ログイン可能になります
+    """
+    return await AuthService.verify_email(db, request)
+
+
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
+async def resend_verification_email(
+    request: ResendVerificationRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    確認メール再送信
+    
+    - **email**: メールアドレス
+    
+    確認メールを再送信します（有効期限は新たに24時間）
+    
+    ★レート制限: 60秒に1回まで
+    """
+    # 🔴 レート制限チェック
+    check_resend_rate_limit(request.email, cooldown_seconds=60)
+    
+    return await AuthService.resend_verification_email(db, request)
 

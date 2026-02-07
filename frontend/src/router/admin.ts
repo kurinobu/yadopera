@@ -15,9 +15,27 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/register',
+    path: '/admin/register',
     name: 'Register',
     component: () => import('@/views/admin/Register.vue'),
+    meta: {
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/admin/verify-email-pending',
+    name: 'EmailVerificationPending',
+    component: () => import('@/views/admin/EmailVerificationPending.vue'),
+    meta: {
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/admin/verify-email',
+    name: 'EmailVerificationSuccess',
+    component: () => import('@/views/admin/EmailVerificationSuccess.vue'),
     meta: {
       layout: undefined,
       requiresAuth: false

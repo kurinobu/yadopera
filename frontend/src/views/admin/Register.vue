@@ -80,8 +80,10 @@
           </div>
 
           <!-- エラーメッセージ -->
-          <div v-if="errorMessage" class="text-red-600 dark:text-red-400 text-sm">
-            {{ errorMessage }}
+          <div v-if="errorMessage" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+            <p class="text-red-600 dark:text-red-400 text-sm">
+              {{ errorMessage }}
+            </p>
           </div>
 
           <!-- 登録ボタン -->
@@ -116,7 +118,7 @@
         <!-- フッター -->
         <div class="mt-6 text-center">
           <p class="text-xs text-gray-500 dark:text-gray-400">
-            © 2024 YadOPERA. All rights reserved.
+            © 2026 YadOPERA. All rights reserved.
           </p>
         </div>
       </div>
@@ -126,9 +128,10 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useAuth } from '@/composables/useAuth'
+import { useRouter } from 'vue-router'
+import { authApi } from '@/api/auth'
 
-const { register } = useAuth()
+const router = useRouter()
 
 const form = reactive({
   email: '',
@@ -145,14 +148,27 @@ const handleRegister = async () => {
     isLoading.value = true
     errorMessage.value = ''
 
-    await register({
+    const response = await authApi.register({
       email: form.email,
       password: form.password,
       facility_name: form.facility_name,
       subscription_plan: form.subscription_plan
     })
+
+    // ★成功時は確認メール送信完了画面へ遷移
+    router.push({
+      name: 'EmailVerificationPending',
+      query: {
+        email: form.email,
+        facility_name: form.facility_name
+      }
+    })
   } catch (error: any) {
-    errorMessage.value = error.message || '登録に失敗しました。入力内容を確認してください。'
+    if (error.response?.data?.detail) {
+      errorMessage.value = error.response.data.detail
+    } else {
+      errorMessage.value = '登録に失敗しました。入力内容を確認してください。'
+    }
   } finally {
     isLoading.value = false
   }

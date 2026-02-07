@@ -52,11 +52,26 @@ const handleLogin = async (email: string, password: string) => {
 
     await login({ email, password })
   } catch (error: any) {
-    // エラーを表示
-    if (loginFormRef.value) {
-      loginFormRef.value.setError(
-        error.message || 'ログインに失敗しました。メールアドレスとパスワードを確認してください。'
-      )
+    // 🟠 メール未確認エラーの場合（改善）
+    if (error.response?.status === 403 && 
+        error.response?.data?.detail?.includes('Email address not verified')) {
+      if (loginFormRef.value) {
+        loginFormRef.value.setError(
+          'メールアドレスが確認されていません。登録時に送信された確認メールをご確認ください。メールが届いていない場合は、確認メール再送信をご利用ください。'
+        )
+      }
+    } else if (error.response?.data?.detail) {
+      // その他のエラー
+      if (loginFormRef.value) {
+        loginFormRef.value.setError(error.response.data.detail)
+      }
+    } else {
+      // デフォルトエラーメッセージ
+      if (loginFormRef.value) {
+        loginFormRef.value.setError(
+          'ログインに失敗しました。メールアドレスとパスワードを確認してください。'
+        )
+      }
     }
   } finally {
     isLoading.value = false
