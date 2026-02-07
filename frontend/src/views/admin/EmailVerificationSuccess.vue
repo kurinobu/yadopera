@@ -157,7 +157,13 @@ onMounted(async () => {
     isSuccess.value = true
   } catch (error: any) {
     if (error.response?.data?.detail) {
-      errorMessage.value = error.response.data.detail
+      const detail = error.response.data.detail
+      // 🔴 修正: トークンが既に使用済みの場合、適切なメッセージを表示
+      if (detail.includes('already been used') || detail.includes('already verified')) {
+        errorMessage.value = 'このリンクは既に使用されています。既にメールアドレスの確認が完了している可能性があります。ログインページからログインを試してください。'
+      } else {
+        errorMessage.value = detail
+      }
     } else {
       errorMessage.value = 'メールアドレスの確認に失敗しました。トークンが無効または期限切れの可能性があります。'
     }

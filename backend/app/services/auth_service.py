@@ -311,10 +311,24 @@ class AuthService:
         )
         existing_user = result.scalar_one_or_none()
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
+            # 🔴 修正: メール確認未完了のユーザーの場合、確認メール再送信を促す
+            if not existing_user.email_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "このメールアドレスは既に登録されていますが、メール確認が完了していません。"
+                        "確認メールを再送信してください。"
+                        "\n\n"
+                        "This email address is already registered but not verified. "
+                        "Please resend the verification email."
+                    )
+                )
+            else:
+                # メール確認済みのユーザーの場合、通常のエラー
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
         
         # プラン情報を変換・設定
         plan_type = convert_subscription_plan_to_plan_type(request.subscription_plan)
@@ -480,10 +494,21 @@ class AuthService:
         
         # 🟠 トークンが存在しない、または有効期限切れの場合は同じエラーメッセージ
         # （セキュリティ: トークンの存在・非存在を推測させない）
-        if user is None or (
-            user.verification_token_expires and 
-            user.verification_token_expires < datetime.now(timezone.utc)
-        ):
+        if user is None:
+            # 🔴 修正: トークンがNULL（既に使用済み）の場合、エラーメッセージを改善
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Invalid or expired verification token. "
+                    "This token may have already been used. "
+                    "If you have already verified your email, please try logging in. "
+                    "Otherwise, please request a new verification email."
+                )
+            )
+        
+        # トークンが存在するが、有効期限切れの場合
+        if user.verification_token_expires and \
+           user.verification_token_expires < datetime.now(timezone.utc):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid or expired verification token. Please request a new one."
@@ -491,9 +516,10 @@ class AuthService:
         
         # 既に確認済みの場合
         if user.email_verified:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already verified. You can log in now."
+            # 🔴 修正: エラーではなく、成功レスポンスを返す
+            return VerifyEmailResponse(
+                message="Email already verified. You can log in now.",
+                email=user.email
             )
         
         # メールアドレス確認完了

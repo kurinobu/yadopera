@@ -164,6 +164,19 @@ const handleRegister = async () => {
       }
     })
   } catch (error: any) {
+    // 🔴 修正: メール確認未完了のエラーの場合、確認メール再送信ページに遷移
+    if (error.response?.status === 400 && 
+        error.response?.data?.detail?.includes('メール確認が完了していません')) {
+      router.push({
+        name: 'EmailVerificationPending',
+        query: {
+          email: form.email,
+          facility_name: form.facility_name
+        }
+      })
+      return
+    }
+    
     if (error.response?.data?.detail) {
       errorMessage.value = error.response.data.detail
     } else {
