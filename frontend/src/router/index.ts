@@ -56,6 +56,11 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
     return next()
   }
   
+  // 🔴 修正: RegisterページからEmailVerificationPendingへの遷移時は、initAuth()を実行しない
+  if (_from.name === 'Register' && to.name === 'EmailVerificationPending') {
+    return next()
+  }
+  
   // 開発者ページの認証チェック
   const requiresDeveloperAuth = to.matched.some(record => record.meta.requiresDeveloperAuth)
   if (requiresDeveloperAuth) {
@@ -112,6 +117,11 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
       console.error('Failed to initialize auth:', error)
       // エラーが発生した場合、ログアウト
       authStore.logout()
+      
+      // 🔴 修正: EmailVerificationPending/EmailVerificationSuccessへの遷移時は、ログインページにリダイレクトしない
+      if (to.name === 'EmailVerificationPending' || to.name === 'EmailVerificationSuccess') {
+        return next()
+      }
       
       // logout後、認証が必要なページへのアクセスなら即座にリダイレクト
       const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
