@@ -51,6 +51,11 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   const authStore = useAuthStore()
   const developerStore = useDeveloperStore()
   
+  // 🔴 修正: EmailVerificationPending/EmailVerificationSuccessページへの遷移時は認証チェックをスキップ
+  if (to.name === 'EmailVerificationPending' || to.name === 'EmailVerificationSuccess') {
+    return next()
+  }
+  
   // 開発者ページの認証チェック
   const requiresDeveloperAuth = to.matched.some(record => record.meta.requiresDeveloperAuth)
   if (requiresDeveloperAuth) {

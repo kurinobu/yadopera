@@ -130,8 +130,10 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 
 const form = reactive({
   email: '',
@@ -148,12 +150,30 @@ const handleRegister = async () => {
     isLoading.value = true
     errorMessage.value = ''
 
-    await authApi.register({
+    // 🔴 修正: 新規登録前に既存のトークンをクリア（既存のセッションの残りを削除）
+    authStore.logout()
+
+    const response = await authApi.register({
       email: form.email,
       password: form.password,
       facility_name: form.facility_name,
       subscription_plan: form.subscription_plan
     })
+
+    // 🔴 修正: メール送信失敗のメッセージを検出
+    if (response.message?.includes('確認メールの送信に失敗しました') || 
+        response.message?.includes('verification email sending failed')) {
+      // メール送信失敗時もEmailVerificationPendingに遷移（再送信可能にする）
+      router.push({
+        name: 'EmailVerificationPending',
+        query: {
+          email: form.email,
+          facility_name: form.facility_name,
+          email_send_failed: 'true'  // フラグを追加
+        }
+      })
+      return
+    }
 
     // ★成功時は確認メール送信完了画面へ遷移
     router.push({
