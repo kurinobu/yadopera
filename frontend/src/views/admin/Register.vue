@@ -150,8 +150,15 @@ const handleRegister = async () => {
     isLoading.value = true
     errorMessage.value = ''
 
+    // 🔴 デバッグ: 登録開始をログに記録
+    console.log('[Register] Starting registration:', {
+      email: form.email,
+      facility_name: form.facility_name
+    })
+
     // 🔴 修正: 新規登録前に既存のトークンをクリア（既存のセッションの残りを削除）
     authStore.logout()
+    console.log('[Register] ✅ Logged out before registration')
 
     const response = await authApi.register({
       email: form.email,
@@ -159,11 +166,18 @@ const handleRegister = async () => {
       facility_name: form.facility_name,
       subscription_plan: form.subscription_plan
     })
+    
+    console.log('[Register] ✅ Registration successful:', {
+      message: response.message,
+      email: response.email,
+      facility_name: response.facility_name
+    })
 
     // 🔴 修正: メール送信失敗のメッセージを検出
     if (response.message?.includes('確認メールの送信に失敗しました') || 
         response.message?.includes('verification email sending failed')) {
       // メール送信失敗時もEmailVerificationPendingに遷移（再送信可能にする）
+      console.log('[Register] 🚀 Navigating to EmailVerificationPending (email send failed)')
       await router.push({
         name: 'EmailVerificationPending',
         query: {
@@ -172,10 +186,12 @@ const handleRegister = async () => {
           email_send_failed: 'true'  // フラグを追加
         }
       })
+      console.log('[Register] ✅ Navigation completed (email send failed)')
       return
     }
 
     // ★成功時は確認メール送信完了画面へ遷移
+    console.log('[Register] 🚀 Navigating to EmailVerificationPending (success)')
     await router.push({
       name: 'EmailVerificationPending',
       query: {
@@ -183,10 +199,14 @@ const handleRegister = async () => {
         facility_name: form.facility_name
       }
     })
+    console.log('[Register] ✅ Navigation completed (success)')
   } catch (error: any) {
+    console.error('[Register] ❌ Registration error:', error)
+    
     // 🔴 修正: メール確認未完了のエラーの場合、確認メール再送信ページに遷移
     if (error.response?.status === 400 && 
         error.response?.data?.detail?.includes('メール確認が完了していません')) {
+      console.log('[Register] 🚀 Navigating to EmailVerificationPending (email not verified)')
       await router.push({
         name: 'EmailVerificationPending',
         query: {
@@ -194,6 +214,7 @@ const handleRegister = async () => {
           facility_name: form.facility_name
         }
       })
+      console.log('[Register] ✅ Navigation completed (email not verified)')
       return
     }
     

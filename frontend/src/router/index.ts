@@ -51,8 +51,28 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   const authStore = useAuthStore()
   const developerStore = useDeveloperStore()
   
-  // 🔴 修正: EmailVerificationPending/EmailVerificationSuccessページへの遷移時は認証チェックをスキップ
+  // 🔴 デバッグ: ルーターガードの実行をログに記録
+  console.log('[Router Guard] Navigation:', {
+    to: {
+      name: to.name,
+      path: to.path,
+      fullPath: to.fullPath,
+      matched: to.matched.map(r => ({ path: r.path, meta: r.meta }))
+    },
+    from: {
+      name: _from.name,
+      path: _from.path
+    },
+    authState: {
+      token: authStore.token ? 'exists' : 'null',
+      user: authStore.user ? 'exists' : 'null',
+      isAuthenticated: authStore.isAuthenticated
+    }
+  })
+  
+  // 🔴 修正: EmailVerificationPending/EmailVerificationSuccessページへの遷移時は認証チェックをスキップ（最優先）
   if (to.name === 'EmailVerificationPending' || to.name === 'EmailVerificationSuccess') {
+    console.log('[Router Guard] ✅ Skipping auth check for EmailVerificationPending/EmailVerificationSuccess')
     return next()
   }
   
@@ -135,10 +155,23 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
     }
   }
   
+  // 🔴 修正: requiresAuthチェックの前に、EmailVerificationPendingを再度チェック（二重チェック）
+  if (to.name === 'EmailVerificationPending' || to.name === 'EmailVerificationSuccess') {
+    console.log('[Router Guard] ✅ Double-check: Skipping requiresAuth check for EmailVerificationPending/EmailVerificationSuccess')
+    return next()
+  }
+  
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  
+  console.log('[Router Guard] requiresAuth check:', {
+    requiresAuth,
+    isAuthenticated: authStore.isAuthenticated,
+    toName: to.name
+  })
 
   if (requiresAuth && !authStore.isAuthenticated) {
     // 認証が必要なページに未認証でアクセスした場合
+    console.log('[Router Guard] ❌ Redirecting to AdminLogin (requiresAuth=true, isAuthenticated=false)')
     return next({
       name: 'AdminLogin',
       query: { redirect: to.fullPath }
