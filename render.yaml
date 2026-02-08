@@ -4,10 +4,11 @@
 services:
   - type: web
     name: yadopera-backend-staging
-    env: python
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
     region: tokyo
     plan: pro
-    buildCommand: apt-get update && apt-get install -y fonts-dejavu fonts-noto-cjk fonts-ipafont fonts-ipafont-gothic && pip install -r requirements.txt && alembic upgrade head
+    buildCommand: alembic upgrade head
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: DATABASE_URL
