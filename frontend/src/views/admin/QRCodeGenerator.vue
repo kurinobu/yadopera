@@ -301,12 +301,11 @@ const handleDownloadExisting = async (qrCode: QRCodeResponse, format: 'pdf' | 'p
       qrCodeUrl = qrCode.qr_code_url
       filename = `qrcode-${qrCode.location}-${qrCode.id}.${format}`
     } else {
-      // 異なる形式の場合は再生成
-      const newQRCode = await qrcodeApi.generateQRCode({
+      // 異なる形式の場合は再生成（データベースに保存しない）
+      const newQRCode = await qrcodeApi.generateQRCodePreview({
         location: qrCode.location,
         custom_location_name: qrCode.custom_location_name,
-        format: format as "svg" | "pdf" | "png",
-        include_session_token: false
+        format: format as "svg" | "pdf" | "png"
       })
       qrCodeUrl = newQRCode.qr_code_url
       filename = `qrcode-${newQRCode.location}-${newQRCode.id}.${format}`

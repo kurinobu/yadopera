@@ -6,6 +6,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
+    fonts-dejavu \
+    fonts-noto-cjk \
+    fonts-ipafont \
+    fonts-ipafont-gothic \
     && rm -rf /var/lib/apt/lists/*
 
 # Python依存関係のコピーとインストール
