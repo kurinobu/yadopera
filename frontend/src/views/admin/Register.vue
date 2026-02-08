@@ -164,7 +164,7 @@ const handleRegister = async () => {
     if (response.message?.includes('確認メールの送信に失敗しました') || 
         response.message?.includes('verification email sending failed')) {
       // メール送信失敗時もEmailVerificationPendingに遷移（再送信可能にする）
-      router.push({
+      await router.push({
         name: 'EmailVerificationPending',
         query: {
           email: form.email,
@@ -176,7 +176,7 @@ const handleRegister = async () => {
     }
 
     // ★成功時は確認メール送信完了画面へ遷移
-    router.push({
+    await router.push({
       name: 'EmailVerificationPending',
       query: {
         email: form.email,
@@ -187,7 +187,7 @@ const handleRegister = async () => {
     // 🔴 修正: メール確認未完了のエラーの場合、確認メール再送信ページに遷移
     if (error.response?.status === 400 && 
         error.response?.data?.detail?.includes('メール確認が完了していません')) {
-      router.push({
+      await router.push({
         name: 'EmailVerificationPending',
         query: {
           email: form.email,
