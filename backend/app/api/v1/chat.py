@@ -38,6 +38,8 @@ async def send_chat_message(
     スタッフ不在時間帯の場合はスタッフ不在時間帯対応キューに追加されます。
     """
     try:
+        # エラーログで施設紐づけするため state に保持
+        http_request.state.facility_id = request.facility_id
         # リクエストヘッダーから情報を取得
         user_agent = http_request.headers.get("user-agent")
         ip_address = http_request.client.host if http_request.client else None

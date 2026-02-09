@@ -19,6 +19,7 @@ export interface FacilitySummary {
   id: number
   name: string
   is_active: boolean
+  plan_type?: string  // Free, Mini, Small, Standard, Premium
   faq_count: number
   chats_7d: number
   errors_7d: number

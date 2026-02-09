@@ -106,6 +106,7 @@ class FacilitySummaryResponse(BaseModel):
     id: int
     name: str
     is_active: bool
+    plan_type: str = "Free"  # Free, Mini, Small, Standard, Premium
     faq_count: int = 0
     chats_7d: int = 0
     errors_7d: int = 0

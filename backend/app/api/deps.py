@@ -3,7 +3,7 @@
 認証・データベースセッション取得など
 """
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -17,6 +17,7 @@ security = HTTPBearer()
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: AsyncSession = Depends(get_db)
 ) -> User:
@@ -81,6 +82,8 @@ async def get_current_user(
             detail="Inactive user",
         )
     
+    # エラーログで施設紐づけするため request.state に保持
+    request.state.user = user
     return user
 
 

@@ -19,7 +19,8 @@
 
     <!-- フィルター -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-4">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <!-- エラーレベルフィルター（既存） -->
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             エラーレベル
@@ -34,17 +35,58 @@
             <option value="warning">Warning</option>
           </select>
         </div>
+        
+        <!-- 施設フィルター（修正: 施設名ドロップダウンに変更） -->
         <div>
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            施設ID
+            施設
+          </label>
+          <select
+            v-model="filters.facility_id"
+            :disabled="loadingFacilities"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <option :value="undefined">すべて</option>
+            <option
+              v-for="facility in facilities"
+              :key="facility.id"
+              :value="facility.id"
+            >
+              {{ facility.name }} (ID: {{ facility.id }})
+            </option>
+          </select>
+        </div>
+        
+        <!-- 開始日時フィルター（追加） -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            開始日時
           </label>
           <input
-            v-model.number="filters.facility_id"
-            type="number"
-            placeholder="施設ID"
+            v-model="filters.start_date"
+            type="datetime-local"
             class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           />
         </div>
+        
+        <!-- 終了日時フィルター（追加） -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            終了日時
+          </label>
+          <input
+            v-model="filters.end_date"
+            type="datetime-local"
+            class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          />
+        </div>
+        
+        <!-- バリデーションエラー表示（追加） -->
+        <div v-if="dateRangeError" class="md:col-span-2 lg:col-span-3">
+          <p class="text-sm text-red-600 dark:text-red-400">{{ dateRangeError }}</p>
+        </div>
+        
+        <!-- フィルター適用ボタン（既存） -->
         <div class="flex items-end">
           <button
             @click="applyFilters"
@@ -53,6 +95,8 @@
             フィルター適用
           </button>
         </div>
+        
+        <!-- クリアボタン（既存） -->
         <div class="flex items-end">
           <button
             @click="clearFilters"
@@ -79,7 +123,8 @@
 
     <!-- エラーログテーブル -->
     <div v-else-if="errorLogs.length > 0" class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-      <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
         <thead class="bg-gray-50 dark:bg-gray-700">
           <tr>
             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -155,6 +200,7 @@
           </tr>
         </tbody>
       </table>
+      </div>
 
       <!-- ページネーション -->
       <div v-if="pagination.total_pages > 1" class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
@@ -192,7 +238,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { developerApi } from '@/api/developer'
-import type { ErrorLog, PaginationInfo } from '@/types/developer'
+import type { ErrorLog, PaginationInfo, FacilitySummary } from '@/types/developer'
 
 const router = useRouter()
 
@@ -208,8 +254,17 @@ const pagination = ref<PaginationInfo>({
 
 const filters = ref({
   level: '',
-  facility_id: undefined as number | undefined
+  facility_id: undefined as number | undefined,
+  start_date: '' as string,  // 開始日時（YYYY-MM-DDTHH:mm形式）
+  end_date: '' as string     // 終了日時（YYYY-MM-DDTHH:mm形式）
 })
+
+// 施設一覧を保持
+const facilities = ref<FacilitySummary[]>([])
+const loadingFacilities = ref(false)
+
+// 日付範囲のバリデーションエラー
+const dateRangeError = ref('')
 
 const fetchErrors = async () => {
   try {
@@ -227,6 +282,27 @@ const fetchErrors = async () => {
     if (filters.value.facility_id) {
       params.facility_id = filters.value.facility_id
     }
+    // 追加: 日付範囲パラメータ
+    if (filters.value.start_date) {
+      // datetime-local形式（YYYY-MM-DDTHH:mm）をISO 8601形式に変換
+      // JST（Asia/Tokyo）として解釈し、UTCに変換
+      const startDate = new Date(filters.value.start_date)
+      // JSTオフセット（+09:00）を適用
+      const jstOffset = 9 * 60 * 60 * 1000 // 9時間をミリ秒に変換
+      const utcDate = new Date(startDate.getTime() - jstOffset)
+      params.start_date = utcDate.toISOString()
+    }
+    if (filters.value.end_date) {
+      // datetime-local形式（YYYY-MM-DDTHH:mm）をISO 8601形式に変換
+      // JST（Asia/Tokyo）として解釈し、UTCに変換
+      const endDate = new Date(filters.value.end_date)
+      // JSTオフセット（+09:00）を適用
+      const jstOffset = 9 * 60 * 60 * 1000 // 9時間をミリ秒に変換
+      const utcDate = new Date(endDate.getTime() - jstOffset)
+      // 終了日時はその日の23:59:59までを含めるため、1日分のミリ秒を追加
+      const endOfDay = new Date(utcDate.getTime() + 24 * 60 * 60 * 1000 - 1)
+      params.end_date = endOfDay.toISOString()
+    }
 
     const response = await developerApi.getErrors(params)
     errorLogs.value = response.errors
@@ -239,6 +315,11 @@ const fetchErrors = async () => {
 }
 
 const applyFilters = () => {
+  // バリデーション
+  if (!validateDateRange()) {
+    return
+  }
+  
   pagination.value.page = 1
   fetchErrors()
 }
@@ -246,8 +327,11 @@ const applyFilters = () => {
 const clearFilters = () => {
   filters.value = {
     level: '',
-    facility_id: undefined
+    facility_id: undefined,
+    start_date: '',
+    end_date: ''
   }
+  dateRangeError.value = ''
   pagination.value.page = 1
   fetchErrors()
 }
@@ -272,7 +356,39 @@ const formatDate = (dateString: string) => {
   })
 }
 
+// 日付範囲のバリデーション
+const validateDateRange = (): boolean => {
+  dateRangeError.value = ''
+  
+  if (filters.value.start_date && filters.value.end_date) {
+    const startDate = new Date(filters.value.start_date)
+    const endDate = new Date(filters.value.end_date)
+    
+    if (startDate > endDate) {
+      dateRangeError.value = '開始日時は終了日時より前である必要があります'
+      return false
+    }
+  }
+  
+  return true
+}
+
+// 施設一覧を取得
+const fetchFacilities = async () => {
+  try {
+    loadingFacilities.value = true
+    const response = await developerApi.getFacilities()
+    facilities.value = response.facilities
+  } catch (err: any) {
+    console.error('Failed to fetch facilities:', err)
+    // エラー時は施設一覧を空にする（フィルターは使用不可になるが、エラーログ表示は継続）
+  } finally {
+    loadingFacilities.value = false
+  }
+}
+
 onMounted(() => {
+  fetchFacilities()
   fetchErrors()
 })
 </script>

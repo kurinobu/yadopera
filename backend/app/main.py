@@ -120,14 +120,13 @@ async def http_exception_handler(request: Request, exc: HTTPException):
                 # facility_idとuser_idを取得（可能な場合）
                 facility_id = None
                 user_id = None
-                
-                # リクエストからユーザー情報を取得（可能な場合）
-                # 認証済みリクエストの場合は、stateから取得
-                if hasattr(request.state, "user"):
+                if hasattr(request.state, "user") and request.state.user:
                     user = request.state.user
                     facility_id = user.facility_id if hasattr(user, "facility_id") else None
                     user_id = user.id if hasattr(user, "id") else None
-                
+                if facility_id is None and getattr(request.state, "facility_id", None) is not None:
+                    facility_id = request.state.facility_id
+
                 error_log = ErrorLog(
                     error_level="error",
                     error_code=error_code,
@@ -175,12 +174,13 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
                 # facility_idとuser_idを取得（可能な場合）
                 facility_id = None
                 user_id = None
-                
-                if hasattr(request.state, "user"):
+                if hasattr(request.state, "user") and request.state.user:
                     user = request.state.user
                     facility_id = user.facility_id if hasattr(user, "facility_id") else None
                     user_id = user.id if hasattr(user, "id") else None
-                
+                if facility_id is None and getattr(request.state, "facility_id", None) is not None:
+                    facility_id = request.state.facility_id
+
                 error_log = ErrorLog(
                     error_level="error",
                     error_code="VALIDATION_ERROR",
@@ -237,12 +237,13 @@ async def general_exception_handler(request: Request, exc: Exception):
                 # facility_idとuser_idを取得（可能な場合）
                 facility_id = None
                 user_id = None
-                
-                if hasattr(request.state, "user"):
+                if hasattr(request.state, "user") and request.state.user:
                     user = request.state.user
                     facility_id = user.facility_id if hasattr(user, "facility_id") else None
                     user_id = user.id if hasattr(user, "id") else None
-                
+                if facility_id is None and getattr(request.state, "facility_id", None) is not None:
+                    facility_id = request.state.facility_id
+
                 error_log = ErrorLog(
                     error_level="critical",
                     error_code="INTERNAL_ERROR",

@@ -207,7 +207,10 @@ class AuthService:
                 select(User).where(User.email == login_data.email)
             )
             existing_user = result.scalar_one_or_none()
-            
+            # エラーログで施設紐づけするため request.state に保持
+            if request and existing_user and getattr(existing_user, "facility_id", None) is not None:
+                request.state.facility_id = existing_user.facility_id
+
             if existing_user and not existing_user.email_verified:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -734,8 +737,8 @@ class AuthService:
         
         # 🔴 メール送信失敗時のログ強化
         if not email_sent:
-            logger.warning(
-                f"⚠️ Email verification was NOT sent: user_id={user.id}, "
+            logger.error(
+                f"❌ Email verification was NOT sent: user_id={user.id}, "
                 f"email={user.email}, error={error_message or 'Unknown error'}"
             )
         
@@ -755,6 +758,20 @@ class AuthService:
                 facility.id,
                 user.id,
                 request.subscription_plan
+            )
+        
+        # 🔴 修正: メール送信失敗時は警告メッセージを返す
+        if not email_sent:
+            return FacilityRegisterResponse(
+                message=(
+                    "登録は完了しましたが、確認メールの送信に失敗しました。"
+                    "確認メール再送信機能をご利用ください。"
+                    "\n\n"
+                    "Registration completed, but verification email sending failed. "
+                    "Please use the resend verification email function."
+                ),
+                email=user.email,
+                facility_name=facility.name
             )
         
         return FacilityRegisterResponse(

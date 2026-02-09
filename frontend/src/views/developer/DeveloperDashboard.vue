@@ -43,7 +43,7 @@
           <StatCard
             title="総施設数"
             :value="overview.total_facilities"
-            subtitle="アクティブ: {{ overview.active_facilities }}"
+            :subtitle="overview.active_facilities != null ? `アクティブ: ${overview.active_facilities}` : ''"
           />
           <StatCard
             title="総FAQ数"
@@ -88,7 +88,8 @@
         </div>
         
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead class="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -96,6 +97,9 @@
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   状態
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  料金プラン
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   FAQ数
@@ -125,6 +129,9 @@
                   </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {{ facility.plan_type || '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {{ facility.faq_count }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -139,6 +146,7 @@
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       </section>
 
