@@ -54,9 +54,6 @@
         <ManualContent :sections="sections" />
       </main>
     </div>
-
-    <!-- トップへ戻るボタン（スクロール時表示） -->
-    <ManualScrollToTop />
   </div>
 </template>
 
@@ -64,7 +61,6 @@
 import { ref, onMounted } from 'vue'
 import ManualToc from '@/components/admin/ManualToc.vue'
 import ManualContent from '@/components/admin/ManualContent.vue'
-import ManualScrollToTop from '@/components/admin/ManualScrollToTop.vue'
 
 // モバイル用目次開閉状態
 const isMobileTocOpen = ref(false)

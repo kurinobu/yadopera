@@ -12,7 +12,7 @@
       <Header @open-mobile-menu="isMobileMenuOpen = true" />
 
       <!-- ページコンテンツ -->
-      <main class="flex-1 overflow-y-auto p-6" data-admin-main>
+      <main class="flex-1 overflow-y-auto p-6">
         <slot />
       </main>
     </div>
@@ -47,5 +47,3 @@ onMounted(async () => {
 <style scoped>
 /* Component styles */
 </style>
-
-
