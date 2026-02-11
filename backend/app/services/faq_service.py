@@ -3,19 +3,29 @@ FAQサービス
 FAQ管理のビジネスロジック（インテントベース構造）
 """
 
+import asyncio
 import logging
 import re
-from typing import List, Optional, Set
+from datetime import datetime, timezone
+from typing import Any, Dict, List, Optional, Set
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 
 from app.models.faq import FAQ, FAQCategory
 from app.models.faq_translation import FAQTranslation
+from app.models.facility import Facility
+from app.schemas.faq import FAQTranslationRequest
 from app.models.user import User
 from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQTranslationResponse
 from app.ai.embeddings import generate_embedding
 from app.core.cache import get_cache, set_cache, delete_cache_pattern, cache_key
+from app.services.csv_parser import (
+    CSVParseError,
+    extract_languages_from_rows,
+    parse_faq_csv,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -220,11 +230,142 @@ class FAQService:
         
         return languages
     
+    async def _get_faq_count(self, facility_id: int) -> int:
+        """施設のFAQ登録数（インテント単位）を返す。"""
+        q = select(func.count(FAQ.id)).where(FAQ.facility_id == facility_id)
+        r = await self.db.execute(q)
+        return int(r.scalar() or 0)
+    
+    async def check_language_limit_for_csv(
+        self, facility_id: int, csv_languages: Set[str]
+    ) -> None:
+        """CSVに含まれる言語が施設の言語数制限を超えていないかチェック。超えていれば ValueError。"""
+        facility = await self.db.get(Facility, facility_id)
+        if not facility or facility.language_limit is None:
+            return
+        existing = await self._get_facility_languages(facility_id)
+        total = len(existing | csv_languages)
+        if total > facility.language_limit:
+            raise ValueError(
+                f"プランの言語数制限に達しています。既存の言語: {', '.join(sorted(existing))}（{len(existing)}言語）、"
+                f"CSVに含まれる新規言語: {', '.join(sorted(csv_languages - existing))}（{len(csv_languages - existing)}言語）、"
+                f"合計: {total}言語、プランの上限: {facility.language_limit}言語。"
+            )
+    
+    def _csv_row_to_faq_request(self, row: Dict[str, Any]) -> FAQRequest:
+        """CSVパース済み1行を FAQRequest に変換。"""
+        translations = [
+            FAQTranslationRequest(
+                language="ja",
+                question=row["language_ja_question"],
+                answer=row["language_ja_answer"],
+            )
+        ]
+        for lang, col_q, col_a in [
+            ("en", "language_en_question", "language_en_answer"),
+            ("zh-TW", "language_zh-TW_question", "language_zh-TW_answer"),
+            ("fr", "language_fr_question", "language_fr_answer"),
+            ("ko", "language_ko_question", "language_ko_answer"),
+        ]:
+            q = row.get(col_q)
+            a = row.get(col_a)
+            if q or a:
+                translations.append(
+                    FAQTranslationRequest(
+                        language=lang,
+                        question=(q or "").strip() or translations[0].question,
+                        answer=(a or "").strip() or translations[0].answer,
+                    )
+                )
+        return FAQRequest(
+            category=row["category"],
+            intent_key=row.get("intent_key"),
+            priority=row.get("priority", 3),
+            is_active=row.get("is_active", True),
+            translations=translations,
+        )
+    
+    async def bulk_create_faqs_from_csv(
+        self,
+        facility_id: int,
+        file_bytes: bytes,
+        user_id: int,
+        mode: str = "add",
+    ) -> Dict[str, Any]:
+        """
+        CSVからFAQを一括登録。1トランザクションで全行処理し、1件でも失敗すればロールバック。
+        呼び出し元でプラン制限（Standard/Premium）・ファイルサイズは事前チェックすること。
+        """
+        if mode != "add":
+            raise ValueError("Phase 1 では追加モード（add）のみ対応しています")
+        
+        rows = parse_faq_csv(file_bytes)
+        if not rows:
+            raise ValueError("CSVに有効なデータ行がありません")
+        
+        facility = await self.db.get(Facility, facility_id)
+        if not facility:
+            raise ValueError(f"Facility not found: facility_id={facility_id}")
+        
+        if facility.plan_type not in ("Standard", "Premium"):
+            raise ValueError(
+                "CSV一括登録はStandardプランまたはPremiumプランでのみ利用可能です"
+            )
+        
+        if facility.faq_limit is not None:
+            current_count = await self._get_faq_count(facility_id)
+            if current_count + len(rows) > facility.faq_limit:
+                raise ValueError(
+                    f"{facility.plan_type}プランでは{facility.faq_limit}件までしか登録できません。"
+                    f"現在のFAQ数: {current_count}件、CSVの行数: {len(rows)}件、"
+                    f"合計: {current_count + len(rows)}件。"
+                )
+        
+        csv_languages = extract_languages_from_rows(rows)
+        await self.check_language_limit_for_csv(facility_id, csv_languages)
+        
+        start_time = datetime.now(timezone.utc)
+        faq_requests = [self._csv_row_to_faq_request(r) for r in rows]
+        
+        try:
+            for req in faq_requests:
+                await self.create_faq(
+                    facility_id=facility_id,
+                    request=req,
+                    user_id=user_id,
+                    commit=False,
+                    raise_on_embedding_failure=True,
+                )
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise
+        
+        try:
+            await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
+        except Exception as e:
+            logger.warning(f"Cache delete after bulk CSV: {e}")
+        
+        elapsed = (datetime.now(timezone.utc) - start_time).total_seconds()
+        return {
+            "success_count": len(rows),
+            "failure_count": 0,
+            "total_count": len(rows),
+            "skipped_count": 0,
+            "processing_time_seconds": round(elapsed, 2),
+            "uploaded_at": start_time.isoformat().replace("+00:00", "Z"),
+            "uploaded_by": user_id,
+            "errors": [],
+            "warnings": [],
+        }
+    
     async def create_faq(
         self,
         facility_id: int,
         request: FAQRequest,
-        user_id: int
+        user_id: int,
+        commit: bool = True,
+        raise_on_embedding_failure: bool = False,
     ) -> FAQResponse:
         """
         FAQ作成（埋め込みベクトル自動生成、インテントベース構造）
@@ -233,6 +374,8 @@ class FAQService:
             facility_id: 施設ID
             request: FAQ作成リクエスト（translationsを含む）
             user_id: 作成者ID
+            commit: False のときコミットしない（一括トランザクション用）
+            raise_on_embedding_failure: True のとき埋め込み失敗で例外（CSV一括用）
         
         Returns:
             FAQResponse: 作成されたFAQ（translationsを含む）
@@ -242,7 +385,6 @@ class FAQService:
             raise ValueError(f"Invalid category: {request.category}")
         
         # 施設情報を取得
-        from app.models.facility import Facility
         facility = await self.db.get(Facility, facility_id)
         if not facility:
             raise ValueError(f"Facility not found: facility_id={facility_id}")
@@ -327,28 +469,41 @@ class FAQService:
         # FAQTranslationを作成（各翻訳に対して）
         translations = []
         for trans_request in request.translations:
-            # 埋め込みベクトル生成
+            # 埋め込みベクトル生成（raise_on_embedding_failure 時は最大3回リトライ）
             embedding = None
-            try:
-                combined_text = f"{trans_request.question} {trans_request.answer}"
-                logger.debug(f"Generating FAQ translation embedding: language={trans_request.language}, text_length={len(combined_text)}")
-                embedding = await generate_embedding(combined_text)
-                if embedding:
-                    logger.debug(f"FAQ translation embedding generated: language={trans_request.language}, embedding_length={len(embedding)}")
-                else:
-                    logger.warning(f"Failed to generate FAQ translation embedding (empty result): language={trans_request.language}")
-            except Exception as e:
+            last_error = None
+            for attempt in range(3):
+                try:
+                    combined_text = f"{trans_request.question} {trans_request.answer}"
+                    logger.debug(f"Generating FAQ translation embedding: language={trans_request.language}, text_length={len(combined_text)}")
+                    embedding = await generate_embedding(combined_text)
+                    if embedding:
+                        logger.debug(f"FAQ translation embedding generated: language={trans_request.language}, embedding_length={len(embedding)}")
+                        break
+                except Exception as e:
+                    last_error = e
+                    logger.warning(f"Embedding attempt {attempt + 1}/3 failed: {e}")
+                    if raise_on_embedding_failure and attempt == 2:
+                        raise ValueError(
+                            "埋め込みベクトルの生成に失敗しました。しばらく待ってから再度アップロードしてください。"
+                        ) from e
+                    if attempt < 2:
+                        await asyncio.sleep(2 ** attempt)
+            if raise_on_embedding_failure and not embedding:
+                raise ValueError(
+                    "埋め込みベクトルの生成に失敗しました。しばらく待ってから再度アップロードしてください。"
+                )
+            if not raise_on_embedding_failure and not embedding and last_error:
                 logger.error(
-                    f"Error generating FAQ translation embedding: {str(e)}",
+                    f"Error generating FAQ translation embedding: {str(last_error)}",
                     exc_info=True,
                     extra={
                         "language": trans_request.language,
                         "question": trans_request.question[:100] if trans_request.question else None,
                         "answer": trans_request.answer[:100] if trans_request.answer else None,
-                        "error": str(e)
+                        "error": str(last_error)
                     }
                 )
-                # 埋め込み生成失敗でも翻訳は保存（後で再生成可能）
             
             # FAQTranslation作成
             faq_translation = FAQTranslation(
@@ -362,24 +517,23 @@ class FAQService:
             translations.append(faq_translation)
         
         await self.db.flush()
-        await self.db.commit()
+        if commit:
+            await self.db.commit()
         
         # リレーションシップを読み込むためにリフレッシュ
         await self.db.refresh(faq)
-        # translationsも明示的にリフレッシュ
         for trans in translations:
             await self.db.refresh(trans)
         
-        # キャッシュを無効化（ワイルドカードを使用して、すべてのパラメータ組み合わせを無効化）
-        try:
-            deleted_count = await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
-            if deleted_count > 0:
-                logger.info(f"FAQ cache deleted: {deleted_count} keys deleted after FAQ creation (faq_id={faq.id}, facility_id={facility_id})")
-            else:
-                logger.debug(f"FAQ cache deletion: no keys found to delete (faq_id={faq.id}, facility_id={facility_id})")
-        except Exception as e:
-            logger.error(f"Failed to delete FAQ cache after creation: faq_id={faq.id}, facility_id={facility_id}, error={str(e)}", exc_info=True)
-            # エラーが発生しても処理は続行（キャッシュは次回のリクエストで更新される）
+        if commit:
+            try:
+                deleted_count = await delete_cache_pattern(f"faq:list:*facility_id={facility_id}*")
+                if deleted_count > 0:
+                    logger.info(f"FAQ cache deleted: {deleted_count} keys deleted after FAQ creation (faq_id={faq.id}, facility_id={facility_id})")
+                else:
+                    logger.debug(f"FAQ cache deletion: no keys found to delete (faq_id={faq.id}, facility_id={facility_id})")
+            except Exception as e:
+                logger.error(f"Failed to delete FAQ cache after creation: faq_id={faq.id}, facility_id={facility_id}, error={str(e)}", exc_info=True)
         
         logger.info(
             f"FAQ created: faq_id={faq.id}, facility_id={facility_id}, translations_count={len(translations)}",

@@ -63,7 +63,7 @@ def get_plan_defaults(plan_type: str) -> dict:
     Returns:
         プラン別デフォルト値（monthly_question_limit, faq_limit, language_limit）
     
-    注意: language_limitはplan_limits.pyのPLAN_FAQ_LIMITSのlanguagesリストの長さと一致させる
+    注意: faq_limit/language_limit は plan_limits.py の PLAN_FAQ_LIMITS と一致させる（CSV一括登録 Phase 0）
     """
     defaults = {
         'Free': {
@@ -73,17 +73,17 @@ def get_plan_defaults(plan_type: str) -> dict:
         },
         'Mini': {
             'monthly_question_limit': None,  # 無制限
-            'faq_limit': 20,
+            'faq_limit': 30,
             'language_limit': 2  # ["ja", "en"]
         },
         'Small': {
             'monthly_question_limit': 200,
-            'faq_limit': 20,
+            'faq_limit': 50,
             'language_limit': 3  # ["ja", "en", "zh-TW"]
         },
         'Standard': {
             'monthly_question_limit': 500,
-            'faq_limit': 20,
+            'faq_limit': 100,
             'language_limit': 4  # ["ja", "en", "zh-TW", "fr"]
         },
         'Premium': {

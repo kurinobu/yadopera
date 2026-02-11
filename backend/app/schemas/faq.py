@@ -97,3 +97,16 @@ class BulkFAQCreateResponse(BaseModel):
     created_count: int = Field(..., description="作成されたFAQ数")
     faqs: List[FAQResponse] = Field(default_factory=list, description="作成されたFAQリスト")
 
+
+class BulkUploadResult(BaseModel):
+    """CSV一括アップロード結果（POST /admin/faqs/bulk-upload）"""
+    success_count: int = Field(..., description="成功件数")
+    failure_count: int = Field(..., description="失敗件数")
+    total_count: int = Field(..., description="総件数")
+    skipped_count: int = Field(..., description="スキップ件数")
+    processing_time_seconds: float = Field(..., description="処理時間（秒）")
+    uploaded_at: str = Field(..., description="アップロード日時（ISO8601）")
+    uploaded_by: int = Field(..., description="アップロード者ユーザーID")
+    errors: List[dict] = Field(default_factory=list, description="エラー詳細")
+    warnings: List[dict] = Field(default_factory=list, description="警告")
+

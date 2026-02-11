@@ -50,6 +50,10 @@ tenacity==8.2.3
 # Email (Brevo)
 sib-api-v3-sdk==7.6.0  # Brevo公式SDKの最新版
 
+# CSV一括登録（Phase 1）
+pandas>=2.0.0  # CSV解析
+chardet>=5.0.0  # 文字コード検出
+
 # Testing
 pytest>=7.4.0  # テストフレームワーク
 pytest-asyncio>=0.21.0  # 非同期テストサポート

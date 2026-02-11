@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- ページヘッダー -->
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between flex-wrap gap-2">
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
           FAQ管理
@@ -10,12 +10,22 @@
           FAQの追加・編集・削除と自動学習機能
         </p>
       </div>
-      <button
-        @click="showAddForm = true"
-        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
-      >
-        + 新規FAQ追加
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          v-if="canUseCsvBulkUpload"
+          type="button"
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:text-gray-200 rounded-lg transition-colors"
+          @click="showBulkUploadModal = true"
+        >
+          CSV一括登録
+        </button>
+        <button
+          @click="showAddForm = true"
+          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+        >
+          + 新規FAQ追加
+        </button>
+      </div>
     </div>
 
     <!-- ローディング表示 -->
@@ -81,6 +91,19 @@
       />
     </Modal>
 
+    <!-- CSV一括登録モーダル -->
+    <Modal
+      v-model="showBulkUploadModal"
+      title="CSV一括登録"
+      size="lg"
+      @close="showBulkUploadModal = false"
+    >
+      <FaqBulkUploadModal
+        @close="showBulkUploadModal = false"
+        @success="onBulkUploadSuccess"
+      />
+    </Modal>
+
     <!-- 無視確認モーダル -->
     <Modal
       v-model="showIgnoreConfirm"
@@ -118,12 +141,14 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import FaqList from '@/components/admin/FaqList.vue'
 import FaqForm from '@/components/admin/FaqForm.vue'
+import FaqBulkUploadModal from '@/components/admin/FaqBulkUploadModal.vue'
 import UnresolvedQuestionsList from '@/components/admin/UnresolvedQuestionsList.vue'
 import FaqSuggestionCard from '@/components/admin/FaqSuggestionCard.vue'
 import FeedbackLinkedFaqs from '@/components/admin/FeedbackLinkedFaqs.vue'
 import Modal from '@/components/common/Modal.vue'
 import Loading from '@/components/common/Loading.vue'
 import { faqApi } from '@/api/faq'
+import { facilityApi } from '@/api/facility'
 import { faqSuggestionApi } from '@/api/faqSuggestion'
 import { unresolvedQuestionsApi } from '@/api/unresolvedQuestions'
 import { feedbackApi } from '@/api/feedback'
@@ -135,6 +160,13 @@ const error = ref<string | null>(null)
 const faqs = ref<FAQ[]>([])
 const unresolvedQuestions = ref<UnresolvedQuestion[]>([])
 const loadingUnresolved = ref(false)
+const planType = ref<string | null>(null)
+const showBulkUploadModal = ref(false)
+
+// CSV一括登録は Standard / Premium のみ表示
+const canUseCsvBulkUpload = computed(() =>
+  planType.value === 'Standard' || planType.value === 'Premium'
+)
 
 // モックデータ（Week 4でAPI連携に置き換え、一部は残す）
 /* const mockFaqs: FAQ[] = [
@@ -392,9 +424,24 @@ const scrollToSection = async (targetId?: string) => {
 }
 
 // コンポーネントマウント時にデータ取得
+async function loadFacilityPlan() {
+  try {
+    const res = await facilityApi.getFacilitySettings()
+    planType.value = res.facility?.plan_type ?? null
+  } catch {
+    planType.value = null
+  }
+}
+
+function onBulkUploadSuccess() {
+  fetchFaqs()
+  showBulkUploadModal.value = false
+}
+
 onMounted(async () => {
   console.log('🚀 FaqManagement: onMounted開始')
   try {
+    loadFacilityPlan()
     await fetchFaqs()
     await fetchUnresolvedQuestions()
     await fetchLowRatedAnswers()

@@ -8,6 +8,19 @@
 import apiClient from './axios'
 import type { FAQ, FAQCreate, FAQUpdate } from '@/types/faq'
 
+/** CSV一括アップロード結果 */
+export interface BulkUploadResult {
+  success_count: number
+  failure_count: number
+  total_count: number
+  skipped_count: number
+  processing_time_seconds: number
+  uploaded_at: string
+  uploaded_by: number
+  errors: Array<Record<string, unknown>>
+  warnings: Array<Record<string, unknown>>
+}
+
 export const faqApi = {
   /**
    * FAQ一覧取得（インテントベース構造）
@@ -65,6 +78,31 @@ export const faqApi = {
    */
   async deleteFaq(faqId: number): Promise<void> {
     await apiClient.delete(`/admin/faqs/${faqId}`)
+  },
+
+  /**
+   * CSV一括アップロード（Standard/Premiumプランのみ）
+   * @param file - CSVファイル
+   * @param mode - 登録モード（add: 追加のみ）
+   * @param onProgress - 送信進捗コールバック（0-100）
+   */
+  async bulkUploadCsv(
+    file: File,
+    mode: string = 'add',
+    onProgress?: (percent: number) => void
+  ): Promise<BulkUploadResult> {
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('mode', mode)
+    const response = await apiClient.post<BulkUploadResult>('/admin/faqs/bulk-upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress: (e) => {
+        if (onProgress && e.total != null && e.total > 0) {
+          onProgress(Math.round((e.loaded / e.total) * 100))
+        }
+      }
+    })
+    return response.data
   }
 }
 

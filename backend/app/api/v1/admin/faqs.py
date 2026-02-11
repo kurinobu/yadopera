@@ -2,7 +2,7 @@
 FAQ管理APIエンドポイント
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, status, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -10,8 +10,16 @@ from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.facility import Facility
-from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQListResponse, BulkFAQCreateResponse
+from app.schemas.faq import (
+    FAQRequest,
+    FAQUpdateRequest,
+    FAQResponse,
+    FAQListResponse,
+    BulkFAQCreateResponse,
+    BulkUploadResult,
+)
 from app.services.faq_service import FAQService
+from app.services.csv_parser import CSVParseError
 from app.core.plan_limits import get_initial_faq_count
 
 router = APIRouter(prefix="/admin/faqs", tags=["admin", "faqs"])
@@ -289,6 +297,64 @@ async def delete_faq(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting FAQ: {str(e)}"
+        )
+
+
+MAX_CSV_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
+
+@router.post("/bulk-upload", response_model=BulkUploadResult, status_code=status.HTTP_201_CREATED)
+async def bulk_upload_faqs(
+    file: UploadFile = File(..., description="CSVファイル"),
+    mode: str = Form("add", description="登録モード（add: 追加のみ）"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    CSVファイルからFAQを一括登録。Standard/Premiumプランのみ利用可能。
+    """
+    facility_id = current_user.facility_id
+    if not facility_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not associated with any facility",
+        )
+    facility = await db.get(Facility, facility_id)
+    if not facility:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Facility not found",
+        )
+    if facility.plan_type not in ("Standard", "Premium"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="CSV一括登録はStandardプランまたはPremiumプランでのみ利用可能です",
+        )
+    content = await file.read()
+    if len(content) > MAX_CSV_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ファイルサイズは10MB以内にしてください",
+        )
+    faq_service = FAQService(db)
+    try:
+        result = await faq_service.bulk_create_faqs_from_csv(
+            facility_id=facility_id,
+            file_bytes=content,
+            user_id=current_user.id,
+            mode=mode,
+        )
+        return BulkUploadResult(**result)
+    except CSVParseError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("bulk_upload_faqs error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="内部サーバーエラーが発生しました。しばらく待ってから再度お試しください。",
         )
 
 

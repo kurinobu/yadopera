@@ -56,6 +56,7 @@ class FacilityResponse(BaseModel):
     languages: List[str] = Field(default_factory=list)
     timezone: str = "Asia/Tokyo"
     subscription_plan: Literal["free", "mini", "small", "standard", "premium"] = "small"
+    plan_type: Optional[str] = Field(None, description="料金プラン表示用（Free, Mini, Small, Standard, Premium）")
     monthly_question_limit: int = 200
     is_active: bool = True
     created_at: datetime
