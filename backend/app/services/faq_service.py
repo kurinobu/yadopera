@@ -435,8 +435,8 @@ class FAQService:
                 f"existing_faq_id={existing_faq.id}"
             )
             raise ValueError(
-                f"FAQ with the same intent_key already exists: faq_id={existing_faq.id}, intent_key={intent_key}. "
-                f"Please edit the existing FAQ instead of creating a duplicate."
+                "同じ内容のFAQは既に登録されています。CSV一括登録では、既に登録済みのFAQ（同じ質問・カテゴリ）を再度アップロードすることはできません。"
+                "既存の同じFAQをFAQ一覧から削除してから、再度アップロードしてください。"
             )
         
         # priorityがNoneの場合はデフォルト値1を使用（念のため）
@@ -677,7 +677,8 @@ class FAQService:
             existing_faq = existing_faq_result.scalar_one_or_none()
             if existing_faq:
                 raise ValueError(
-                    f"FAQ with the same intent_key already exists: faq_id={existing_faq.id}, intent_key={request.intent_key}"
+                    "同じ内容のFAQは既に登録されています。同じ質問・カテゴリのFAQは1件のみ登録できます。"
+                    "既存の同じFAQをFAQ一覧から削除するか、質問・カテゴリを変更してください。"
                 )
             faq.intent_key = request.intent_key
         

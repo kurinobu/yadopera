@@ -96,6 +96,7 @@ export const faqApi = {
     formData.append('mode', mode)
     const response = await apiClient.post<BulkUploadResult>('/admin/faqs/bulk-upload', formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000, // 60秒（埋め込み生成含む。計画書・chat APIと同様）
       onUploadProgress: (e) => {
         if (onProgress && e.total != null && e.total > 0) {
           onProgress(Math.round((e.loaded / e.total) * 100))
