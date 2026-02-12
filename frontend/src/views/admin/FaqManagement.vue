@@ -99,6 +99,7 @@
       @close="showBulkUploadModal = false"
     >
       <FaqBulkUploadModal
+        ref="bulkUploadModalRef"
         :key="bulkUploadModalKey"
         @close="showBulkUploadModal = false"
         @success="onBulkUploadSuccess"
@@ -165,10 +166,13 @@ const planType = ref<string | null>(null)
 const showBulkUploadModal = ref(false)
 // 修正案B: モーダルを開くたびに子を再マウントしてテンプレートブロックを確実に表示
 const bulkUploadModalKey = ref(0)
+const bulkUploadModalRef = ref<InstanceType<typeof FaqBulkUploadModal> | null>(null)
 
-function openBulkUploadModal() {
+async function openBulkUploadModal() {
   bulkUploadModalKey.value++
   showBulkUploadModal.value = true
+  await nextTick()
+  bulkUploadModalRef.value?.reset?.()
 }
 
 // CSV一括登録は Standard / Premium のみ表示

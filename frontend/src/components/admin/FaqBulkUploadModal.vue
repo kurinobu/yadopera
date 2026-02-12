@@ -1,5 +1,22 @@
 <template>
   <div class="space-y-4">
+    <!-- テンプレートダウンロード -->
+    <div
+      v-if="!result && !uploadError"
+      class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-3"
+    >
+      <p class="text-sm text-gray-600 dark:text-gray-400 mb-1">
+        推奨テンプレート（日本語・英語・フランス語・繁体中国語）をダウンロードして編集し、アップロードにご利用ください。
+      </p>
+      <a
+        href="/faq-csv-template/FAQ_CSV_template_4lang.csv"
+        download="FAQ_CSV_template_4lang.csv"
+        class="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 underline"
+      >
+        CSVテンプレートをダウンロード
+      </a>
+    </div>
+
     <!-- ファイル選択 -->
     <div
       v-if="!result && !uploadError"
@@ -175,4 +192,6 @@ async function upload() {
     uploadProgress.value = 100
   }
 }
+
+defineExpose({ reset })
 </script>

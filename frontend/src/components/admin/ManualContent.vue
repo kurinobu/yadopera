@@ -103,11 +103,15 @@ const formatContent = (content: string): string => {
   }
 
   // 修正案A: CSVテンプレートリンクのフォールバック（applyLink が効いていない場合でも確実に <a> にする）
-  const csvTemplateMarkdown = `[CSVテンプレートをダウンロード](${CSV_TEMPLATE_PATH})`
   const csvTemplateAnchor = `<a href="${CSV_TEMPLATE_PATH}" class="${CSV_TEMPLATE_LINK_CLASS}">CSVテンプレートをダウンロード</a>`
+  // 完全一致置換
+  const csvTemplateMarkdown = `[CSVテンプレートをダウンロード](${CSV_TEMPLATE_PATH})`
   if (html.includes(csvTemplateMarkdown)) {
     html = html.replace(csvTemplateMarkdown, csvTemplateAnchor)
   }
+  // 正規表現で柔軟に置換（空白類の有無など再表示時の表記差に対応）
+  const csvLinkPattern = /\[CSVテンプレートをダウンロード\]\s*\(\/faq-csv-template\/FAQ_CSV_template_4lang\.csv\)/g
+  html = html.replace(csvLinkPattern, csvTemplateAnchor)
 
   return html
 }
