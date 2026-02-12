@@ -13,7 +13,7 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/faq-csv-template\//],
         navigationPreload: false,
         // 管理APIは常に最新を取得するため、キャッシュさせない
         runtimeCaching: [
