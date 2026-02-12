@@ -57,11 +57,19 @@ const CSV_TEMPLATE_LINK_CLASS = 'text-blue-600 dark:text-blue-400 hover:underlin
 const applyLink = (s: string): string =>
   s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>')
 
+// プレースホルダ（content 段階で CSV リンクを確実に <a> にするため）
+const CSV_LINK_PLACEHOLDER = '__CSV_TEMPLATE_LINK__'
+// 半角・全角括弧を許容するパターン（本番ビルド・表記ゆれに対応）
+const csvMarkdownInContent = /\[CSVテンプレートをダウンロード\]\s*[（(]\/faq-csv-template\/FAQ_CSV_template_4lang\.csv[）)]/g
+
 // マークダウン風のテキストをHTMLに変換
 const formatContent = (content: string): string => {
   if (!content) return ''
 
-  const lines = content.split('\n')
+  // 問題A 根本対策: 元の content の段階で CSV リンク部分をプレースホルダに置換し、最後に必ず <a> に戻す
+  const normalizedContent = content.replace(csvMarkdownInContent, CSV_LINK_PLACEHOLDER)
+
+  const lines = normalizedContent.split('\n')
   let html = ''
   let inList = false
 
@@ -106,12 +114,29 @@ const formatContent = (content: string): string => {
   const csvTemplateAnchor = `<a href="${CSV_TEMPLATE_PATH}" class="${CSV_TEMPLATE_LINK_CLASS}">CSVテンプレートをダウンロード</a>`
   // 完全一致置換
   const csvTemplateMarkdown = `[CSVテンプレートをダウンロード](${CSV_TEMPLATE_PATH})`
-  if (html.includes(csvTemplateMarkdown)) {
+  const exactMatch = html.includes(csvTemplateMarkdown)
+  if (exactMatch) {
     html = html.replace(csvTemplateMarkdown, csvTemplateAnchor)
   }
   // 正規表現で柔軟に置換（空白類の有無など再表示時の表記差に対応）
   const csvLinkPattern = /\[CSVテンプレートをダウンロード\]\s*\(\/faq-csv-template\/FAQ_CSV_template_4lang\.csv\)/g
+  const beforeRegex = html
   html = html.replace(csvLinkPattern, csvTemplateAnchor)
+  const regexReplaceCount = (beforeRegex.match(csvLinkPattern) || []).length
+
+  // 問題A 根本対策: プレースホルダを必ず <a> に置換（行単位変換に依存しない）
+  html = html.split(CSV_LINK_PLACEHOLDER).join(csvTemplateAnchor)
+
+  // デバッグ: ?debug=csv のときだけコンソールに出力（ステージング等の切り分け用）
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === 'csv') {
+    const hasCsvText = content.includes('CSVテンプレートをダウンロード')
+    console.log('[yadopera-csv] ManualContent formatContent:', {
+      hasCsvText,
+      exactMatch,
+      regexReplaceCount,
+      linkInHtml: html.includes(CSV_TEMPLATE_PATH) && html.includes('CSVテンプレートをダウンロード'),
+    })
+  }
 
   return html
 }

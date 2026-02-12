@@ -99,6 +99,7 @@
       @close="showBulkUploadModal = false"
     >
       <FaqBulkUploadModal
+        v-if="showBulkUploadModal"
         ref="bulkUploadModalRef"
         :key="bulkUploadModalKey"
         @close="showBulkUploadModal = false"

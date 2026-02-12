@@ -111,8 +111,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import { faqApi, type BulkUploadResult } from '@/api/faq'
+
+const DEBUG_CSV = () =>
+  typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('debug') === 'csv'
 
 const emit = defineEmits<{
   close: []
@@ -155,11 +158,22 @@ function onDrop(e: DragEvent) {
 }
 
 function reset() {
+  if (DEBUG_CSV()) console.log('[yadopera-csv] FaqBulkUploadModal reset called')
   selectedFile.value = null
   result.value = null
   uploadError.value = null
   uploadProgress.value = 0
 }
+
+onMounted(() => {
+  if (DEBUG_CSV()) {
+    console.log('[yadopera-csv] FaqBulkUploadModal mounted:', {
+      result: result.value,
+      uploadError: uploadError.value,
+      templateBlockVisible: !result.value && !uploadError.value,
+    })
+  }
+})
 
 async function upload() {
   if (!selectedFile.value) return
