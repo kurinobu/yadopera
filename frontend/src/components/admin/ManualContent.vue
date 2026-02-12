@@ -49,26 +49,34 @@ const getContent = (sectionId: string, subsectionId: string): string => {
   return subsection?.content || '説明内容は準備中です。'
 }
 
+// CSVテンプレートDL用URL（修正案A: フォールバックで確実にリンク化するため）
+const CSV_TEMPLATE_PATH = '/faq-csv-template/FAQ_CSV_template_4lang.csv'
+const CSV_TEMPLATE_LINK_CLASS = 'text-blue-600 dark:text-blue-400 hover:underline'
+
+// [表示テキスト](URL) をリンクに変換（**変換の後に適用）
+const applyLink = (s: string): string =>
+  s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" class="text-blue-600 dark:text-blue-400 hover:underline">$1</a>')
+
 // マークダウン風のテキストをHTMLに変換
 const formatContent = (content: string): string => {
   if (!content) return ''
-  
+
   const lines = content.split('\n')
   let html = ''
   let inList = false
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
     const trimmed = line.trim()
-    
+
     // リスト項目の処理
     if (trimmed.startsWith('- ')) {
       if (!inList) {
         html += '<ul>'
         inList = true
       }
-      // **太字**を<strong>に変換してから<li>に追加
-      const listContent = trimmed.substring(2).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+      // **太字**を<strong>に変換してからリンクを適用し<li>に追加
+      const listContent = applyLink(trimmed.substring(2).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'))
       html += `<li>${listContent}</li>`
     } else {
       // リストの終了
@@ -76,15 +84,15 @@ const formatContent = (content: string): string => {
         html += '</ul>'
         inList = false
       }
-      
+
       // 空行は無視
       if (trimmed === '') {
         html += '<br>'
         continue
       }
-      
-      // **太字**を<strong>に変換
-      const formattedLine = trimmed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+
+      // **太字**を<strong>に変換してからリンクを適用
+      const formattedLine = applyLink(trimmed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'))
       html += `<p>${formattedLine}</p>`
     }
   }
@@ -93,7 +101,14 @@ const formatContent = (content: string): string => {
   if (inList) {
     html += '</ul>'
   }
-  
+
+  // 修正案A: CSVテンプレートリンクのフォールバック（applyLink が効いていない場合でも確実に <a> にする）
+  const csvTemplateMarkdown = `[CSVテンプレートをダウンロード](${CSV_TEMPLATE_PATH})`
+  const csvTemplateAnchor = `<a href="${CSV_TEMPLATE_PATH}" class="${CSV_TEMPLATE_LINK_CLASS}">CSVテンプレートをダウンロード</a>`
+  if (html.includes(csvTemplateMarkdown)) {
+    html = html.replace(csvTemplateMarkdown, csvTemplateAnchor)
+  }
+
   return html
 }
 </script>

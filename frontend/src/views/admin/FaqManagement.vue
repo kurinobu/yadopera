@@ -15,7 +15,7 @@
           v-if="canUseCsvBulkUpload"
           type="button"
           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:text-gray-200 rounded-lg transition-colors"
-          @click="showBulkUploadModal = true"
+          @click="openBulkUploadModal"
         >
           CSV一括登録
         </button>
@@ -99,6 +99,7 @@
       @close="showBulkUploadModal = false"
     >
       <FaqBulkUploadModal
+        :key="bulkUploadModalKey"
         @close="showBulkUploadModal = false"
         @success="onBulkUploadSuccess"
       />
@@ -162,6 +163,13 @@ const unresolvedQuestions = ref<UnresolvedQuestion[]>([])
 const loadingUnresolved = ref(false)
 const planType = ref<string | null>(null)
 const showBulkUploadModal = ref(false)
+// 修正案B: モーダルを開くたびに子を再マウントしてテンプレートブロックを確実に表示
+const bulkUploadModalKey = ref(0)
+
+function openBulkUploadModal() {
+  bulkUploadModalKey.value++
+  showBulkUploadModal.value = true
+}
 
 // CSV一括登録は Standard / Premium のみ表示
 const canUseCsvBulkUpload = computed(() =>
