@@ -19,6 +19,10 @@ FALLBACK_MESSAGES = {
     "fr": (
         "Désolé, le système de support automatique est temporairement indisponible. "
         "Veuillez contacter directement le personnel pour obtenir de l'aide."
+    ),
+    "ko": (
+        "죄송합니다. 자동 안내 시스템을 일시적으로 이용하실 수 없습니다. "
+        "직원에게 직접 문의해 주세요."
     )
 }
 
@@ -29,7 +33,7 @@ def get_fallback_message(language: str = "en") -> str:
     ゲストの選択言語に応じて返却
     
     Args:
-        language: 言語コード（'en', 'ja', 'zh-TW', 'fr'）
+        language: 言語コード（'en', 'ja', 'zh-TW', 'fr', 'ko'）
     
     Returns:
         str: フォールバックメッセージ（該当言語がない場合は英語を返却）
