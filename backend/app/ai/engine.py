@@ -241,12 +241,25 @@ Local Info: {(facility.local_info or "")[:500]}
 Prohibited Items: {(getattr(facility, "prohibited_items", "") or "")[:500]}
 """
         
-        # システムプロンプト（約100トークン）
-        system_prompt = """
+        # 回答言語のラベル（プロンプト用・LLMが認識しやすくするため）
+        _language_labels = {
+            "ja": "Japanese",
+            "en": "English",
+            "zh-TW": "Traditional Chinese",
+            "fr": "French",
+            "ko": "Korean",
+        }
+        answer_language_label = _language_labels.get(language, language)
+        
+        # システムプロンプト（約100トークン＋回答言語強制）
+        # AI回答言語を request.language（選択言語）に強制する（計画書 Step 1）
+        system_prompt = f"""
 You are a helpful assistant for a guesthouse.
 Answer guests' questions based on the provided FAQs and facility information.
 Be friendly, concise (under 200 characters), and helpful.
 If you cannot answer confidently, suggest contacting staff.
+
+You MUST answer in the guest's selected language only. The selected language for this request is: {answer_language_label} (code: {language}). Even if the question is written in another language, translate and answer in the selected language above. Keep the response under 200 characters, friendly and helpful.
 """
         
         # ゲスト質問（約50トークン）

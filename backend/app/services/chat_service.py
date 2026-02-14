@@ -21,6 +21,7 @@ from app.schemas.chat import ChatRequest, ChatResponse, ChatHistoryResponse, Mes
 from app.ai.engine import RAGChatEngine
 from app.services.escalation_service import EscalationService
 from app.services.overnight_queue_service import OvernightQueueService
+from app.core.plan_limits import get_plan_limits
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,23 @@ class ChatService:
         Returns:
             ChatResponse: チャットレスポンス
         """
+        # Step 2: request.language が施設のAI回答可能言語に含まれるか検証（計画書 Step 2）
+        facility_result = await self.db.execute(
+            select(Facility).where(Facility.id == request.facility_id)
+        )
+        facility = facility_result.scalar_one_or_none()
+        if not facility:
+            raise ValueError("Facility not found")
+        plan_type = facility.plan_type or "Free"
+        plan_limits = get_plan_limits(plan_type.lower())
+        available_languages = plan_limits.get("languages", ["ja"])
+        if plan_type == "Premium" or available_languages is None:
+            available_languages = ["ja", "en", "zh-TW", "fr", "ko"]
+        if request.language not in available_languages:
+            raise ValueError(
+                f"選択可能な言語は {', '.join(available_languages)} のみです。"
+            )
+
         # セッション管理: 会話の取得または新規作成
         conversation = await self._get_or_create_conversation(
             facility_id=request.facility_id,
