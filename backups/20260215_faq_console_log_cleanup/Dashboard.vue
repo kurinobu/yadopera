@@ -247,8 +247,10 @@ const handleConversationClick = (conversation: ChatHistory) => {
 
 // handleQueueViewAllは削除（未使用のため）
 
-const handleFeedbackRespond = (_answer: FeedbackStatsType['low_rated_answers'][0]) => {
+const handleFeedbackRespond = (answer: FeedbackStatsType['low_rated_answers'][0]) => {
   // FAQ管理ページにジャンプ（FeedbackStatsコンポーネント内で既に処理されている）
+  // 必要に応じて、追加の処理をここに記述
+  console.log('Navigate to FAQ management page for:', answer)
 }
 </script>
 

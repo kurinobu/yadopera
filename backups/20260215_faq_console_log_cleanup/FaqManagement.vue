@@ -227,13 +227,30 @@ const lowRatedAnswers = ref<LowRatedAnswer[]>([])
 
 // データ取得
 const fetchFaqs = async () => {
+  console.log('🚀 fetchFaqs: 開始')
   try {
     loading.value = true
     error.value = null
+    console.log('📡 fetchFaqs: API呼び出し前')
     const response = await faqApi.getFaqs()
+    console.log('📡 fetchFaqs: API呼び出し成功', response)
     const data = response.faqs
     const isInitializing = response.is_initializing
-
+    const total = response.total
+    
+    console.log('✅ FAQ取得成功:', {
+      count: data.length,
+      total: total,
+      is_initializing: isInitializing,
+      categories: {
+        basic: data.filter(f => f.category === 'basic').length,
+        facilities: data.filter(f => f.category === 'facilities').length,
+        location: data.filter(f => f.category === 'location').length,
+        trouble: data.filter(f => f.category === 'trouble').length,
+      },
+      data: data
+    })
+    
     faqs.value = data
     
     // バックグラウンド処理（施設作成直後の初期自動登録）が進行中の場合のみポーリングを開始
@@ -351,6 +368,7 @@ const scrollToSection = async (targetId?: string) => {
       top: offsetPosition,
       behavior: 'smooth'
     })
+    console.log('[FaqManagement] Scrolled to section:', id, element)
   } else {
     console.warn('[FaqManagement] Element not found for id:', id)
     // 要素が見つからない場合、もう一度試す（最大3回）
@@ -365,6 +383,7 @@ const scrollToSection = async (targetId?: string) => {
           top: offsetPosition,
           behavior: 'smooth'
         })
+        console.log('[FaqManagement] Scrolled to section (retry):', id, retryElement)
         break
       }
     }
@@ -387,6 +406,7 @@ function onBulkUploadSuccess() {
 }
 
 onMounted(async () => {
+  console.log('🚀 FaqManagement: onMounted開始')
   try {
     loadFacilityPlan()
     await fetchFaqs()
@@ -394,6 +414,7 @@ onMounted(async () => {
     await fetchLowRatedAnswers()
     // ハッシュフラグメントに基づいてスクロール
     await scrollToSection()
+    console.log('✅ FaqManagement: onMounted完了')
   } catch (err: any) {
     console.error('❌ FaqManagement: onMountedエラー', err)
     console.error('❌ FaqManagement: onMountedエラー詳細', {
@@ -466,6 +487,11 @@ const handleDelete = async (faq: FAQ) => {
     await new Promise(resolve => setTimeout(resolve, 100))
     // FAQ一覧を再取得
     await fetchFaqs()
+    // 成功メッセージ（オプション）
+    const questionText = faq.translations && faq.translations.length > 0
+      ? faq.translations[0].question
+      : `FAQ ID: ${faq.id}`
+    console.log(`FAQ「${questionText}」を削除しました`)
   } catch (err: any) {
     console.error('Failed to delete FAQ:', err)
     // エラーメッセージをユーザーフレンドリーに変換
@@ -576,7 +602,14 @@ const handleRejectSuggestion = async (_suggestion: FaqSuggestion) => {
 
 const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
   try {
+    console.log('Generating FAQ suggestion for message_id:', answer.message_id)
+    console.log('Answer data:', answer)
+    // FAQ提案を生成（GPT-4o mini）
     const suggestion = await faqSuggestionApi.generateSuggestion(answer.message_id)
+    console.log('FAQ suggestion generated:', suggestion)
+    console.log('Suggested question:', suggestion.suggested_question)
+    console.log('Suggested answer:', suggestion.suggested_answer)
+    
     selectedSuggestion.value = suggestion
     
     // FAQ提案カードまで自動スクロール
@@ -613,6 +646,8 @@ const showIgnoreConfirm = ref(false)
 const pendingIgnoreAnswer = ref<LowRatedAnswer | null>(null)
 
 const handleFeedbackIgnore = (answer: LowRatedAnswer) => {
+  console.log('Feedback ignore clicked:', answer)
+  // 確認モーダルを表示
   pendingIgnoreAnswer.value = answer
   showIgnoreConfirm.value = true
 }
@@ -623,14 +658,23 @@ const confirmIgnore = async () => {
   }
   
   const answer = pendingIgnoreAnswer.value
+  console.log('Confirm ignore for message_id:', answer.message_id)
+  
+  // ローディング状態を設定
   ignoringMessageId.value = answer.message_id
-
+  console.log('Calling ignoreNegativeFeedback API for message_id:', answer.message_id)
+  
   try {
     await feedbackApi.ignoreNegativeFeedback(answer.message_id)
+    console.log('Ignore API call successful')
+    // 成功メッセージを表示
     alert('✅ 低評価回答を無視しました。画面から非表示になります。')
+    // モーダルを閉じる
     showIgnoreConfirm.value = false
     pendingIgnoreAnswer.value = null
+    // 低評価回答リストを再取得（画面に反映）
     await fetchLowRatedAnswers()
+    console.log('Low-rated answers list refreshed')
   } catch (err: any) {
     console.error('Failed to ignore negative feedback:', err)
     console.error('Error details:', err.response?.data || err.message)
@@ -638,7 +682,9 @@ const confirmIgnore = async () => {
     // エラーメッセージを確実に表示
     alert(`❌ エラー: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`)
   } finally {
+    // ローディング状態を解除
     ignoringMessageId.value = null
+    console.log('Ignore action completed')
   }
 }
 
