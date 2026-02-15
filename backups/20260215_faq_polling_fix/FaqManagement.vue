@@ -253,49 +253,95 @@ const fetchFaqs = async () => {
     
     faqs.value = data
     
-    // バックグラウンド処理（施設作成直後の初期自動登録）が進行中の場合のみポーリングを開始
-    // is_initializing が True のときのみポーリング。20件未満の通常施設ではポーリングしない。
-    if (isInitializing) {
+    // バックグラウンド処理が進行中の場合、または期待値未満の場合はポーリングを開始
+    // 修正2: isInitializingがFalseでも、total < 20の場合はポーリングを開始（二重の安全策）
+    const expectedCount = 20  // 条件チェック前に定義
+    console.log('🔍 ポーリング条件チェック:', {
+      isInitializing,
+      total,
+      expectedCount,
+      condition1: isInitializing && total < expectedCount,
+      condition2: !isInitializing && total < expectedCount,
+      shouldPoll: (isInitializing && total < expectedCount) || (!isInitializing && total < expectedCount)
+    })
+    
+    if ((isInitializing && total < expectedCount) || (!isInitializing && total < expectedCount)) {
       const pollInterval = 2000 // 2秒ごとにポーリング
-      const maxPollTime = 90000 // 最大90秒（初期投入 + 埋め込みベクトル生成を考慮）
+      const maxPollTime = 90000 // 最大90秒（20件のFAQ作成 + 埋め込みベクトル生成を考慮）
       const startTime = Date.now()
-
+      
       const poll = async () => {
         try {
           const newResponse = await faqApi.getFaqs()
           const newData = newResponse.faqs
           const newTotal = newResponse.total
           const newIsInitializing = newResponse.is_initializing
-
+          
+          console.log('🔄 ポーリング結果:', {
+            count: newData.length,
+            total: newTotal,
+            is_initializing: newIsInitializing
+          })
+          
           // ポーリング中にFAQ数が増えた場合は、即座にUIを更新
           if (newTotal > faqs.value.length) {
+            console.log('📊 FAQ数が増加: UIを更新', {
+              previous: faqs.value.length,
+              current: newTotal
+            })
             faqs.value = newData
           }
-
-          // バックグラウンド処理の完了: is_initializing が false になった時点で終了
-          if (!newIsInitializing) {
+          
+          // バックグラウンド処理の完了を優先チェック（タイムアウトチェックより先）
+          if (!newIsInitializing && newTotal >= expectedCount) {
+            // 完了: 最新のデータを表示
+            console.log('✅ バックグラウンド処理完了: 最新のデータを表示', newTotal)
             faqs.value = newData
             loading.value = false
             return
           }
-
-          // タイムアウトチェック
+          
+          // タイムアウトチェック（完了チェックの後）
           if (Date.now() - startTime > maxPollTime) {
+            // タイムアウト: 最後に取得したデータを表示
+            console.log('⏱️ ポーリングタイムアウト: 最後に取得したデータを表示', {
+              total: newTotal,
+              count: newData.length,
+              is_initializing: newIsInitializing
+            })
             faqs.value = newData
             loading.value = false
             return
           }
-
+          
           // まだ進行中: 再度ポーリング
           setTimeout(poll, pollInterval)
         } catch (err: any) {
-          console.error('FAQポーリングエラー:', err)
+          // エラー: 現在の件数を表示
+          console.error('❌ ポーリングエラー:', err)
+          console.error('❌ ポーリングエラー: エラー詳細', {
+            message: err.message,
+            stack: err.stack,
+            response: err.response
+          })
           loading.value = false
         }
       }
-
+      
+      // 初回ポーリングを開始
+      console.log('🔄 バックグラウンド処理進行中または期待値未満: ポーリングを開始', {
+        isInitializing,
+        total,
+        expectedCount
+      })
       setTimeout(poll, pollInterval)
     } else {
+      // 通常の表示
+      console.log('⏭️ ポーリング不要: 通常の表示', {
+        isInitializing,
+        total,
+        expectedCount
+      })
       loading.value = false
     }
   } catch (err: any) {
