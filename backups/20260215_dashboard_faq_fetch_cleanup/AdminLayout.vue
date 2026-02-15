@@ -26,18 +26,24 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import Sidebar from '@/components/admin/Sidebar.vue'
 import Header from '@/components/admin/Header.vue'
 import HelpButton from '@/components/help/HelpButton.vue'
 import HelpModal from '@/components/help/HelpModal.vue'
+import { useHelpStore } from '@/stores/help'
 
 const isMobileMenuOpen = ref(false)
-// FAQ取得はヘルプモーダルを開いたときのみ（HelpModal.vue の watch で実施）。ダッシュボード表示時には取得しない。
+const helpStore = useHelpStore()
+
+onMounted(async () => {
+  // 初回FAQデータ読み込み
+  if (helpStore.faqs.length === 0) {
+    await helpStore.fetchFaqs()
+  }
+})
 </script>
 
 <style scoped>
 /* Component styles */
 </style>
-
-
