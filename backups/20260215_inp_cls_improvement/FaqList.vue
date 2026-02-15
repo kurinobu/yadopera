@@ -20,19 +20,18 @@
       </div>
     </div>
 
-    <!-- CLS 改善: 一覧エリアに最小高さを指定 -->
-    <div class="divide-y divide-gray-200 dark:divide-gray-700 min-h-[320px]">
+    <div class="divide-y divide-gray-200 dark:divide-gray-700">
       <template v-for="category in categories" :key="category">
         <div
-          v-if="faqsByCategory[category].length > 0"
+          v-if="getFaqsByCategory(category).length > 0"
           class="p-6"
         >
           <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
-            {{ getCategoryLabel(category) }} ({{ faqsByCategory[category].length }}件)
+            {{ getCategoryLabel(category) }} ({{ getFaqsByCategory(category).length }}件)
           </h4>
           <div class="space-y-4">
             <div
-              v-for="faq in faqsByCategory[category]"
+              v-for="faq in getFaqsByCategory(category)"
               :key="faq.id"
               class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
             >
@@ -139,19 +138,9 @@ const filteredFaqs = computed(() => {
   return props.faqs.filter(faq => faq.category === selectedCategory.value)
 })
 
-// INP 改善: カテゴリ別一覧を算出プロパティで1回だけ計算（getFaqsByCategory の重複呼び出しを削減）
-const faqsByCategory = computed<Record<FAQCategory, FAQ[]>>(() => {
-  const m: Record<FAQCategory, FAQ[]> = {
-    basic: [],
-    facilities: [],
-    location: [],
-    trouble: []
-  }
-  props.faqs.forEach(faq => {
-    m[faq.category].push(faq)
-  })
-  return m
-})
+const getFaqsByCategory = (category: FAQCategory): FAQ[] => {
+  return props.faqs.filter(faq => faq.category === category)
+}
 
 const getCategoryLabel = (category: FAQCategory): string => {
   const labels: Record<FAQCategory, string> = {

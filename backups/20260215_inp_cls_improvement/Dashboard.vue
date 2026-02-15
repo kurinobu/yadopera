@@ -10,27 +10,22 @@
       </p>
     </div>
 
-    <!-- CLS 改善: ローディング〜コンテンツの切り替えで高さを揃える -->
-    <div class="min-h-[480px]">
-      <!-- ローディング表示 -->
-      <Loading v-if="loading" />
+    <!-- ローディング表示 -->
+    <Loading v-if="loading" />
 
-      <!-- エラー表示 -->
-      <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <p class="text-red-800 dark:text-red-200">{{ error }}</p>
-        <button
-          type="button"
-          :disabled="retrying"
-          class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          @click="onRetryClick"
-        >
-          <span v-if="retrying">再試行中...</span>
-          <span v-else>再試行</span>
-        </button>
-      </div>
+    <!-- エラー表示 -->
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+      <p class="text-red-800 dark:text-red-200">{{ error }}</p>
+      <button
+        @click="fetchDashboardData"
+        class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+      >
+        再試行
+      </button>
+    </div>
 
-      <!-- ダッシュボードコンテンツ -->
-      <template v-else-if="dashboardData">
+    <!-- ダッシュボードコンテンツ -->
+    <template v-else-if="dashboardData">
       <!-- 月次統計セクション（最優先表示エリア） -->
       <section v-if="monthlyUsage || aiAutomation || escalationsSummary" class="space-y-6">
         <div>
@@ -133,7 +128,6 @@
         @respond="handleFeedbackRespond"
       />
     </template>
-    </div>
   </div>
 </template>
 
@@ -163,8 +157,6 @@ const error = ref<string | null>(null)
 const dashboardData = ref<DashboardData | null>(null)
 // 重複リクエスト防止: 取得中は追加の fetch を開始しない
 const isFetching = ref(false)
-// INP 改善: 再試行ボタンで即時フィードバック
-const retrying = ref(false)
 
 // データ取得
 const fetchDashboardData = async () => {
@@ -181,16 +173,7 @@ const fetchDashboardData = async () => {
   } finally {
     loading.value = false
     isFetching.value = false
-    retrying.value = false
   }
-}
-
-// INP 改善: クリックで即 disabled にし、重い処理は次のタスクに回す
-function onRetryClick() {
-  retrying.value = true
-  setTimeout(() => {
-    fetchDashboardData()
-  }, 0)
 }
 
 // コンポーネントマウント時にデータ取得

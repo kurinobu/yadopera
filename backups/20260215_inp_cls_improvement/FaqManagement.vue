@@ -15,12 +15,12 @@
           v-if="canUseCsvBulkUpload"
           type="button"
           class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:text-gray-200 rounded-lg transition-colors"
-          @click="onBulkUploadClick"
+          @click="openBulkUploadModal"
         >
           CSV一括登録
         </button>
         <button
-          @click="onAddFaqClick"
+          @click="showAddForm = true"
           class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
         >
           + 新規FAQ追加
@@ -28,33 +28,27 @@
       </div>
     </div>
 
-    <!-- CLS 改善: ローディング〜一覧の切り替えで高さを揃える -->
-    <div class="min-h-[50vh]">
-      <!-- ローディング表示 -->
-      <Loading v-if="loading" />
+    <!-- ローディング表示 -->
+    <Loading v-if="loading" />
 
-      <!-- エラー表示 -->
-      <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-        <p class="text-red-800 dark:text-red-200">{{ error }}</p>
-        <button
-          type="button"
-          :disabled="retryingFaqs"
-          class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-          @click="onFaqsRetryClick"
-        >
-          <span v-if="retryingFaqs">再試行中...</span>
-          <span v-else>再試行</span>
-        </button>
-      </div>
-
-      <!-- FAQ一覧 -->
-      <FaqList
-        v-else
-        :faqs="faqs"
-        @edit="handleEdit"
-        @delete="handleDelete"
-      />
+    <!-- エラー表示 -->
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+      <p class="text-red-800 dark:text-red-200">{{ error }}</p>
+      <button
+        @click="fetchFaqs"
+        class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+      >
+        再試行
+      </button>
     </div>
+
+    <!-- FAQ一覧 -->
+    <FaqList
+      v-else
+      :faqs="faqs"
+      @edit="handleEdit"
+      @delete="handleDelete"
+    />
 
     <!-- 未解決質問リスト -->
     <UnresolvedQuestionsList
@@ -231,9 +225,6 @@ const canUseCsvBulkUpload = computed(() =>
 // 低評価回答リスト
 const lowRatedAnswers = ref<LowRatedAnswer[]>([])
 
-// INP 改善: 再試行ボタンで即時フィードバック
-const retryingFaqs = ref(false)
-
 // データ取得
 const fetchFaqs = async () => {
   try {
@@ -299,30 +290,7 @@ const fetchFaqs = async () => {
     })
     error.value = err.response?.data?.detail || 'FAQ一覧の取得に失敗しました'
     loading.value = false
-  } finally {
-    retryingFaqs.value = false
   }
-}
-
-// INP 改善: クリックで即 disabled にし、重い処理は次のタスクに回す
-function onFaqsRetryClick() {
-  retryingFaqs.value = true
-  setTimeout(() => {
-    fetchFaqs()
-  }, 0)
-}
-
-// INP 改善: ボタンクリック後の処理を次のタスクに回す
-function onAddFaqClick() {
-  setTimeout(() => {
-    showAddForm.value = true
-  }, 0)
-}
-
-function onBulkUploadClick() {
-  setTimeout(() => {
-    openBulkUploadModal()
-  }, 0)
 }
 
 // 未解決質問リスト取得
