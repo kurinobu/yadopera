@@ -155,13 +155,9 @@ const router = useRouter()
 const loading = ref(true)
 const error = ref<string | null>(null)
 const dashboardData = ref<DashboardData | null>(null)
-// 重複リクエスト防止: 取得中は追加の fetch を開始しない
-const isFetching = ref(false)
 
 // データ取得
 const fetchDashboardData = async () => {
-  if (isFetching.value) return
-  isFetching.value = true
   try {
     loading.value = true
     error.value = null
@@ -172,7 +168,6 @@ const fetchDashboardData = async () => {
     error.value = err.response?.data?.detail || 'ダッシュボードデータの取得に失敗しました'
   } finally {
     loading.value = false
-    isFetching.value = false
   }
 }
 
