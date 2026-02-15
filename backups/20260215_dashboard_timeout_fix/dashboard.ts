@@ -11,11 +11,9 @@ export const dashboardApi = {
    */
   async getDashboard(): Promise<DashboardData> {
     // キャッシュを確実にバイパスするため、クエリにタイムスタンプを付与
-    // ダッシュボードは8系統の集計のため、キャッシュミス時に時間がかかる。デフォルト10秒ではタイムアウトするため20秒に延長（報告書 5.3.2）
     const response = await apiClient.get<DashboardData>('/admin/dashboard', {
       params: { _t: Date.now() },
-      headers: { 'Cache-Control': 'no-cache' },
-      timeout: 20000 // 20秒（ステージング等でDBが遅い場合でも1本目で完了するように）
+      headers: { 'Cache-Control': 'no-cache' }
     })
     return response.data
   }
