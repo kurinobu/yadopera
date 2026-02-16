@@ -431,6 +431,7 @@ const handleMessageSubmit = async (message: string) => {
       messagesCount: messages.value.length,
       messages: messages.value
     })
+    await nextTick()
 
     // AI応答を取得
     console.log('[Chat.vue] handleMessageSubmit: AI応答取得開始')
