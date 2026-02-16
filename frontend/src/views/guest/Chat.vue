@@ -128,6 +128,7 @@ import SessionTokenDisplay from '@/components/guest/SessionTokenDisplay.vue'
 import SessionTokenInput from '@/components/guest/SessionTokenInput.vue'
 import DarkModeToggle from '@/components/common/DarkModeToggle.vue'
 import type { ChatMessage } from '@/types/chat'
+import { log, warn } from '@/utils/logger'
 
 const route = useRoute()
 const router = useRouter()
@@ -179,7 +180,7 @@ const initialMessageSent = ref(false)
 
 // 初期メッセージまたは質問を送信
 onMounted(async () => {
-  console.log('[Chat.vue] onMounted: 開始', {
+  log('[Chat.vue] onMounted: 開始', {
     initialMessage: initialMessage.value,
     initialQuestion: initialQuestion.value,
     messagesCount: messages.value.length,
@@ -192,12 +193,12 @@ onMounted(async () => {
     // 施設情報が取得されていない場合、取得する
     if (!facilityStore.currentFacility) {
       const slug = route.params.facilityId as string
-      console.log('[Chat.vue] onMounted: 施設情報取得開始', { slug })
+      log('[Chat.vue] onMounted: 施設情報取得開始', { slug })
       try {
         const response = await facilityApi.getFacility(slug, location.value)
         facilityStore.setFacility(response.facility)
         facilityStore.setTopQuestions(response.top_questions)
-        console.log('[Chat.vue] onMounted: 施設情報取得完了', {
+        log('[Chat.vue] onMounted: 施設情報取得完了', {
           facility: response.facility,
           facilityId: response.facility.id
         })
@@ -226,21 +227,21 @@ onMounted(async () => {
         
         if (errorCode === 'NETWORK_ERROR' || String(errorCode) === 'NETWORK_ERROR') {
           error.value = '現在オフラインです。インターネット接続を確認してください。'
-          console.log('[Chat.vue] NETWORK_ERROR検出: オフラインメッセージを表示')
+          log('[Chat.vue] NETWORK_ERROR検出: オフラインメッセージを表示')
         } else if (errorCode === 'TIMEOUT_ERROR' || String(errorCode) === 'TIMEOUT_ERROR') {
           error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
-          console.log('[Chat.vue] TIMEOUT_ERROR検出')
+          log('[Chat.vue] TIMEOUT_ERROR検出')
         } else if (errorCode === 'SERVER_ERROR' || String(errorCode) === 'SERVER_ERROR') {
           error.value = 'サーバーエラーが発生しました。しばらくしてから再度お試しください。'
-          console.log('[Chat.vue] SERVER_ERROR検出')
+          log('[Chat.vue] SERVER_ERROR検出')
         } else {
           error.value = '施設情報の取得に失敗しました'
-          console.warn('[Chat.vue] エラーコードが検出されませんでした。汎用エラーメッセージを表示。errorCode:', errorCode)
+          warn('[Chat.vue] エラーコードが検出されませんでした。汎用エラーメッセージを表示。errorCode:', errorCode)
         }
         return
       }
     } else {
-      console.log('[Chat.vue] onMounted: 施設情報は既に取得済み', {
+      log('[Chat.vue] onMounted: 施設情報は既に取得済み', {
         facility: facilityStore.currentFacility,
         facilityId: facilityStore.currentFacility.id
       })
@@ -258,12 +259,12 @@ onMounted(async () => {
     
     // セッションIDを取得または生成
     const currentSessionId = getOrCreateSessionId()
-    console.log('[Chat.vue] onMounted: セッションID取得', { currentSessionId })
+    log('[Chat.vue] onMounted: セッションID取得', { currentSessionId })
 
     // 会話引き継ぎコードを生成・取得
     if (currentSessionId && facilityId.value) {
       try {
-        console.log('[Chat.vue] onMounted: トークン取得開始', {
+        log('[Chat.vue] onMounted: トークン取得開始', {
           sessionId: currentSessionId,
           facilityId: facilityId.value
         })
@@ -271,7 +272,7 @@ onMounted(async () => {
         // 既存のトークンを取得を試みる
         try {
           const existingToken = await sessionApi.getTokenBySessionId(currentSessionId)
-          console.log('[Chat.vue] onMounted: 既存トークン取得成功', {
+          log('[Chat.vue] onMounted: 既存トークン取得成功', {
             token: existingToken.token,
             expiresAt: existingToken.expires_at
           })
@@ -281,7 +282,7 @@ onMounted(async () => {
         } catch (err: any) {
           // 404エラー（トークンが存在しない）の場合は新規生成
           if (err?.code === 'NOT_FOUND') {
-            console.log('[Chat.vue] onMounted: 既存トークンなし - 新規生成', {
+            log('[Chat.vue] onMounted: 既存トークンなし - 新規生成', {
               sessionId: currentSessionId,
               facilityId: facilityId.value
             })
@@ -289,7 +290,7 @@ onMounted(async () => {
               facility_id: facilityId.value,
               session_id: currentSessionId
             })
-            console.log('[Chat.vue] onMounted: トークン生成成功', {
+            log('[Chat.vue] onMounted: トークン生成成功', {
               token: newToken.token,
               expiresAt: newToken.expires_at
             })
@@ -310,17 +311,17 @@ onMounted(async () => {
     // 初期メッセージまたは質問がある場合は、会話履歴取得をスキップ
     // （まだ会話が存在しないため、404エラーが発生する）
     const hasInitialMessage = initialMessage.value || initialQuestion.value
-    console.log('[Chat.vue] onMounted: 初期メッセージチェック', { hasInitialMessage })
+    log('[Chat.vue] onMounted: 初期メッセージチェック', { hasInitialMessage })
 
     // 既存の会話履歴を読み込む（初期メッセージがない場合のみ）
     if (currentSessionId && !hasInitialMessage) {
       try {
-        console.log('[Chat.vue] onMounted: 会話履歴読み込み開始', {
+        log('[Chat.vue] onMounted: 会話履歴読み込み開始', {
           sessionId: currentSessionId,
           facilityId: facilityId.value
         })
         await loadHistory(currentSessionId, facilityId.value)
-        console.log('[Chat.vue] onMounted: 会話履歴読み込み完了', {
+        log('[Chat.vue] onMounted: 会話履歴読み込み完了', {
           messagesCount: messages.value.length,
           messages: messages.value
         })
@@ -330,7 +331,7 @@ onMounted(async () => {
         if (err?.code !== 'NOT_FOUND') {
           console.error('[Chat.vue] onMounted: 会話履歴読み込みエラー', err)
         } else {
-          console.log('[Chat.vue] onMounted: 会話履歴なし（404）- 正常', {
+          log('[Chat.vue] onMounted: 会話履歴なし（404）- 正常', {
             messagesCount: messages.value.length,
             messages: messages.value
           })
@@ -340,40 +341,40 @@ onMounted(async () => {
 
     // 初期メッセージまたは質問を送信（重複送信防止）
     if (initialMessage.value && !initialMessageSent.value) {
-      console.log('[Chat.vue] onMounted: 初期メッセージ送信開始', {
+      log('[Chat.vue] onMounted: 初期メッセージ送信開始', {
         message: initialMessage.value,
         messagesCountBefore: messages.value.length,
         facilityId: facilityId.value
       })
       initialMessageSent.value = true  // フラグを設定（重複送信防止）
       await handleMessageSubmit(initialMessage.value)
-      console.log('[Chat.vue] onMounted: 初期メッセージ送信完了', {
+      log('[Chat.vue] onMounted: 初期メッセージ送信完了', {
         messagesCountAfter: messages.value.length,
         messages: messages.value
       })
     } else if (initialMessage.value && initialMessageSent.value) {
-      console.log('[Chat.vue] onMounted: 初期メッセージは既に送信済み', {
+      log('[Chat.vue] onMounted: 初期メッセージは既に送信済み', {
         message: initialMessage.value
       })
     } else if (initialQuestion.value && !initialQuestionSent.value) {
-      console.log('[Chat.vue] onMounted: 初期質問送信開始', {
+      log('[Chat.vue] onMounted: 初期質問送信開始', {
         question: initialQuestion.value,
         messagesCountBefore: messages.value.length,
         facilityId: facilityId.value
       })
       initialQuestionSent.value = true  // フラグを設定（重複送信防止）
       await handleMessageSubmit(initialQuestion.value)
-      console.log('[Chat.vue] onMounted: 初期質問送信完了', {
+      log('[Chat.vue] onMounted: 初期質問送信完了', {
         messagesCountAfter: messages.value.length,
         messages: messages.value
       })
     } else if (initialQuestion.value && initialQuestionSent.value) {
-      console.log('[Chat.vue] onMounted: 初期質問は既に送信済み', {
+      log('[Chat.vue] onMounted: 初期質問は既に送信済み', {
         question: initialQuestion.value
       })
     }
     
-    console.log('[Chat.vue] onMounted: 完了', {
+    log('[Chat.vue] onMounted: 完了', {
       messagesCount: messages.value.length,
       messages: messages.value,
       facilityId: facilityId.value
@@ -386,7 +387,7 @@ onMounted(async () => {
 
 // メッセージ送信
 const handleMessageSubmit = async (message: string) => {
-  console.log('[Chat.vue] handleMessageSubmit: 開始', {
+  log('[Chat.vue] handleMessageSubmit: 開始', {
     message,
     facilityId: facilityId.value,
     messagesCountBefore: messages.value.length,
@@ -394,7 +395,7 @@ const handleMessageSubmit = async (message: string) => {
   })
   
   if (!facilityId.value || !message.trim()) {
-    console.warn('[Chat.vue] handleMessageSubmit: バリデーションエラー', {
+    warn('[Chat.vue] handleMessageSubmit: バリデーションエラー', {
       facilityId: facilityId.value,
       message: message.trim()
     })
@@ -404,7 +405,7 @@ const handleMessageSubmit = async (message: string) => {
   // オフライン時のメッセージ送信をブロック
   if (isOffline.value) {
     error.value = '現在オフラインです。メッセージを送信できません。インターネット接続を確認してください。'
-    console.warn('[Chat.vue] handleMessageSubmit: オフライン状態のため送信をブロック')
+    warn('[Chat.vue] handleMessageSubmit: オフライン状態のため送信をブロック')
     return
   }
 
@@ -413,7 +414,7 @@ const handleMessageSubmit = async (message: string) => {
 
     // セッションIDを取得または生成
     const currentSessionId = getOrCreateSessionId()
-    console.log('[Chat.vue] handleMessageSubmit: セッションID', { currentSessionId })
+    log('[Chat.vue] handleMessageSubmit: セッションID', { currentSessionId })
 
     // ユーザーメッセージを即座に表示（楽観的更新）
     const userMessage: ChatMessage = {
@@ -422,19 +423,19 @@ const handleMessageSubmit = async (message: string) => {
       content: message.trim(),
       created_at: new Date().toISOString()
     }
-    console.log('[Chat.vue] handleMessageSubmit: ユーザーメッセージ追加前', {
+    log('[Chat.vue] handleMessageSubmit: ユーザーメッセージ追加前', {
       messagesCount: messages.value.length,
       messages: messages.value
     })
     chatStore.addMessage(userMessage)
-    console.log('[Chat.vue] handleMessageSubmit: ユーザーメッセージ追加後', {
+    log('[Chat.vue] handleMessageSubmit: ユーザーメッセージ追加後', {
       messagesCount: messages.value.length,
       messages: messages.value
     })
     await nextTick()
 
     // AI応答を取得
-    console.log('[Chat.vue] handleMessageSubmit: AI応答取得開始')
+    log('[Chat.vue] handleMessageSubmit: AI応答取得開始')
     const response = await sendMessage({
       facility_id: facilityId.value,
       message: message.trim(),
@@ -442,7 +443,7 @@ const handleMessageSubmit = async (message: string) => {
       location: location.value,
       session_id: currentSessionId || undefined
     })
-    console.log('[Chat.vue] handleMessageSubmit: AI応答取得完了', {
+    log('[Chat.vue] handleMessageSubmit: AI応答取得完了', {
       response,
       messagesCountAfter: messages.value.length,
       messagesAfter: messages.value
@@ -451,7 +452,7 @@ const handleMessageSubmit = async (message: string) => {
     // エスカレーションが必要な場合
     if (response.is_escalated) {
       // TODO: エスカレーション処理（Week 4で実装）
-      console.log('[Chat.vue] handleMessageSubmit: エスカレーション必要', response.escalation_id)
+      log('[Chat.vue] handleMessageSubmit: エスカレーション必要', response.escalation_id)
     }
   } catch (err: any) {
     // デバッグログ: エラーオブジェクトの構造を完全に確認
@@ -482,16 +483,16 @@ const handleMessageSubmit = async (message: string) => {
     
     if (errorCode === 'NETWORK_ERROR' || String(errorCode) === 'NETWORK_ERROR') {
       error.value = '現在オフラインです。インターネット接続を確認してください。'
-      console.log('[Chat.vue] NETWORK_ERROR検出: オフラインメッセージを表示')
+      log('[Chat.vue] NETWORK_ERROR検出: オフラインメッセージを表示')
     } else if (errorCode === 'TIMEOUT_ERROR' || String(errorCode) === 'TIMEOUT_ERROR') {
       error.value = 'リクエストがタイムアウトしました。接続を確認して再度お試しください。'
-      console.log('[Chat.vue] TIMEOUT_ERROR検出')
+      log('[Chat.vue] TIMEOUT_ERROR検出')
     } else if (errorCode === 'SERVER_ERROR' || String(errorCode) === 'SERVER_ERROR') {
       error.value = 'サーバーエラーが発生しました。しばらくしてから再度お試しください。'
-      console.log('[Chat.vue] SERVER_ERROR検出')
+      log('[Chat.vue] SERVER_ERROR検出')
     } else {
       error.value = err.message || 'メッセージの送信に失敗しました'
-      console.warn('[Chat.vue] エラーコードが検出されませんでした。汎用エラーメッセージを表示。errorCode:', errorCode)
+      warn('[Chat.vue] エラーコードが検出されませんでした。汎用エラーメッセージを表示。errorCode:', errorCode)
     }
   }
 }
@@ -501,7 +502,7 @@ const handleFeedback = async (messageId: number, type: 'positive' | 'negative') 
   try {
     // TODO: Week 4でAPI連携を実装
     // 現在はモック処理
-    console.log('Feedback:', messageId, type)
+    log('Feedback:', messageId, type)
   } catch (err) {
     console.error('Feedback error:', err)
   }
@@ -524,7 +525,7 @@ const handleEscalation = async () => {
       return
     }
     
-    console.log('[Chat.vue] handleEscalation: エスカレーション開始', {
+    log('[Chat.vue] handleEscalation: エスカレーション開始', {
       facilityId: facilityId.value,
       sessionId: currentSessionId
     })
@@ -535,7 +536,7 @@ const handleEscalation = async () => {
       session_id: currentSessionId
     })
     
-    console.log('[Chat.vue] handleEscalation: エスカレーション成功', response)
+    log('[Chat.vue] handleEscalation: エスカレーション成功', response)
     
     // 成功メッセージを表示（多言語対応）
     const message = language.value === 'ja' 
@@ -616,7 +617,7 @@ const handleTokenLink = async (token: string) => {
 // トークンコピー
 const handleTokenCopy = (token: string) => {
   // TODO: トースト通知を表示（Week 4で実装）
-  console.log('Token copied:', token)
+  log('Token copied:', token)
 }
 </script>
 

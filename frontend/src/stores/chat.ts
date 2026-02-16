@@ -5,6 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import type { ChatMessage, Conversation } from '@/types/chat'
+import { log } from '@/utils/logger'
 
 export const useChatStore = defineStore('chat', () => {
   // State
@@ -31,27 +32,27 @@ export const useChatStore = defineStore('chat', () => {
   }
 
   function setMessages(newMessages: ChatMessage[]) {
-    console.log('[chatStore] setMessages: 呼び出し', {
+    log('[chatStore] setMessages: 呼び出し', {
       oldMessagesCount: messages.value.length,
       oldMessages: messages.value,
       newMessagesCount: newMessages.length,
       newMessages: newMessages
     })
     messages.value = newMessages
-    console.log('[chatStore] setMessages: 完了', {
+    log('[chatStore] setMessages: 完了', {
       messagesCount: messages.value.length,
       messages: messages.value
     })
   }
 
   function addMessage(message: ChatMessage) {
-    console.log('[chatStore] addMessage: 呼び出し', {
+    log('[chatStore] addMessage: 呼び出し', {
       message,
       messagesCountBefore: messages.value.length,
       messagesBefore: messages.value
     })
     messages.value.push(message)
-    console.log('[chatStore] addMessage: 完了', {
+    log('[chatStore] addMessage: 完了', {
       messagesCountAfter: messages.value.length,
       messagesAfter: messages.value
     })

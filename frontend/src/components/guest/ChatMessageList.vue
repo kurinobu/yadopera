@@ -27,6 +27,7 @@
 import { ref, watch, nextTick, onMounted } from 'vue'
 import type { ChatMessage } from '@/types/chat'
 import ChatMessageComponent from './ChatMessage.vue'
+import { log } from '@/utils/logger'
 
 interface Props {
   messages: ChatMessage[]
@@ -56,7 +57,7 @@ const scrollToBottom = () => {
 
 // メッセージが追加されたら自動スクロール
 watch(() => props.messages.length, (newLength, oldLength) => {
-  console.log('[ChatMessageList] messages.length 変更', {
+  log('[ChatMessageList] messages.length 変更', {
     oldLength,
     newLength,
     messages: props.messages
@@ -66,7 +67,7 @@ watch(() => props.messages.length, (newLength, oldLength) => {
 
 // messagesプロップの変更を監視
 watch(() => props.messages, (newMessages, oldMessages) => {
-  console.log('[ChatMessageList] messages 変更', {
+  log('[ChatMessageList] messages 変更', {
     oldMessagesCount: oldMessages?.length || 0,
     newMessagesCount: newMessages?.length || 0,
     oldMessages,
@@ -75,7 +76,7 @@ watch(() => props.messages, (newMessages, oldMessages) => {
 }, { deep: true })
 
 onMounted(() => {
-  console.log('[ChatMessageList] onMounted', {
+  log('[ChatMessageList] onMounted', {
     messagesCount: props.messages.length,
     messages: props.messages
   })
