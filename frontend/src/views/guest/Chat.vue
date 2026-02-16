@@ -39,8 +39,22 @@
       />
     </div>
 
+    <!-- 初回表示時の待ち受け（URL に message/question ありのとき施設取得・トークン・初期送信の間） -->
+    <div
+      v-if="isInitialLoadPending"
+      class="flex-1 min-h-0 flex items-center justify-center px-4 py-8 bg-gray-50 dark:bg-gray-900"
+    >
+      <div class="flex flex-col items-center space-y-3 text-gray-600 dark:text-gray-400">
+        <svg class="animate-spin w-8 h-8" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+        </svg>
+        <span class="text-sm">読み込み中...</span>
+      </div>
+    </div>
     <!-- メッセージリスト（スクロール可能） -->
     <ChatMessageList
+      v-else
       :messages="messages"
       :show-feedback="true"
       @feedback="handleFeedback"
@@ -177,9 +191,14 @@ const showTokenInput = ref(false)
 // 初期質問送信済みフラグ（重複送信防止）
 const initialQuestionSent = ref(false)
 const initialMessageSent = ref(false)
+// 初回表示時の待ち受け（URL に message/question ありのとき施設取得・トークン・初期送信の間）
+const isInitialLoadPending = ref(false)
 
 // 初期メッセージまたは質問を送信
 onMounted(async () => {
+  if (initialMessage.value || initialQuestion.value) {
+    isInitialLoadPending.value = true
+  }
   log('[Chat.vue] onMounted: 開始', {
     initialMessage: initialMessage.value,
     initialQuestion: initialQuestion.value,
@@ -238,6 +257,7 @@ onMounted(async () => {
           error.value = '施設情報の取得に失敗しました'
           warn('[Chat.vue] エラーコードが検出されませんでした。汎用エラーメッセージを表示。errorCode:', errorCode)
         }
+        isInitialLoadPending.value = false
         return
       }
     } else {
@@ -254,6 +274,7 @@ onMounted(async () => {
         currentFacility: facilityStore.currentFacility
       })
       error.value = '施設IDの取得に失敗しました'
+      isInitialLoadPending.value = false
       return
     }
     
@@ -337,6 +358,7 @@ onMounted(async () => {
           })
         }
       }
+      isInitialLoadPending.value = false
     }
 
     // 初期メッセージまたは質問を送信（重複送信防止）
@@ -373,7 +395,8 @@ onMounted(async () => {
         question: initialQuestion.value
       })
     }
-    
+    isInitialLoadPending.value = false
+
     log('[Chat.vue] onMounted: 完了', {
       messagesCount: messages.value.length,
       messages: messages.value,
@@ -382,6 +405,7 @@ onMounted(async () => {
   } catch (err) {
     console.error('[Chat.vue] onMounted: エラー', err)
     error.value = 'チャットの初期化に失敗しました'
+    isInitialLoadPending.value = false
   }
 })
 
