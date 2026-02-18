@@ -83,19 +83,14 @@
       @ignore="handleFeedbackIgnore"
     />
 
-    <!-- FAQ追加・編集モーダル（下書きあり時は外側クリック・ESCで閉じず警告表示） -->
+    <!-- FAQ追加・編集モーダル -->
     <Modal
       v-model="showAddForm"
       :title="isEditMode ? 'FAQ編集' : 'FAQ追加'"
       size="lg"
-      :before-close="handleFaqModalBeforeClose"
       @close="handleCloseForm"
     >
-      <div v-if="showBackdropWarning" class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-200" role="alert">
-        入力内容を残すには「{{ isEditMode ? '更新' : '作成' }}」を、破棄するには「キャンセル」をクリックしてください。
-      </div>
       <FaqForm
-        ref="faqFormRef"
         :faq="editingFaq"
         @submit="handleSubmitFaq"
         @cancel="handleCloseForm"
@@ -458,20 +453,8 @@ watch(() => window.location.hash, async (newHash, oldHash) => {
 const showAddForm = ref(false)
 const editingFaq = ref<FAQ | null>(null)
 const selectedSuggestion = ref<FaqSuggestion | null>(null)
-const faqFormRef = ref<InstanceType<typeof FaqForm> | null>(null)
-const showBackdropWarning = ref(false)
 
 const isEditMode = computed(() => !!editingFaq.value)
-
-/** FAQモーダルを閉じる前: 下書きありなら閉じず警告表示 */
-const handleFaqModalBeforeClose = async () => {
-  const dirty = faqFormRef.value?.isDirty ?? false
-  if (dirty) {
-    showBackdropWarning.value = true
-    return false
-  }
-  return true
-}
 
 // モックのFAQ提案（未解決質問から生成）
 /* const generateSuggestion = (question: UnresolvedQuestion): FaqSuggestion => {
@@ -601,7 +584,6 @@ const handleSubmitFaq = async (data: FAQCreate) => {
 }
 
 const handleCloseForm = () => {
-  showBackdropWarning.value = false
   showAddForm.value = false
   editingFaq.value = null
 }
