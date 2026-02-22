@@ -23,6 +23,7 @@ from app.models.operator_help import OperatorFaq, OperatorFaqTranslation
 from app.models.error_log import ErrorLog
 from app.models.admin_activity_log import AdminActivityLog
 from app.models.faq_view_log import FAQViewLog
+from app.models.guest_lead import GuestLead
 
 __all__ = [
     "Base",
@@ -47,5 +48,6 @@ __all__ = [
     "ErrorLog",
     "AdminActivityLog",
     "FAQViewLog",
+    "GuestLead",
 ]
 

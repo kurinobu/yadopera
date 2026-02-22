@@ -79,6 +79,11 @@ async def get_facility_settings(
             plan_type=facility.plan_type or "Free",
             monthly_question_limit=facility.monthly_question_limit or 200,
             is_active=facility.is_active,
+            coupon_enabled=getattr(facility, "coupon_enabled", False),
+            coupon_discount_percent=getattr(facility, "coupon_discount_percent", None),
+            coupon_description=getattr(facility, "coupon_description", None),
+            coupon_validity_months=getattr(facility, "coupon_validity_months", None),
+            official_website_url=getattr(facility, "official_website_url", None),
             created_at=facility.created_at,
             updated_at=facility.updated_at
         )
@@ -189,6 +194,18 @@ async def update_facility_settings(
             facility.local_info = update_data["local_info"]
         if "prohibited_items" in update_data:
             facility.prohibited_items = update_data["prohibited_items"]
+
+        # クーポン（リードゲット）設定の更新
+        if "coupon_enabled" in update_data and update_data["coupon_enabled"] is not None:
+            facility.coupon_enabled = update_data["coupon_enabled"]
+        if "coupon_discount_percent" in update_data:
+            facility.coupon_discount_percent = update_data["coupon_discount_percent"]
+        if "coupon_description" in update_data:
+            facility.coupon_description = update_data["coupon_description"]
+        if "coupon_validity_months" in update_data:
+            facility.coupon_validity_months = update_data["coupon_validity_months"]
+        if "official_website_url" in update_data:
+            facility.official_website_url = update_data["official_website_url"]
         
         # スタッフ不在時間帯の更新
         if "staff_absence_periods" in update_data and update_data["staff_absence_periods"] is not None:
@@ -259,6 +276,11 @@ async def update_facility_settings(
             plan_type=facility.plan_type or "Free",
             monthly_question_limit=facility.monthly_question_limit or 200,
             is_active=facility.is_active,
+            coupon_enabled=getattr(facility, "coupon_enabled", False),
+            coupon_discount_percent=getattr(facility, "coupon_discount_percent", None),
+            coupon_description=getattr(facility, "coupon_description", None),
+            coupon_validity_months=getattr(facility, "coupon_validity_months", None),
+            official_website_url=getattr(facility, "official_website_url", None),
             created_at=facility.created_at,
             updated_at=facility.updated_at
         )

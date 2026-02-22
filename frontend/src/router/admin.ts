@@ -112,6 +112,15 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/leads',
+    name: 'AdminLeads',
+    component: () => import('@/views/admin/Leads.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/admin/support',
     name: 'AdminSupport',
     component: () => import('@/views/admin/Support.vue'),

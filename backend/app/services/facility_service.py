@@ -10,7 +10,7 @@ from typing import Optional, List
 from app.models.facility import Facility
 from app.models.faq import FAQ
 from app.models.faq_translation import FAQTranslation
-from app.schemas.facility import FacilityPublicResponse, TopQuestion
+from app.schemas.facility import FacilityPublicResponse, TopQuestion, CouponPublic
 from app.core.plan_limits import get_plan_limits
 from fastapi import HTTPException, status
 
@@ -151,6 +151,16 @@ class FacilityService:
         if plan_type == "Premium" or available_languages is None:
             # Premiumプラン: Standardプラン（日本語、英語、中国語、フランス語）＋韓国語
             available_languages = ["ja", "en", "zh-TW", "fr", "ko"]
+
+        # クーポン設定（有効かつ割引率が設定されている場合のみ公開）
+        coupon = None
+        if getattr(facility, "coupon_enabled", False) and facility.coupon_discount_percent is not None:
+            coupon = CouponPublic(
+                enabled=True,
+                discount_percent=facility.coupon_discount_percent,
+                description=getattr(facility, "coupon_description", None) or None,
+                validity_months=getattr(facility, "coupon_validity_months", None),
+            )
         
         return FacilityPublicResponse(
             id=facility.id,
@@ -164,5 +174,6 @@ class FacilityService:
             top_questions=top_questions,
             plan_type=plan_type,
             available_languages=available_languages,
+            coupon=coupon,
         )
 

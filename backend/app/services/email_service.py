@@ -303,3 +303,125 @@ YadOPERA - メールアドレス確認（再送）
             )
             raise  # 🟡 tenacityがリトライする
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        reraise=True
+    )
+    async def send_coupon_email(
+        self,
+        to_email: str,
+        to_name: Optional[str],
+        facility_name: str,
+        discount_percent: int,
+        description: Optional[str],
+        valid_until: str,
+        official_website_url: Optional[str] = None,
+    ) -> bool:
+        """
+        クーポン送付メールを送信（リードゲットオプション）
+        
+        Args:
+            to_email: 送信先メールアドレス
+            to_name: 送信先名（ゲスト名、任意）
+            facility_name: 施設名
+            discount_percent: 割引率（%）
+            description: クーポン文言（施設が編集したもの、任意）
+            valid_until: 有効期限の表示用文字列（例: 2026年8月21日まで）
+            official_website_url: 公式サイトURL（任意。設定時はメール本文に「ご予約はこちら」を追加）
+        
+        Returns:
+            送信成功時True、失敗時False
+        """
+        display_name = to_name or to_email
+        try:
+            desc_block = f"<p style=\"font-size: 14px; color: #6b7280; margin-bottom: 20px;\">{description}</p>" if description else ""
+            url_block_html = ""
+            if official_website_url and official_website_url.strip():
+                url_block_html = f"<p style=\"font-size: 14px; margin-bottom: 20px;\">ご予約はこちら: <a href=\"{official_website_url.strip()}\">{official_website_url.strip()}</a></p>"
+            html_content = f"""
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>クーポンのお届け - YadOPERA</title>
+</head>
+<body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
+    <div style="background-color: #f8f9fa; border-radius: 10px; padding: 30px; margin-bottom: 20px;">
+        <h1 style="color: #2563eb; margin-top: 0;">YadOPERA</h1>
+        <h2 style="color: #1f2937; margin-bottom: 20px;">{facility_name} のクーポン</h2>
+        
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            {display_name} 様
+        </p>
+        
+        <p style="font-size: 16px; margin-bottom: 20px;">
+            このたびはクーポンをご利用いただきありがとうございます。<br>
+            <strong>次回、{facility_name} の公式サイトからご予約いただくと {discount_percent}% OFF</strong> になります。
+        </p>
+        {desc_block}
+        <p style="font-size: 14px; color: #6b7280; margin-bottom: 10px;">
+            <strong>有効期限:</strong> {valid_until}
+        </p>
+        {url_block_html}
+        <p style="font-size: 14px; color: #6b7280; margin-bottom: 20px;">
+            ご利用の際は、チェックイン時やお支払い時にこのクーポンをご提示ください。
+        </p>
+    </div>
+    
+    <div style="text-align: center; font-size: 12px; color: #9ca3af; padding-top: 20px; border-top: 1px solid #e5e7eb;">
+        <p>© 2026 YadOPERA. All rights reserved.</p>
+        <p>このメールは送信専用です。返信いただいてもお答えできません。</p>
+    </div>
+</body>
+</html>
+            """
+            url_block_text = ""
+            if official_website_url and official_website_url.strip():
+                url_block_text = f"\nご予約はこちら: {official_website_url.strip()}\n"
+            text_content = f"""
+YadOPERA - {facility_name} のクーポン
+
+{display_name} 様
+
+このたびはクーポンをご利用いただきありがとうございます。
+次回、{facility_name} の公式サイトからご予約いただくと {discount_percent}% OFF になります。
+
+有効期限: {valid_until}
+{url_block_text}
+ご利用の際は、チェックイン時やお支払い時にこのクーポンをご提示ください。
+
+---
+© 2026 YadOPERA. All rights reserved.
+このメールは送信専用です。返信いただいてもお答えできません。
+            """
+            send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(
+                to=[{"email": to_email, "name": display_name}],
+                sender={
+                    "email": settings.brevo_sender_email,
+                    "name": settings.brevo_sender_name
+                },
+                subject=f"【YadOPERA】{facility_name} の {discount_percent}% OFF クーポン",
+                html_content=html_content,
+                text_content=text_content
+            )
+            api_response = self.api_instance.send_transac_email(send_smtp_email)
+            logger.info(
+                f"Coupon email sent successfully: to={to_email}, facility={facility_name}, "
+                f"message_id={api_response.message_id}"
+            )
+            return True
+        except ApiException as e:
+            logger.error(
+                f"Brevo API error (coupon): to={to_email}, status={e.status}, "
+                f"reason={e.reason}, body={e.body}"
+            )
+            raise
+        except Exception as e:
+            logger.error(
+                f"Unexpected error sending coupon email: to={to_email}, error={str(e)}",
+                exc_info=True
+            )
+            raise
+

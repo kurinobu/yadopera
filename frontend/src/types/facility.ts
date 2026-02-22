@@ -2,6 +2,14 @@
  * 施設関連の型定義
  */
 
+/** クーポン設定（公開・有効時のみ） */
+export interface FacilityCoupon {
+  enabled: boolean
+  discount_percent: number
+  description?: string | null
+  validity_months?: number | null
+}
+
 export interface Facility {
   id: number
   name: string
@@ -13,6 +21,8 @@ export interface Facility {
   wifi_ssid?: string
   plan_type?: string  // 料金プラン（Free, Mini, Small, Standard, Premium）
   available_languages?: string[]  // 利用可能言語リスト
+  /** クーポン有効時のみ設定（リードゲット） */
+  coupon?: FacilityCoupon | null
 }
 
 export interface TopQuestion {
@@ -53,6 +63,13 @@ export interface FacilitySettingsFacility {
   plan_type?: string  // Free, Mini, Small, Standard, Premium（CSV一括登録の表示判定用）
   monthly_question_limit: number
   is_active: boolean
+  /** クーポン（リードゲット）設定 */
+  coupon_enabled?: boolean
+  coupon_discount_percent?: number | null
+  coupon_description?: string | null
+  coupon_validity_months?: number | null
+  /** 公式サイトURL（クーポン送付メールで案内） */
+  official_website_url?: string | null
   created_at: string
   updated_at: string
 }
@@ -76,6 +93,13 @@ export interface FacilitySettingsUpdateRequest {
   local_info?: string
   prohibited_items?: string
   staff_absence_periods?: StaffAbsencePeriod[]
+  /** クーポン（リードゲット）設定 */
+  coupon_enabled?: boolean
+  coupon_discount_percent?: number | null
+  coupon_description?: string
+  coupon_validity_months?: number | null
+  /** 公式サイトURL（任意） */
+  official_website_url?: string | null
 }
 
 export interface PasswordChangeRequest {

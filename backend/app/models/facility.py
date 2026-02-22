@@ -40,6 +40,12 @@ class Facility(Base):
     staff_absence_periods = Column(JSON, default=[])  # スタッフ不在時間帯（JSON配列）
     icon_url = Column(String(255), nullable=True)  # アイコンURL（Phase 1では任意）
     is_active = Column(Boolean, default=True, index=True)
+    # リードゲット（クーポン）設定
+    coupon_enabled = Column(Boolean, default=False, nullable=False)
+    coupon_discount_percent = Column(Integer, nullable=True)  # 5〜20 等
+    coupon_description = Column(Text, nullable=True)  # 施設が編集する文言
+    coupon_validity_months = Column(Integer, nullable=True)  # 発行日から何ヶ月有効か
+    official_website_url = Column(String(500), nullable=True)  # 公式サイトURL（クーポン送付メールで案内）
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
@@ -55,4 +61,5 @@ class Facility(Base):
     guest_feedbacks = relationship("GuestFeedback", back_populates="facility", cascade="all, delete-orphan")
     faq_suggestions = relationship("FAQSuggestion", back_populates="facility", cascade="all, delete-orphan")
     qr_codes = relationship("QRCode", back_populates="facility", cascade="all, delete-orphan")
+    guest_leads = relationship("GuestLead", back_populates="facility", cascade="all, delete-orphan")
 

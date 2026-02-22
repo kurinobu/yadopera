@@ -19,6 +19,7 @@ from app.models.overnight_queue import OvernightQueue
 from app.models.guest_feedback import GuestFeedback
 from app.models.faq import FAQ
 from app.models.facility import Facility
+from app.models.guest_lead import GuestLead
 from app.schemas.dashboard import (
     DashboardResponse,
     WeeklySummary,
@@ -82,7 +83,7 @@ class DashboardService:
         
         # キャッシュミス: 並列処理でデータ取得
         logger.debug(f"Dashboard cache miss: {cache_key_str}")
-        summary, recent_conversations, overnight_queue, feedback_stats, monthly_usage, ai_automation, escalations_summary, unresolved_escalations = await asyncio.gather(
+        summary, recent_conversations, overnight_queue, feedback_stats, monthly_usage, ai_automation, escalations_summary, unresolved_escalations, coupon_lead_count = await asyncio.gather(
             self.get_weekly_summary(facility_id),
             self.get_recent_chat_history(facility_id),
             self.get_overnight_queue(facility_id),
@@ -90,7 +91,8 @@ class DashboardService:
             self.get_monthly_usage(facility_id),
             self.get_ai_automation(facility_id),
             self.get_escalations_summary(facility_id),
-            self.get_unresolved_escalations(facility_id)
+            self.get_unresolved_escalations(facility_id),
+            self.get_coupon_lead_count(facility_id)
         )
         
         dashboard_data = DashboardResponse(
@@ -101,7 +103,8 @@ class DashboardService:
             monthly_usage=monthly_usage,
             ai_automation=ai_automation,
             escalations_summary=escalations_summary,
-            unresolved_escalations=unresolved_escalations
+            unresolved_escalations=unresolved_escalations,
+            coupon_lead_count=coupon_lead_count
         )
         
         # キャッシュに保存
@@ -759,4 +762,26 @@ class DashboardService:
                 exc_info=True
             )
             return []  # エラー時は空のリストを返す
+
+    async def get_coupon_lead_count(self, facility_id: int) -> int:
+        """
+        クーポン発行数（メールアドレス取得数）を取得（累計）
+        
+        Args:
+            facility_id: 施設ID
+        
+        Returns:
+            int: リード件数
+        """
+        try:
+            result = await self.db.execute(
+                select(func.count(GuestLead.id)).where(GuestLead.facility_id == facility_id)
+            )
+            return result.scalar() or 0
+        except Exception as e:
+            logger.error(
+                f"Error getting coupon lead count for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return 0
 

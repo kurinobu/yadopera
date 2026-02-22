@@ -189,6 +189,82 @@
         </div>
       </div>
 
+      <!-- クーポン（リードゲット）設定セクション -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          クーポン設定（リード獲得）
+        </h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          ゲストに「オトクなクーポン」を案内し、メールアドレスを取得できます。次回の公式サイト予約で割引としてご利用いただけます。
+        </p>
+        <div class="space-y-4">
+          <div class="flex items-center gap-3">
+            <input
+              id="coupon-enabled"
+              v-model="formData.coupon_enabled"
+              type="checkbox"
+              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label for="coupon-enabled" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              クーポンを有効にする
+            </label>
+          </div>
+          <template v-if="formData.coupon_enabled">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                割引率（%）
+              </label>
+              <input
+                v-model.number="formData.coupon_discount_percent"
+                type="number"
+                min="1"
+                max="100"
+                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[120px]"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">5〜20%程度を推奨</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                クーポン文言（任意）
+              </label>
+              <input
+                v-model="formData.coupon_description"
+                type="text"
+                maxlength="500"
+                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="例: 次回ご予約時にご提示ください"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                有効期限（発行日から何ヶ月）
+              </label>
+              <input
+                v-model.number="formData.coupon_validity_months"
+                type="number"
+                min="1"
+                max="24"
+                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[120px]"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">例: 6 で6ヶ月</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                公式サイトURL（任意）
+              </label>
+              <input
+                v-model="formData.official_website_url"
+                type="url"
+                maxlength="500"
+                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://example.com"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">クーポン送付メールに「ご予約はこちら」のリンクとして表示されます</p>
+            </div>
+          </template>
+        </div>
+      </div>
+
       <!-- 対応言語セクション（表示のみ） -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -413,6 +489,11 @@ const formData = ref<{
   local_info: string
   prohibited_items: string
   staff_absence_periods: StaffAbsencePeriod[]
+  coupon_enabled: boolean
+  coupon_discount_percent: number | null
+  coupon_description: string
+  coupon_validity_months: number | null
+  official_website_url: string
 }>({
   name: '',
   email: '',
@@ -425,7 +506,12 @@ const formData = ref<{
   house_rules: '',
   local_info: '',
   prohibited_items: '',
-  staff_absence_periods: []
+  staff_absence_periods: [],
+  coupon_enabled: false,
+  coupon_discount_percent: null,
+  coupon_description: '',
+  coupon_validity_months: 6,
+  official_website_url: ''
 })
 
 // パスワード変更フォーム
@@ -498,7 +584,12 @@ const fetchSettings = async () => {
             end_time: period.end_time,
             days_of_week: [...period.days_of_week]
           }))
-        : [{ start_time: '22:00', end_time: '08:00', days_of_week: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }]
+        : [{ start_time: '22:00', end_time: '08:00', days_of_week: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }],
+      coupon_enabled: response.facility.coupon_enabled ?? false,
+      coupon_discount_percent: response.facility.coupon_discount_percent ?? null,
+      coupon_description: response.facility.coupon_description ?? '',
+      coupon_validity_months: response.facility.coupon_validity_months ?? 6,
+      official_website_url: response.facility.official_website_url ?? ''
     }
   } catch (err: any) {
     error.value = '施設設定の取得に失敗しました'
@@ -546,7 +637,7 @@ const handleSave = async () => {
     if (!updateData.wifi_password || updateData.wifi_password.trim().length === 0) {
       delete updateData.wifi_password
     }
-    
+
     await facilityApi.updateFacilitySettings(updateData)
     
     // 成功メッセージ
