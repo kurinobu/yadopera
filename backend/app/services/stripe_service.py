@@ -1,11 +1,13 @@
 """
-Stripe 連携サービス（Phase 4 Phase B）
-Customer 作成、Subscription 作成/更新/解約、Invoice 一覧・領収書 URL 取得
+Stripe 連携サービス（Phase 4 Phase B / Phase E）
+Customer 作成、Subscription 作成/更新/解約、Invoice 一覧・領収書 URL 取得。
+Phase E: 従量課金メーターへの使用量イベント送信。
 """
 
 from __future__ import annotations
 
 import logging
+import uuid
 from typing import Optional, List, Any
 
 import stripe
@@ -185,6 +187,70 @@ def get_usage_price_id() -> Optional[str]:
 def get_meter_event_name() -> str:
     """従量メーターのイベント名（Stripe ダッシュボードと一致させる）。"""
     return settings.stripe_meter_event_name or "Usage-based"
+
+
+def report_usage_to_meter(
+    stripe_customer_id: str,
+    value: int = 1,
+    identifier: Optional[str] = None,
+    timestamp: Optional[int] = None,
+) -> bool:
+    """
+    Stripe 従量課金メーターに使用量イベントを送信する（Phase E）。
+    イベント名は設定（STRIPE_METER_EVENT_NAME、例: Usage-based）と一致させる。
+
+    Args:
+        stripe_customer_id: Stripe 顧客 ID（cus_xxx）
+        value: 使用量（件数）。1 質問 = 1。
+        identifier: 重複防止用の一意 ID（未指定時は UUID を生成）
+        timestamp: イベント発生日時（Unix 秒）。未指定時は現在時刻。
+
+    Returns:
+        送信成功時 True、未設定・失敗時 False（ログは出力する）
+    """
+    if not is_stripe_configured():
+        return False
+    if not stripe_customer_id:
+        logger.warning("report_usage_to_meter: stripe_customer_id is empty, skip")
+        return False
+    event_name = get_meter_event_name()
+    params: dict = {
+        "event_name": event_name,
+        "payload[stripe_customer_id]": stripe_customer_id,
+        "payload[value]": str(value),
+    }
+    if identifier:
+        params["identifier"] = identifier
+    else:
+        params["identifier"] = str(uuid.uuid4())
+    if timestamp is not None:
+        params["timestamp"] = timestamp
+    try:
+        requestor = stripe.api_requestor.APIRequestor()
+        requestor.request("post", "/v1/billing/meter_events", params)
+        logger.debug(
+            "Stripe meter event reported: customer=%s value=%s event_name=%s",
+            stripe_customer_id,
+            value,
+            event_name,
+        )
+        return True
+    except stripe.StripeError as e:
+        logger.warning(
+            "Stripe meter event report failed (customer=%s): %s",
+            stripe_customer_id,
+            e,
+            exc_info=False,
+        )
+        return False
+    except Exception as e:
+        logger.warning(
+            "Stripe meter event report error (customer=%s): %s",
+            stripe_customer_id,
+            e,
+            exc_info=True,
+        )
+        return False
 
 
 def is_stripe_configured() -> bool:

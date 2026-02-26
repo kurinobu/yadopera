@@ -9,7 +9,7 @@ from typing import Optional, List
 from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.exc import IntegrityError
 import pytz
 
@@ -21,6 +21,7 @@ from app.schemas.chat import ChatRequest, ChatResponse, ChatHistoryResponse, Mes
 from app.ai.engine import RAGChatEngine
 from app.services.escalation_service import EscalationService
 from app.services.overnight_queue_service import OvernightQueueService
+from app.services.stripe_service import is_stripe_configured, report_usage_to_meter
 from app.core.plan_limits import get_plan_limits
 
 logger = logging.getLogger(__name__)
@@ -105,7 +106,10 @@ class ChatService:
         )
         self.db.add(user_message)
         await self.db.flush()
-        
+
+        # Phase E: 従量課金メーターへ使用量を報告（Mini: 全件、Small/Standard/Premium: 超過分のみ）
+        await self._report_usage_to_stripe_if_needed(facility)
+
         # RAG統合型AI対話エンジンでメッセージ処理
         rag_response = await self.rag_engine.process_message(
             message=request.message,
@@ -241,7 +245,66 @@ class ChatService:
         )
         
         return new_chat_response
-    
+
+    async def _report_usage_to_stripe_if_needed(self, facility: Facility) -> None:
+        """
+        Phase E: 従量課金メーターへ使用量を報告する。
+        Mini は全質問で 1 件報告。Small/Standard/Premium は請求期間内の質問数がプラン上限を超えた分のみ報告。
+        Stripe 未設定・Free プラン・stripe_customer_id なしの場合は何もしない。
+        """
+        if not facility or not getattr(facility, "stripe_customer_id", None) or not facility.stripe_customer_id:
+            return
+        if not is_stripe_configured():
+            return
+        plan_type = facility.plan_type or "Free"
+        if plan_type == "Free":
+            return
+        try:
+            if plan_type == "Mini":
+                report_usage_to_meter(facility.stripe_customer_id, value=1)
+                return
+            if plan_type not in ("Small", "Standard", "Premium"):
+                return
+            # 請求期間内の質問数（今回のメッセージを含む）を集計
+            from app.utils.billing_period import calculate_billing_period
+            jst = pytz.timezone("Asia/Tokyo")
+            now_jst = datetime.now(jst)
+            plan_started_at = facility.plan_started_at
+            if not plan_started_at:
+                return
+            if plan_started_at.tzinfo is None:
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
+            else:
+                plan_started_at = plan_started_at.astimezone(jst)
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
+            count_result = await self.db.execute(
+                select(func.count(Message.id))
+                .join(Conversation, Message.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility.id,
+                    Message.role == MessageRole.USER.value,
+                    Message.created_at >= billing_start_utc,
+                    Message.created_at <= billing_end_utc,
+                )
+            )
+            current_count = count_result.scalar() or 0
+            plan_limit = facility.monthly_question_limit
+            plan_limits = {"Small": 200, "Standard": 500, "Premium": 1000}
+            expected = plan_limits.get(plan_type, 200)
+            if plan_limit is None or plan_limit != expected:
+                plan_limit = expected
+            if current_count > plan_limit:
+                report_usage_to_meter(facility.stripe_customer_id, value=1)
+        except Exception as e:
+            logger.warning(
+                "Phase E: Stripe usage report skipped for facility_id=%s: %s",
+                facility.id,
+                e,
+                exc_info=False,
+            )
+
     async def _get_or_create_conversation(
         self,
         facility_id: int,
