@@ -42,6 +42,17 @@ class Settings(BaseSettings):
     # 🟠 管理者通知用メールアドレス（高優先）
     admin_notification_email: str = ""
     
+    # Stripe（Phase 4）。未設定時は Stripe 機能は無効（Docker 起動は可能）
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_publishable_key: str = ""
+    stripe_price_id_mini: str = ""
+    stripe_price_id_small: str = ""
+    stripe_price_id_standard: str = ""
+    stripe_price_id_premium: str = ""
+    stripe_price_id_usage_per_question: str = ""
+    stripe_meter_event_name: str = "Usage-based"
+    
     def model_post_init(self, __context):
         """
         環境変数の検証（開発環境では警告のみ、本番環境ではエラー）

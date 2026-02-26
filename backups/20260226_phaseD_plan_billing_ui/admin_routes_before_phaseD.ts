@@ -1,5 +1,6 @@
 /**
- * 管理画面ルート定義
+ * 管理画面ルート定義（Phase D 追加前のバックアップ）
+ * バックアップ日: 2026-02-26
  */
 
 import type { RouteRecordRaw } from 'vue-router'
@@ -128,15 +129,5 @@ export const adminRoutes: RouteRecordRaw[] = [
       layout: 'admin',
       requiresAuth: true
     }
-  },
-  {
-    path: '/admin/billing',
-    name: 'PlanBilling',
-    component: () => import('@/views/admin/PlanBilling.vue'),
-    meta: {
-      layout: 'admin',
-      requiresAuth: true
-    }
   }
 ]
-

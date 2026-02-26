@@ -46,6 +46,11 @@ class Facility(Base):
     coupon_description = Column(Text, nullable=True)  # 施設が編集する文言
     coupon_validity_months = Column(Integer, nullable=True)  # 発行日から何ヶ月有効か
     official_website_url = Column(String(500), nullable=True)  # 公式サイトURL（クーポン送付メールで案内）
+    # Stripe 連携（Phase 4 Phase B）
+    stripe_customer_id = Column(String(255), nullable=True, unique=True, index=True)
+    stripe_subscription_id = Column(String(255), nullable=True)
+    subscription_status = Column(String(50), nullable=True)  # active, canceled, past_due, unpaid 等
+    cancel_at_period_end = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
