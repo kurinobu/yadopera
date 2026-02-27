@@ -136,3 +136,18 @@ class SystemHealthResponse(BaseModel):
     database: HealthStatusResponse
     redis: HealthStatusResponse
     openai_api: Optional[HealthStatusResponse] = None
+
+
+class PhaseECheckItem(BaseModel):
+    """Phase E 検証の1項目"""
+    name: str
+    ok: bool
+    message: Optional[str] = None
+
+
+class PhaseEHealthResponse(BaseModel):
+    """Phase E 従量課金メーター連携の検証レスポンス"""
+    ok_count: int
+    ng_count: int
+    all_ok: bool
+    checks: List[PhaseECheckItem]

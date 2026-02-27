@@ -15,6 +15,9 @@ Docker 環境で実行:
 
 オプション:
   RUN_STRIPE_LIVE_TEST=1  … STRIPE_SECRET_KEY が設定されている場合、テスト用顧客 ID でメーター送信を試行する（任意）
+
+ステージングで同じ検証を実行する場合:
+  scripts/verify_phaseE_usage_billing_staging.py を利用する（開発者認証で GET /api/v1/developer/health/phase-e を呼び出し）。
 """
 
 import os
