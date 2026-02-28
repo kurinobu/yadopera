@@ -72,6 +72,10 @@ async def _handle_subscription_created(subscription: Any) -> None:
         logger.info("Webhook subscription.created: facility_id=%s subscription_id=%s", facility.id, subscription.get("id"))
 
 
+# 解約・失効など「実質解約」とみなす status（subscription.updated で DB を Free に揃える）
+_SUBSCRIPTION_TERMINAL_STATUSES = frozenset({"canceled", "incomplete_expired", "unpaid", "past_due"})
+
+
 async def _handle_subscription_updated(subscription: Any) -> None:
     customer_id = subscription.get("customer")
     if not customer_id:
@@ -88,13 +92,29 @@ async def _handle_subscription_updated(subscription: Any) -> None:
                 result = await db.execute(select(Facility).where(Facility.id == int(fid)))
                 facility = result.scalar_one_or_none()
     if facility:
-        await _update_facility_subscription(
-            facility.id,
-            stripe_subscription_id=subscription.get("id"),
-            subscription_status=subscription.get("status"),
-            cancel_at_period_end=subscription.get("cancel_at_period_end", False),
-        )
-        logger.info("Webhook subscription.updated: facility_id=%s status=%s", facility.id, subscription.get("status"))
+        status = subscription.get("status") or ""
+        # 即時解約時など Stripe が subscription.updated を送る場合、解約済み status なら DB を Free に統一
+        if status in _SUBSCRIPTION_TERMINAL_STATUSES:
+            await _update_facility_subscription(
+                facility.id,
+                stripe_subscription_id=None,
+                subscription_status="canceled",
+                cancel_at_period_end=False,
+                plan_type_to_free=True,
+            )
+            logger.info(
+                "Webhook subscription.updated: facility_id=%s status=%s -> plan_type=Free",
+                facility.id,
+                status,
+            )
+        else:
+            await _update_facility_subscription(
+                facility.id,
+                stripe_subscription_id=subscription.get("id"),
+                subscription_status=subscription.get("status"),
+                cancel_at_period_end=subscription.get("cancel_at_period_end", False),
+            )
+            logger.info("Webhook subscription.updated: facility_id=%s status=%s", facility.id, status)
 
 
 async def _handle_subscription_deleted(subscription: Any) -> None:
