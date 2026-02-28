@@ -23,6 +23,7 @@ from app.schemas.faq import FAQRequest
 from app.services.faq_service import FAQService
 from app.services.email_service import EmailService
 from app.services.notification_service import notify_admin_email_failure
+from app.services import stripe_service
 from app.data.faq_presets import FAQ_PRESETS
 from app.core.plan_limits import filter_faq_presets_by_plan
 from fastapi import HTTPException, status, BackgroundTasks, Request
@@ -470,7 +471,78 @@ class AuthService:
                     exc_info=True
                 )
                 # エラーが発生してもロールバックは不要（既に施設・ユーザーは作成済み）
-    
+
+    @staticmethod
+    async def register_facility_async_stripe(facility_id: int, plan_type: str) -> None:
+        """
+        新規登録後、有料プランの場合に Stripe Customer および Subscription を作成し DB を更新する（Phase F #2）。
+        別トランザクションで実行。失敗時はログのみ残し施設はそのまま（後でプラン変更 API で補完可能）。
+        """
+        from app.database import AsyncSessionLocal
+
+        if plan_type == "Free":
+            return
+        if not stripe_service.is_stripe_configured():
+            logger.debug(
+                "Stripe not configured, skipping Stripe Customer/Subscription creation for facility_id=%s",
+                facility_id,
+            )
+            return
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(select(Facility).where(Facility.id == facility_id))
+                facility = result.scalar_one_or_none()
+                if not facility:
+                    logger.warning("Facility not found for Stripe creation: facility_id=%s", facility_id)
+                    return
+                # 既に Stripe 連携済みならスキップ（二重作成防止）
+                if facility.stripe_customer_id:
+                    logger.debug("Facility already has stripe_customer_id, skipping: facility_id=%s", facility_id)
+                    return
+                # Stripe Customer 作成
+                customer = stripe_service.create_customer(
+                    email=facility.email,
+                    name=facility.name,
+                    facility_id=facility.id,
+                )
+                facility.stripe_customer_id = customer.id
+                await db.flush()
+                # 有料プラン用 Price ID 取得
+                price_id = stripe_service.get_price_id_for_plan(plan_type)
+                if not price_id:
+                    logger.warning(
+                        "No Stripe Price ID for plan_type=%s, facility_id=%s; Customer created only",
+                        plan_type,
+                        facility_id,
+                    )
+                    await db.commit()
+                    return
+                # Subscription 作成
+                sub = stripe_service.create_subscription(
+                    customer_id=facility.stripe_customer_id,
+                    price_id=price_id,
+                    facility_id=facility.id,
+                )
+                facility.stripe_subscription_id = sub.id
+                facility.subscription_status = sub.get("status") or "active"
+                facility.plan_updated_at = datetime.now(timezone.utc)
+                await db.commit()
+                logger.info(
+                    "Stripe Customer and Subscription created for facility_id=%s, plan_type=%s",
+                    facility_id,
+                    plan_type,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Stripe Customer/Subscription creation failed for facility_id=%s, plan_type=%s: %s. "
+                    "Facility remains without Stripe; use plan change API to retry.",
+                    facility_id,
+                    plan_type,
+                    str(e),
+                    exc_info=True,
+                )
+                # 施設は stripe_customer_id 等 NULL のまま。プラン変更 API で後から作成可能。
+
     @staticmethod
     async def verify_email(
         db: AsyncSession,
@@ -668,7 +740,18 @@ class AuthService:
         """
         # 施設・ユーザー作成（同期処理）
         user, facility = await AuthService.register_facility_sync(db, request)
-        
+
+        # 有料プラン時は Stripe Customer / Subscription を別トランザクションで作成（Phase F #2）
+        if facility.plan_type != "Free":
+            if background_tasks:
+                background_tasks.add_task(
+                    AuthService.register_facility_async_stripe,
+                    facility.id,
+                    facility.plan_type,
+                )
+            else:
+                await AuthService.register_facility_async_stripe(facility.id, facility.plan_type)
+
         # メール確認URL生成
         verification_url = (
             f"{settings.frontend_url}/admin/verify-email"

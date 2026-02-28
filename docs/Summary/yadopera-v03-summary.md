@@ -1,9 +1,51 @@
 # やどぺら v0.3 要約定義書
 
 **作成日**: 2025年11月21日  
-**最終更新日**: 2026年2月18日  
-**バージョン**: v0.3.17  
+**最終更新日**: 2026年2月28日  
+**バージョン**: v0.3.22  
 **ベース**: v0.21要約定義書
+
+---
+
+## 変更履歴 v0.3.21 → v0.3.22（2026-02-28）
+
+1. **Phase 4 Stripe 実装（Phase F 進行）**:
+   - **Phase F #2 新規登録時 Stripe Customer**: 実装完了。`auth_service.register_facility_async_stripe` を追加。有料プラン（Mini/Small/Standard/Premium）で新規登録した場合、コミット後に別トランザクションで Stripe Customer および Subscription を作成し DB を更新。Free プラン・Stripe 未設定時はスキップ。失敗時はログのみで施設はそのまま（プラン変更 API で後から補完可能）。バックアップ: `backups/20260228_phaseF_stripe_customer_on_register/`。
+   - **Phase F #1 ステージング**: Webhook 署名検証をステージングで実行済み。`API_BASE_URL=https://yadopera-backend-staging.onrender.com python backend/scripts/verify_phaseF_webhook_signature.py` で 2 件とも 400 を確認。
+   - 残課題: #7 Webhook DB 更新検証、#11 メーター実機確認。#2 はデプロイ後の動作確認を推奨。
+
+## 変更履歴 v0.3.20 → v0.3.21（2026-02-27）
+
+1. **Phase 4 Stripe 実装（Phase E 完了・Phase F 開始）**:
+   - **Phase E**: 従量課金メーター連携を実装・動作確認完了。質問送信時に Stripe メーターへ使用量イベント送信（Mini は全件、Small/Standard/Premium は超過分のみ）。ローカル検証スクリプト（verify_phaseE_usage_billing.py）・ステージング検証エンドポイント（GET /api/v1/developer/health/phase-e）・ステージング検証スクリプト（verify_phaseE_usage_billing_staging.py）で 7 項目 OK を確認（2026-02-27）。
+   - **Phase F**（ステージングデプロイ・入念テスト）進行中。#1 Webhook 署名検証 Docker 済み。#2 新規登録時 Stripe Customer は 2026-02-28 に実装完了。#3 有料プラン選択時サブスク・DB 更新はステージング OK（プラン変更→Mini 成功、502「No such price」は Render 環境変数再設定で解消）。#7 Webhook DB 更新・#11 メーター実機確認はスクリプト用意済みで未実施。次セッション: 同ドキュメント「7. 次のセッション開始時の始め方」。
+
+---
+
+## 変更履歴 v0.3.19 → v0.3.20（2026-02-26）
+
+1. **Phase 4 Stripe 実装（Phase D 完了・ステージングテスト完了）**:
+   - **Phase D**: 管理画面に「プラン・請求」ページを追加。現在プラン表示・プラン一覧・プラン変更モーダル・解約モーダル（期間末/即時）・請求履歴・領収書リンクを実装。Stripe 未設定時は「プラン変更・解約は利用できません」を表示。
+   - ステージングで Price ID 設定後、プラン変更・解約・請求履歴・領収書・月次ダッシュボード・QR/FAQ/チャット継続をブラウザテスト完了。解約後のアップグレードで「Failed to update subscription」は Stripe 仕様（解約済みサブスクは更新不可）と判明しドキュメント化。
+   - **Phase E**（従量課金との連携）は 2026-02-26〜27 に実装・動作確認完了（上記 v0.3.21）。
+
+---
+
+## 変更履歴 v0.3.18 → v0.3.19（2026-02-25）
+
+1. **Phase 4 Stripe 実装（Phase B・Phase C 完了）**:
+   - **Phase B**: DB 拡張（facilities に stripe_customer_id, stripe_subscription_id, subscription_status, cancel_at_period_end）、Stripe サービス（Customer/Subscription/Invoice）、Webhook 受信（POST /api/v1/webhooks/stripe）、Docker でビルド・マイグレーション 017 確認済み。
+   - **Phase C**: 管理 API（GET/POST /api/v1/admin/plans、POST /api/v1/admin/subscription/cancel、GET /api/v1/admin/invoices、GET .../invoices/{id}/receipt）、スキーマ（billing.py）、テストスクリプト（test_admin_plans_billing_api.py）実装・PASS 確認済み。
+   - **Phase D**（管理画面「プラン・請求」ページ・プラン変更・解約・領収書 UI）は次セッションで開始 → 2026-02-26 に完了（上記 v0.3.20）。
+
+---
+
+## 変更履歴 v0.3.17 → v0.3.18（2026-02-19）
+
+1. **ステージング PoC施設2件を Mini → Premium にプラン変更（運用作業）**:
+   - PoC実行中の宿泊施設「祇園旅館 休兵衛」「Kyoto Hana Hostel」を、アップグレード機能未実装のため運用スクリプトで Mini から Premium に変更した。
+   - バックアップ（facilities / faqs / faq_translations / qr_codes）を取得したうえで `backend/scripts/update_facility_plan_to_premium_by_name.py` を実行。開発者管理ページでプラン表示を確認し、検証スクリプトで登録済みFAQ等の件数がバックアップと一致することを確認済み（破損・紛失なし）。
+   - 参照: `docs/Phase3/ステージング_施設名指定_MiniからPremiumへのプラン変更_調査と修正案_20260218.md`、`docs/Phase3/ステージング_施設名指定_MiniからPremiumプラン変更_作業完了報告書_20260219.md`。
 
 ---
 
@@ -1368,11 +1410,11 @@ updated_at TIMESTAMP
 
 ---
 
-**Document Version**: v0.3.11  
+**Document Version**: v0.3.18  
 **Based on**: v0.21 要約定義書  
 **Author**: Air  
-**Last Updated**: 2026年01月20日  
-**Status**: Phase 2主要機能実装完了
+**Last Updated**: 2026年2月19日  
+**Status**: Phase 3 PoC実行中（ステージング PoC施設2件を Mini→Premium に運用で変更済み）
 
 ---
 
