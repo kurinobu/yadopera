@@ -150,7 +150,8 @@ async def change_plan(
             logger.exception("Stripe Customer create failed: %s", e)
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to create Stripe customer")
 
-    # サブスクがなければ作成、あれば Price 変更
+    # サブスクがなければ作成、あれば Price 変更（解約済みサブスクの場合は新規作成に切り替え）
+    sub = None
     if not facility.stripe_subscription_id:
         try:
             sub = stripe_service.create_subscription(
@@ -158,20 +159,47 @@ async def change_plan(
                 price_id=price_id,
                 facility_id=facility.id,
             )
-            facility.stripe_subscription_id = sub.id
-            facility.subscription_status = sub.get("status") or "active"
-            facility.cancel_at_period_end = False
         except Exception as e:
             logger.exception("Stripe Subscription create failed: %s", e)
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to create subscription")
     else:
         try:
             sub = stripe_service.update_subscription_price(facility.stripe_subscription_id, price_id)
-            facility.subscription_status = sub.get("status") or "active"
-            facility.cancel_at_period_end = False
         except Exception as e:
-            logger.exception("Stripe Subscription update failed: %s", e)
-            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to update subscription")
+            err_msg = str(e).lower()
+            # 解約済みサブスクは Stripe が更新を拒否する。DB をクリアして新規サブスク作成に切り替え
+            if "canceled subscription" in err_msg or "incomplete_expired" in err_msg:
+                logger.warning(
+                    "Stripe subscription is canceled/invalid (facility_id=%s), creating new subscription: %s",
+                    facility.id,
+                    e,
+                )
+                facility.stripe_subscription_id = None
+                facility.subscription_status = "canceled"
+                await db.commit()
+                try:
+                    sub = stripe_service.create_subscription(
+                        customer_id=facility.stripe_customer_id,
+                        price_id=price_id,
+                        facility_id=facility.id,
+                    )
+                except Exception as e2:
+                    logger.exception("Stripe Subscription create failed (after canceled sub): %s", e2)
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail="Failed to create subscription",
+                    )
+            else:
+                logger.exception("Stripe Subscription update failed: %s", e)
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Failed to update subscription",
+                )
+
+    if sub:
+        facility.stripe_subscription_id = sub.id
+        facility.subscription_status = sub.get("status") or "active"
+        facility.cancel_at_period_end = False
 
     facility.plan_type = target
     facility.subscription_plan = target.lower()
