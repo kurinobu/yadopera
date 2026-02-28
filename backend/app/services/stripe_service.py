@@ -10,6 +10,7 @@ import logging
 import uuid
 from typing import Optional, List, Any
 
+import httpx
 import stripe
 from app.core.config import settings
 
@@ -214,20 +215,27 @@ def report_usage_to_meter(
         logger.warning("report_usage_to_meter: stripe_customer_id is empty, skip")
         return False
     event_name = get_meter_event_name()
-    params: dict = {
-        "event_name": event_name,
-        "payload[stripe_customer_id]": stripe_customer_id,
-        "payload[value]": str(value),
-    }
-    if identifier:
-        params["identifier"] = identifier
-    else:
-        params["identifier"] = str(uuid.uuid4())
-    if timestamp is not None:
-        params["timestamp"] = timestamp
+    identifier_val = identifier or str(uuid.uuid4())
     try:
-        requestor = stripe.api_requestor.APIRequestor()
-        requestor.request("post", "/v1/billing/meter_events", params)
+        # Stripe Python SDK の公開 API（stripe.billing.MeterEvent.create）を優先。
+        # 古い SDK（例: 7.x）では billing.MeterEvent が無く AttributeError になるため、httpx でフォールバック。
+        try:
+            create_params: dict = {
+                "event_name": event_name,
+                "payload": {"stripe_customer_id": stripe_customer_id, "value": value},
+                "identifier": identifier_val,
+            }
+            if timestamp is not None:
+                create_params["timestamp"] = timestamp
+            stripe.billing.MeterEvent.create(**create_params)
+        except AttributeError:
+            _report_usage_to_meter_v1_http(
+                event_name=event_name,
+                stripe_customer_id=stripe_customer_id,
+                value=value,
+                identifier=identifier_val,
+                timestamp=timestamp,
+            )
         logger.debug(
             "Stripe meter event reported: customer=%s value=%s event_name=%s",
             stripe_customer_id,
@@ -251,6 +259,31 @@ def report_usage_to_meter(
             exc_info=True,
         )
         return False
+
+
+def _report_usage_to_meter_v1_http(
+    event_name: str,
+    stripe_customer_id: str,
+    value: int,
+    identifier: str,
+    timestamp: Optional[int] = None,
+) -> None:
+    """
+    Stripe /v1/billing/meter_events に httpx で POST する（SDK に MeterEvent がない場合のフォールバック）。
+    """
+    url = "https://api.stripe.com/v1/billing/meter_events"
+    auth = (settings.stripe_secret_key, "")
+    data: dict = {
+        "event_name": event_name,
+        "payload[stripe_customer_id]": stripe_customer_id,
+        "payload[value]": str(value),
+        "identifier": identifier,
+    }
+    if timestamp is not None:
+        data["timestamp"] = str(timestamp)
+    with httpx.Client() as client:
+        resp = client.post(url, auth=auth, data=data)
+        resp.raise_for_status()
 
 
 def is_stripe_configured() -> bool:
