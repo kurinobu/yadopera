@@ -189,13 +189,13 @@ OPERATOR_FAQ_DATA = [
                 'question': 'QRコードを再発行したい場合は？',
                 'answer': '「QRコード管理」から既存のQRコードを削除し、新しいQRコードを生成してください。古いQRコードは自動的に無効化されます。セキュリティ上、定期的な再発行（3-6ヶ月ごと）を推奨します。',
                 'keywords': 'QRコード再発行,QRコード更新,QRコード削除,QR再生成',
-                'related_url': '/admin/qr-code'
+                'related_url': None
             },
             'en': {
                 'question': 'How do I regenerate a QR code?',
                 'answer': 'From "QR Code Management", delete the existing QR code and generate a new one. The old QR code will be automatically invalidated. For security, periodic regeneration (every 3-6 months) is recommended.',
                 'keywords': 'regenerate QR code,update QR code,delete QR code,QR regeneration',
-                'related_url': '/admin/qr-code'
+                'related_url': None
             }
         }
     },
@@ -283,15 +283,15 @@ OPERATOR_FAQ_DATA = [
         'translations': {
             'ja': {
                 'question': 'FAQを一括登録できますか？',
-                'answer': '現在は個別登録のみですが、将来的にはCSV一括インポート機能を追加予定です。',
+                'answer': 'Standard・Premiumプランでは「FAQ管理」からCSV一括登録（追加モード）が利用できます。現在は個別登録のみのプランでは、大量のFAQがある場合はサポートへご相談ください。',
                 'keywords': 'FAQ一括登録,CSV登録,大量登録,インポート,バルク登録',
-                'related_url': '/admin/faqs'
+                'related_url': None
             },
             'en': {
                 'question': 'Can I bulk import FAQs?',
-                'answer': 'Currently only individual registration is supported, but CSV bulk import will be added in the future.',
+                'answer': 'Standard and Premium plans can use CSV bulk registration (add mode) from "FAQ Management". For plans with individual registration only, please contact support for large FAQ volumes.',
                 'keywords': 'bulk import FAQ,CSV import,mass registration,import,bulk registration',
-                'related_url': '/admin/faqs'
+                'related_url': None
             }
         }
     },
