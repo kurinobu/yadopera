@@ -718,6 +718,239 @@ OPERATOR_FAQ_DATA = [
                 'related_url': None
             }
         }
+    },
+    # Category: overnight_queue（スタッフ不在時間帯対応キュー・第5章） - 4項目
+    {
+        'intent_key': 'overnight_queue_overview',
+        'category': 'overnight_queue',
+        'display_order': 100,
+        'translations': {
+            'ja': {
+                'question': 'スタッフ不在時間帯対応キューとは？',
+                'answer': 'スタッフ不在時間帯にエスカレーションされた質問を管理する機能です。該当する質問はキューに追加され、不在時間帯の終了時刻にスタッフへ通知されます。表示場所はダッシュボードの「スタッフ不在時間帯対応キュー」セクション、または左メニュー「スタッフ不在時間帯対応キュー」の専用ページです。不在時間帯は施設設定画面で開始・終了時刻・曜日を指定できます。不在時間帯が未設定の場合はエスカレーションは直接スタッフへ通知されます。',
+                'keywords': 'キュー,スタッフ不在,エスカレーション,通知,不在時間帯',
+                'related_url': '/admin/overnight-queue'
+            },
+            'en': {
+                'question': 'What is the overnight queue?',
+                'answer': 'A feature to manage questions escalated during staff-off hours. Those questions are added to the queue and staff are notified at the end of the off-hours period. Access from the dashboard "Overnight queue" section or the left menu "Overnight queue" page. Off-hours are set in Facility settings (start/end time, days). If not set, escalations notify staff directly.',
+                'keywords': 'queue,overnight,escalation,notification,staff off',
+                'related_url': '/admin/overnight-queue'
+            }
+        }
+    },
+    {
+        'intent_key': 'overnight_queue_list',
+        'category': 'overnight_queue',
+        'display_order': 95,
+        'translations': {
+            'ja': {
+                'question': '対応キュー一覧の見方は？',
+                'answer': 'スタッフ不在時間帯対応キュー画面で、統計（未対応・対応済み・合計）とキューリストを確認できます。リストの表示項目：ゲストメッセージ、言語、対応予定時刻（不在終了＝通知予定時刻）、作成日時、対応状況（対応済みはバッジ表示）。未対応は通常表示、対応済みはグレーアウト表示です。画面上部の説明文で、設定済みの不在時間帯または「直接通知」の旨が表示されます。',
+                'keywords': 'キュー一覧,未対応,対応済み,統計,表示項目',
+                'related_url': '/admin/overnight-queue'
+            },
+            'en': {
+                'question': 'How do I read the overnight queue list?',
+                'answer': 'On the overnight queue page you see stats (pending, completed, total) and the queue list. List columns: guest message, language, scheduled time (end of off-hours), created at, status (completed shows a badge). Pending items are normal; completed items are grayed out. The top section shows your off-hours setting or "direct notification" if not set.',
+                'keywords': 'queue list,pending,completed,stats,columns',
+                'related_url': '/admin/overnight-queue'
+            }
+        }
+    },
+    {
+        'intent_key': 'overnight_queue_respond',
+        'category': 'overnight_queue',
+        'display_order': 90,
+        'translations': {
+            'ja': {
+                'question': 'キューへの質問にどう対応しますか？',
+                'answer': '対応キュー画面で該当質問を確認し「対応済み」ボタンをクリックすると、対応済みとしてマークされリストでグレーアウト表示されます。削除はされず会話詳細から確認可能です。「手動実行」で通知予定時刻が来ている質問を即時通知できます。通常は不在時間帯終了時刻に自動通知され、ゲストには自動返信メッセージが送信されます。スタッフ不在時間帯が未設定の場合はこの機能は使えません。',
+                'keywords': '対応済み,手動実行,通知,自動返信',
+                'related_url': '/admin/overnight-queue'
+            },
+            'en': {
+                'question': 'How do I respond to questions in the queue?',
+                'answer': 'On the queue page, review the question and click "Mark as completed" to gray it out in the list. The item stays visible; you can open the conversation for details. Use "Run manually" to notify staff immediately for items past the scheduled time. Normally notifications run at the end of off-hours and an auto-reply is sent to the guest. This feature is unavailable if off-hours are not set.',
+                'keywords': 'completed,manual run,notification,auto reply',
+                'related_url': '/admin/overnight-queue'
+            }
+        }
+    },
+    {
+        'intent_key': 'overnight_queue_manage',
+        'category': 'overnight_queue',
+        'display_order': 85,
+        'translations': {
+            'ja': {
+                'question': '対応済み質問はどう確認しますか？',
+                'answer': '対応済みの質問はキューリストでグレーアウト表示され「対応済み」バッジが付きます。会話詳細画面から内容を確認できます。デフォルトでは未対応のみ表示されるため、対応済みを含めるには「解決済みを含める」オプションを有効にしてください。対応済み件数は統計に反映され、過去の対応履歴・FAQ改善提案の参考になります。',
+                'keywords': '対応済み,解決済みを含める,履歴,統計',
+                'related_url': '/admin/overnight-queue'
+            },
+            'en': {
+                'question': 'How do I view completed queue items?',
+                'answer': 'Completed items appear grayed out in the queue list with a "Completed" badge. You can open the conversation for details. By default only pending items are shown; enable "Include resolved" to see completed items. Completed count appears in the stats and helps with history and FAQ improvement.',
+                'keywords': 'completed,include resolved,history,stats',
+                'related_url': '/admin/overnight-queue'
+            }
+        }
+    },
+    # Category: logs（ダッシュボード・クーポン発行数） - 1項目
+    {
+        'intent_key': 'dashboard_coupon_count',
+        'category': 'logs',
+        'display_order': 88,
+        'translations': {
+            'ja': {
+                'question': 'クーポン発行数はどこで確認しますか？',
+                'answer': 'ダッシュボードの「その他の統計」エリアに「クーポン発行数」カードが表示されます。現在の請求期間内にゲストがクーポン取得（メールアドレス登録）した件数の累計です。数値が大きいほどリード（顧客接点）を獲得できている目安になります。クーポン設定を有効にし割引率を設定している施設のみ、ゲスト画面にクーポンボタンが表示されこの数値が増えます。取得者一覧は左メニュー「リード（クーポン取得）」で確認できます。',
+                'keywords': 'クーポン発行数,リード,ダッシュボード,統計',
+                'related_url': '/admin/dashboard'
+            },
+            'en': {
+                'question': 'Where do I see coupon issuance count?',
+                'answer': 'On the dashboard, the "Other stats" area shows a "Coupon issuance" card with the total number of coupon redemptions (email sign-ups) in the current billing period. A higher number indicates more leads. Only facilities with coupon enabled and discount rate set show the coupon button to guests; then this count increases. View the list of recipients under the left menu "Leads (Coupon)".',
+                'keywords': 'coupon count,leads,dashboard,stats',
+                'related_url': '/admin/dashboard'
+            }
+        }
+    },
+    # Category: setup（施設設定・クーポン・リード） - 2項目
+    {
+        'intent_key': 'facility_coupon_settings',
+        'category': 'setup',
+        'display_order': 84,
+        'translations': {
+            'ja': {
+                'question': 'クーポン設定と公式サイトURLはどこで設定しますか？',
+                'answer': '施設設定画面の「クーポン設定（リード獲得）」セクションで設定します。クーポン有効/無効、割引率（5〜20％）、クーポン文言、有効期限（発行日から何ヶ月）、公式サイトURL（任意）を入力し、画面下部の「保存」で他の施設設定と一緒に保存します。ONかつ割引率を設定した施設のみ、ゲスト画面の固定フッターにクーポンボタンが表示されます。',
+                'keywords': 'クーポン設定,リード獲得,割引率,公式サイトURL',
+                'related_url': '/admin/facility/settings'
+            },
+            'en': {
+                'question': 'Where do I set coupon and official site URL?',
+                'answer': 'In Facility settings, use the "Coupon (Lead capture)" section. Set coupon on/off, discount rate (5–20%), coupon text, validity (months from issue), and optional official site URL, then click "Save" at the bottom. Only when coupon is ON and discount rate is set will the coupon button appear in the guest footer.',
+                'keywords': 'coupon settings,lead capture,discount,official URL',
+                'related_url': '/admin/facility/settings'
+            }
+        }
+    },
+    {
+        'intent_key': 'facility_leads_list',
+        'category': 'setup',
+        'display_order': 82,
+        'translations': {
+            'ja': {
+                'question': 'リード（クーポン取得）一覧はどこで確認しますか？',
+                'answer': '左メニュー「リード（クーポン取得）」をクリックするとリード一覧画面に遷移します。クーポン取得（メールアドレス登録）したゲストの一覧で、メールアドレス・名前・取得日時を確認できます。CSVダウンロードが可能で、顧客名簿やメール配信リストの作成に活用できます。',
+                'keywords': 'リード,クーポン取得,一覧,CSV,メールアドレス',
+                'related_url': '/admin/leads'
+            },
+            'en': {
+                'question': 'Where do I view the leads (coupon) list?',
+                'answer': 'Click "Leads (Coupon)" in the left menu to open the leads list. You can see guests who signed up for the coupon (email registration) with email, name, and date. CSV download is available for mailing lists and records.',
+                'keywords': 'leads,coupon,list,CSV,email',
+                'related_url': '/admin/leads'
+            }
+        }
+    },
+    # Category: guest（ゲスト側の使い方・管理者向け説明） - 2項目
+    {
+        'intent_key': 'guest_flow',
+        'category': 'guest',
+        'display_order': 100,
+        'translations': {
+            'ja': {
+                'question': 'ゲストの利用フローはどうなっていますか？',
+                'answer': '1. QRコード読み取り→2. 言語選択→3. ウェルカム画面（施設情報・FAQ TOP3・フリー入力・緊急連絡先）→4. チャット画面で質問するとAIが回答。ゲストはFAQ TOP3から選択・フリー入力・フィードバック（👍👎）・スタッフに連絡（エスカレーション）・会話引き継ぎコード・ダークモード・ホーム画面追加ができます。ログインや個人情報入力は不要です。',
+                'keywords': 'ゲスト,利用フロー,QR,言語,ウェルカム,チャット',
+                'related_url': '/admin/manual'
+            },
+            'en': {
+                'question': 'What is the guest flow?',
+                'answer': '1. Scan QR code → 2. Select language → 3. Welcome screen (facility info, FAQ top 3, free input, emergency contacts) → 4. Chat screen where AI answers. Guests can use FAQ top 3, free input, feedback (👍👎), contact staff (escalation), conversation link code, dark mode, add to home screen. No login or personal info required.',
+                'keywords': 'guest,flow,QR,language,welcome,chat',
+                'related_url': '/admin/manual'
+            }
+        }
+    },
+    {
+        'intent_key': 'guest_coupon_footer',
+        'category': 'guest',
+        'display_order': 95,
+        'translations': {
+            'ja': {
+                'question': 'ゲスト画面の固定フッターとクーポン取得は？',
+                'answer': '施設でクーポンが有効かつ割引率を設定している場合のみ、ゲストの言語選択・ウェルカム・チャット画面の下部に固定フッターが表示され「オトクなクーポン」等のボタンが出ます。ゲストがタップ→名前（任意）とメールアドレス入力→送信で、クーポン送付メールが届きます。公式サイトURLを設定していると送付メールに記載されます。クーポン設定は施設設定の6.5、取得者一覧は「リード（クーポン取得）」で確認・CSVダウンロード可能です。',
+                'keywords': '固定フッター,クーポン取得,ゲスト,リード',
+                'related_url': '/admin/facility/settings'
+            },
+            'en': {
+                'question': 'Guest footer and coupon sign-up?',
+                'answer': 'Only when coupon is enabled and discount rate is set, the guest footer appears on language/welcome/chat screens with a coupon button. Guest taps it, enters name (optional) and email, and receives the coupon email. If you set an official site URL, it is included. Configure in Facility settings; view sign-ups and CSV under "Leads (Coupon)".',
+                'keywords': 'footer,coupon,guest,leads',
+                'related_url': '/admin/facility/settings'
+            }
+        }
+    },
+    # Category: practice（運用のベストプラクティス） - 3項目
+    {
+        'intent_key': 'practice_daily',
+        'category': 'practice',
+        'display_order': 100,
+        'translations': {
+            'ja': {
+                'question': '日次で確認すべきことは？',
+                'answer': '1. ダッシュボードでリアルタイムチャット履歴・未解決のエスカレーションを確認。2. スタッフ不在時間帯対応キューで、不在中にエスカレーションされた質問を確認し、対応が必要なものに「対応済み」マーク、必要に応じてゲストに連絡。3. エスカレーション対応（会話詳細で内容確認→ゲストに連絡）。毎日ダッシュボードを確認し、エスカレーションは早めに対応、キューはフロントオープン時に確認してください。',
+                'keywords': '日次,毎日,ダッシュボード,キュー,エスカレーション',
+                'related_url': '/admin/dashboard'
+            },
+            'en': {
+                'question': 'What should I check daily?',
+                'answer': '1. Dashboard: real-time chat and unresolved escalations. 2. Overnight queue: review questions escalated during off-hours, mark as completed, contact guests if needed. 3. Handle escalations (check conversation detail, then contact guest). Check the dashboard daily and resolve escalations promptly; review the queue at front-desk open.',
+                'keywords': 'daily,dashboard,queue,escalation',
+                'related_url': '/admin/dashboard'
+            }
+        }
+    },
+    {
+        'intent_key': 'practice_weekly',
+        'category': 'practice',
+        'display_order': 95,
+        'translations': {
+            'ja': {
+                'question': '週次で確認すべきことは？',
+                'answer': '1. 週次サマリー（過去7日）：総質問数・自動応答率・平均信頼度・カテゴリ別内訳・FAQ TOP5を確認しAI品質と傾向を把握。2. FAQ改善：未解決質問リストで新規FAQ追加、低評価回答リストで既存FAQ改善、優先度の見直し。3. 未解決エスカレーションの確認と対応済みマーク、よく聞かれる質問はFAQ追加を検討。週次サマリーで傾向を分析し、未解決・低評価からFAQ改善のヒントを得てください。',
+                'keywords': '週次,週次サマリー,FAQ改善,未解決,低評価',
+                'related_url': '/admin/dashboard'
+            },
+            'en': {
+                'question': 'What should I check weekly?',
+                'answer': '1. Weekly summary (last 7 days): total questions, auto-response rate, confidence, category breakdown, FAQ top 5. 2. FAQ improvement: add FAQs from unresolved list, improve from low-rating list, adjust priority. 3. Review unresolved escalations, mark completed; consider adding FAQs for frequent questions. Use the weekly summary to spot trends and improve FAQs.',
+                'keywords': 'weekly,summary,FAQ improvement,unresolved,rating',
+                'related_url': '/admin/dashboard'
+            }
+        }
+    },
+    {
+        'intent_key': 'practice_monthly',
+        'category': 'practice',
+        'display_order': 90,
+        'translations': {
+            'ja': {
+                'question': '月次で確認すべきことは？',
+                'answer': '1. 月次統計：今月の質問数・AI自動応答数・未解決エスカレーション、プラン利用上限への接近、プラン・請求ページで現在プランと請求履歴を確認。2. FAQ見直し：未使用FAQの削除・無効化、古いFAQの更新、よく聞かれる質問のFAQ追加、優先度見直し。3. サービス改善：質問傾向の分析、エスカレーションが多いカテゴリのFAQ充実、低評価の多いFAQの改善。月次統計で利用状況を把握し、FAQ見直しでAI品質を向上させてください。',
+                'keywords': '月次,月次統計,FAQ見直し,プラン,請求',
+                'related_url': '/admin/dashboard'
+            },
+            'en': {
+                'question': 'What should I check monthly?',
+                'answer': '1. Monthly stats: questions this month, AI auto-responses, unresolved escalations, plan usage vs limit, current plan and billing on Plan & Billing page. 2. FAQ review: remove or disable unused FAQs, update old ones, add FAQs for frequent questions, adjust priority. 3. Service improvement: analyze trends, enrich FAQs in high-escalation categories, improve low-rated FAQs. Use monthly stats to track usage and improve FAQ quality.',
+                'keywords': 'monthly,stats,FAQ review,plan,billing',
+                'related_url': '/admin/dashboard'
+            }
+        }
     }
 ]
 

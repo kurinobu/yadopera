@@ -213,8 +213,8 @@
 
 ### 6.3 DB反映
 
-- **実施済み（2026-03-01）**: Docker で postgres・redis を起動し、`docker compose run --rm -e DATABASE_URL=postgresql://yadopera_user:yadopera_password@postgres:5432/yadopera backend python scripts/update_operator_faqs.py` を実行。30件の FAQ 翻訳（ja/en）を更新し、DB 反映完了。
-- ステージング・本番で反映する場合は、各環境の DATABASE_URL を指定して同スクリプトを実行してください。反映後は Redis の `operator_faqs:*` キャッシュを削除するか、backend を再起動してください。
+- **実施済み（2026-03-01）**: Docker で postgres・redis を起動し、`docker compose run --rm -e DATABASE_URL=...` で `update_operator_faqs.py` を実行。30件の FAQ 翻訳（ja/en）を更新し、**ローカル** DB 反映完了。
+- **※ ステージング・本番への反映は「デプロイ時」に1回行えばよい**（下記「デプロイ時のDB反映」参照）。ステップ5などを続ける場合は、まとめてコミット・デプロイしたあとで実行する。
 
 ### 6.4 Docker環境・ブランチ・コミット・プッシュ
 
@@ -365,8 +365,137 @@ Manual.vue の全章・節を一覧化し、既存30件の operator FAQ（intent
 
 ### 8.4 次の作業
 
-- ステップ4: スタッフ不在時間帯キューFAQ追加（第5章）
-- ステージング反映時は、各環境の DATABASE_URL で同スクリプトを実行し、Redis キャッシュ削除または backend 再起動を実施すること。
+- ステップ5: 施設設定・ダッシュボード・FAQ・ゲスト・運用の不足分追加（コード・ローカルDBのみ。デプロイはステップ5後でよい）
+
+---
+
+## 8.5 ステップ4 実施記録：スタッフ不在時間帯キューFAQ追加（2026-03-01）
+
+### バックアップ
+
+- **保存先**: `backups/20260301_operator_faq_step4/`
+- **対象**: `backend/scripts/insert_operator_faqs.py`, 本計画書
+
+### 実施内容（第5章 5.1〜5.4 対応）
+
+| intent_key | 節 | 内容 |
+|------------|-----|------|
+| overnight_queue_overview | 5.1 | スタッフ不在時間帯対応キューとは（条件・表示場所・施設設定での設定） |
+| overnight_queue_list | 5.2 | 対応キュー一覧の見方（統計・表示項目・未対応/対応済み・説明文） |
+| overnight_queue_respond | 5.3 | 質問への対応（対応済みボタン・手動実行・通知タイミング・自動返信） |
+| overnight_queue_manage | 5.4 | 対応済み質問の確認（グレーアウト・解決済みを含める・統計・履歴） |
+
+- **カテゴリ**: 新設 `overnight_queue`。display_order は 100, 95, 90, 85。`related_url` は `/admin/overnight-queue`。
+- **言語**: 各項目とも ja / en を定義。
+
+### DB反映（ローカル）
+
+- Docker 内で `update_operator_faqs.py` を実行。全40件。カテゴリ別で `overnight_queue` が 4 件。**※ ステージング・本番には、デプロイ時に「デプロイ時のDB反映」を実行する（ステップ5後でまとめて可）。**
+
+### 次の作業
+
+- ステップ5: 施設設定・ダッシュボード・FAQ・ゲスト・運用の不足分追加
+
+---
+
+## 8.6 ステップ5 実施記録：施設設定・ダッシュボード・ゲスト・運用の不足分追加（2026-03-01）
+
+### バックアップ
+
+- **保存先**: `backups/20260301_operator_faq_step5/`
+- **対象**: `backend/scripts/insert_operator_faqs.py`, 本計画書
+
+### 実施内容（第3・6・10・12章 対応）
+
+| intent_key | 章・節 | カテゴリ | related_url |
+|------------|--------|----------|-------------|
+| dashboard_coupon_count | 3.8 クーポン発行数 | logs | /admin/dashboard |
+| facility_coupon_settings | 6.5 クーポン設定と公式サイトURL | setup | /admin/facility/settings |
+| facility_leads_list | 6.6 リード一覧 | setup | /admin/leads |
+| guest_flow | 10.1 ゲストの利用フロー | guest（新設） | /admin/manual |
+| guest_coupon_footer | 10.6 固定フッターとクーポン取得 | guest | /admin/facility/settings |
+| practice_daily | 12.2 日次運用 | practice（新設） | /admin/dashboard |
+| practice_weekly | 12.3 週次運用 | practice | /admin/dashboard |
+| practice_monthly | 12.4 月次運用 | practice | /admin/dashboard |
+
+- **新設カテゴリ**: `guest`, `practice`。既存 `logs` に1件、`setup` に2件追加。
+- **言語**: 各項目とも ja / en を定義。
+
+### DB反映（ローカル）
+
+- Docker 内で `update_operator_faqs.py` を実行。全48件。カテゴリ別：setup 7, logs 4, guest 2, practice 3 ほか。**※ ステージング・本番への反映は、デプロイ時に「デプロイ時のDB反映」を1回実行する。**
+
+### 次の作業（ステップ5完了後にやること）
+
+1. **コミット・プッシュ**: 変更（`insert_operator_faqs.py` 等）をコミットし、`git push origin develop` で develop にプッシュする。
+2. **ステージングデプロイ**: 運用に合わせてステージングへデプロイする（CI または手動）。
+3. **デプロイ時のDB反映**: 計画書の「デプロイ時のDB反映（ステージング・本番）」に従い、ステージング環境の `DATABASE_URL` で `update_operator_faqs.py` を1回実行し、Redis キャッシュ削除または backend 再起動する。
+4. **ブラウザテスト**: ステージングの管理画面でヘルプ（よくある質問・AIチャット）を開き、追加したFAQが表示されること・「該当ページへ移動」が正しいURLに遷移することを確認する。
+
+※ ステップ6（英語翻訳）はスキップ済み。ステップ7は上記 2〜4 に相当する。
+
+---
+
+## デプロイ時のDB反映（ステージング・本番）
+
+**いつやるか**: ステージングまたは本番へ**デプロイするとき**にだけ実行する。ステップごとではなく、複数ステップをまとめてコミット・デプロイしたあとで**1回**実行すればよい。
+
+---
+
+### 方法（実行手順）
+
+#### 1. ステージング用の DATABASE_URL を用意する
+
+- **Render** の場合: ダッシュボード → PostgreSQL サービス → 「Connect」または「Info」→ **External Database URL**（または Internal）をコピー。形式は `postgresql://ユーザー:パスワード@ホスト:ポート/DB名`。
+- **Railway** の場合: 該当 PostgreSQL サービス → 「Variables」または「Connect」で接続URLをコピー。
+- **注意**: 接続URLにはパスワードが含まれるため、リポジトリやチャットには貼り付けない。手元のメモや環境変数でだけ扱う。
+
+#### 2. スクリプトを実行する（2通りどちらか）
+
+**A. ローカルPCからステージングDBに直接接続する場合**
+
+- ステージングの PostgreSQL が「外部接続可」になっている必要がある（Render の External URL を使う等）。
+- プロジェクトの `backend` ディレクトリで、環境変数 `DATABASE_URL` にステージング用のURLを渡して実行する。
+
+```bash
+cd backend
+DATABASE_URL='postgresql://<ユーザー>:<パスワード>@<ホスト>:<ポート>/<DB名>' python scripts/update_operator_faqs.py
+```
+
+- 例（実際の値は伏せる）: `DATABASE_URL='postgresql://user:abc123@dpg-xxxx.a.oregon-postgres.render.com:5432/yadopera' python scripts/update_operator_faqs.py`
+- 成功すると「✅ 宿泊事業者向けFAQデータ更新完了」と表示され、更新数・作成数・カテゴリ別件数が出る。
+
+**B. ステージングの backend が動いている環境（Render の Shell 等）で実行する場合**
+
+- Render: ダッシュボード → Backend サービス → 「Shell」タブでシェルを開く。その環境には既に `DATABASE_URL` が設定されている想定。
+- プロジェクトルートが `/app` などの場合:
+
+```bash
+cd /app/backend   # または backend があるパス
+python scripts/update_operator_faqs.py
+```
+
+- 環境に `DATABASE_URL` が無い場合は、Shell で `export DATABASE_URL='...'` してから上記を実行する。
+
+#### 3. 実行後：Redis キャッシュを消すか、backend を再起動する
+
+- FAQ は Redis にキャッシュされているため、DB を更新しただけでは既存の backend は古いキャッシュを返す場合がある。
+- **いずれか一方でよい**:
+  - **Backend を再起動する**: Render なら「Manual Deploy」または「Restart」、Railway なら「Redeploy」や「Restart」。再起動後に API は DB から FAQ を読み直す（キャッシュは空の状態から再構築される）。
+  - **Redis のキーだけ削除する**: Redis に `redis-cli` で接続できる場合、`KEYS operator_faqs:*` でキーを確認し、`DEL operator_faqs:ja:all:True` など該当キーを削除する。通常は **backend 再起動**の方が手軽。
+
+#### 4. 確認
+
+- ステージングの管理画面でヘルプ（よくある質問・AIチャット）を開き、追加・修正した FAQ が表示されること、「該当ページへ移動」のリンクが正しい画面に飛ぶことを確認する。
+
+---
+
+### まとめ（1行）
+
+| 環境 | やること |
+|------|----------|
+| ステージング | 上記 1〜3（ステージング用 DATABASE_URL でスクリプト実行 → backend 再起動または Redis 削除）→ 4 で確認。 |
+| 本番 | 本番用 DATABASE_URL で同様に 1〜3。本番は反映タイミングを決めてから実行すること。 |
 
 ---
 
@@ -417,8 +546,8 @@ Manual.vue の全章・節を一覧化し、既存30件の operator FAQ（intent
 ### 9.5 修正実施記録（2026-03-01）
 
 - **バックアップ**: `backups/20260301_operator_faq_related_url_fix/` に `insert_operator_faqs.py` を保存。
-- **実施内容**: 上記6件の `related_url` を `/admin/plan-billing` → `/admin/billing` に一括変更（`insert_operator_faqs.py`）。Docker 内で `update_operator_faqs.py` を実行し DB 反映済み。
-- **ステージング・本番**: 各環境で `update_operator_faqs.py` を実行し、Redis キャッシュ削除または backend 再起動を行うこと。
+- **実施内容**: 上記6件の `related_url` を `/admin/plan-billing` → `/admin/billing` に一括変更（`insert_operator_faqs.py`）。Docker 内で `update_operator_faqs.py` を実行しローカル DB 反映済み。
+- **ステージング・本番**: デプロイ時に「デプロイ時のDB反映」の手順を実行する。
 
 ---
 
