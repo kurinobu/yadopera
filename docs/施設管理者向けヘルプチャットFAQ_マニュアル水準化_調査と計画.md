@@ -220,8 +220,153 @@
 
 - **Docker**: `docker-compose.yml` の postgres（port 5433）, redis, backend, frontend 構成。DB 更新は backend コンテナ内で `DATABASE_URL=postgresql://yadopera_user:yadopera_password@postgres:5432/yadopera` を指定して実行。
 - **ブランチ戦略**: main＝本番、develop＝ステージング、feature/*＝開発。今回の作業は **develop** で実施。
-- **コミット**: `9b85a5b` — 「Fix: 施設管理者向けヘルプチャットFAQ 12項目修正（ステップ1）とマニュアル水準化計画」（3ファイル変更）。
+- **コミット**: `eb73c0a` — 「Fix: 施設管理者向けヘルプチャットFAQ 12項目修正（ステップ1）とマニュアル水準化計画」（3ファイル変更）。
 - **プッシュ**: 認証の都合で自動プッシュは未実施。お手元のターミナルで `git push origin develop` を実行してください。
+
+---
+
+## 7. ステップ2 実施記録：マニュアルとの差分一覧（2026-03-01）
+
+### 7.1 バックアップ
+
+- **保存先**: `backups/20260301_operator_faq_step2/`
+- **対象**: 本計画書（施設管理者向けヘルプチャットFAQ_マニュアル水準化_調査と計画.md）
+
+### 7.2 マニュアル全節とFAQ対応一覧
+
+Manual.vue の全章・節を一覧化し、既存30件の operator FAQ（intent_key）との対応および要追加を表にまとめた。
+
+| 章 | 節id | 節タイトル | 対応FAQ intent_key | 要追加 | 備考 |
+|----|------|------------|--------------------|--------|------|
+| 第1章 はじめに | intro-about | 1.1 YadOPERAとは | （なし） | 任意 | 概要は複数FAQでカバー可 |
+| | intro-howto | 1.2 本マニュアルの使い方 | （なし） | 任意 | マニュアル案内 |
+| | intro-requirements | 1.3 システム要件 | （なし） | 任意 | |
+| | intro-initial-setup | 1.4 初期設定 | setup_first_login | — | 初回ログインと重複。要追加なら intro_initial_setup |
+| 第2章 ログイン・ログアウト | login-first | 2.1 初回ログイン | setup_first_login | — | 対応済み |
+| | login-logout | 2.2 ログアウト | （なし） | 任意 | 短い手順 |
+| | login-error | 2.3 ログインできない場合 | trouble_cannot_login | — | 対応済み |
+| 第3章 ダッシュボード | dashboard-overview | 3.1 ダッシュボード概要 | logs_view_questions 等 | 推奨 | **dashboard_overview** で概要を追加するとよい |
+| | dashboard-total | 3.2 総質問数 | logs_analytics | やや薄い | 週次・月次の違いを補強可 |
+| | dashboard-rate | 3.3 自動応答率 | （なし） | 推奨 | **dashboard_auto_rate** |
+| | dashboard-confidence | 3.4 平均信頼度 | （なし） | 推奨 | **dashboard_confidence** |
+| | dashboard-unresolved | 3.5 未解決質問 | logs_unanswered | — | 対応済み（未実装の記載あり） |
+| | dashboard-category | 3.6 カテゴリ別内訳 | logs_analytics | — | 統計として言及済み |
+| | dashboard-realtime | 3.7 リアルタイムチャット履歴 | （なし） | 任意 | **dashboard_realtime** |
+| | dashboard-coupon-leads | 3.8 クーポン発行数 | （なし） | **要** | **dashboard_coupon_count** |
+| 第4章 FAQ管理 | faq-overview | 4.1 FAQ管理画面の概要 | faq_template_usage, faq_add_custom | — | 対応済み |
+| | faq-list | 4.2 FAQ一覧の見方 | faq_template_usage | — | 対応済み |
+| | faq-create | 4.3 新規FAQ登録 | faq_add_custom | — | 対応済み |
+| | faq-edit | 4.4 FAQ編集 | faq_add_custom | — | 対応済み |
+| | faq-delete | 4.5 FAQ削除 | （なし） | 任意 | faq_add_custom で触れ可 |
+| | faq-suggestion | 4.6 FAQ改善提案機能 | （なし） | 推奨 | **faq_improvement_suggestion** |
+| | faq-best-practices | 4.7 FAQ作成のベストプラクティス | ai_accuracy | 推奨 | **faq_best_practices** で要約追加 |
+| | faq-csv-bulk | 4.8 CSV一括登録 | faq_bulk_import | — | 対応済み（ステップ1で修正） |
+| 第5章 スタッフ不在時間帯キュー | overnight-overview | 5.1 キューとは | （なし） | **要** | **overnight_queue_overview** |
+| | overnight-list | 5.2 対応キュー一覧の見方 | （なし） | **要** | **overnight_queue_list** |
+| | overnight-response | 5.3 質問への対応 | （なし） | **要** | **overnight_queue_respond** |
+| | overnight-manage | 5.4 対応済み質問の管理 | （なし） | 推奨 | **overnight_queue_manage** |
+| 第6章 施設設定 | facility-overview | 6.1 施設設定画面の概要 | setup_facility_info | — | 対応済み |
+| | facility-basic | 6.2 基本情報設定 | setup_facility_info | — | 対応済み |
+| | facility-overnight | 6.3 スタッフ不在時間帯設定 | （なし） | 推奨 | **facility_overnight_settings** |
+| | facility-save | 6.4 施設情報の保存 | setup_facility_info | — | 同一で可 |
+| | facility-coupon-settings | 6.5 クーポン設定と公式サイトURL | （なし） | **要** | **facility_coupon_settings** |
+| | facility-leads-list | 6.6 リード（クーポン取得）一覧 | （なし） | **要** | **facility_leads_list** |
+| 第7章 プラン・請求 | plan-billing-overview | 7.1 プラン・請求ページの概要 | billing_plans | 推奨 | **plan_billing_overview** で画面説明を追加 |
+| | plan-billing-current-list | 7.2 現在のプランとプラン一覧 | billing_plans | 推奨 | **plan_billing_current_list** |
+| | plan-billing-change | 7.3 プラン変更の手順 | （なし） | **要** | **plan_billing_change** |
+| | plan-billing-cancel | 7.4 解約の手順 | billing_cancellation | 推奨 | 解約手順の詳細で補強可 |
+| | plan-billing-invoices | 7.5 請求履歴と領収書 | billing_invoice | 推奨 | **plan_billing_invoices** で手順を追加 |
+| 第8章 QRコード | qr-overview | 8.1 QRコードとは | qrcode_placement | — | 対応済み |
+| | qr-generate | 8.2 QRコード発行手順 | qrcode_placement, qrcode_regenerate | — | 対応済み |
+| | qr-download | 8.3 QRコードのダウンロード | qrcode_print_size | — | 対応済み |
+| | qr-install | 8.4 QRコードの設置方法 | qrcode_placement | — | 対応済み |
+| | qr-test | 8.5 QRコードのテスト | trouble_qr_not_working | — | 対応済み |
+| 第9章 会話詳細 | conversation-overview | 9.1 会話詳細画面の概要 | logs_view_questions | やや薄い | **conversation_overview** で補強可 |
+| | conversation-history | 9.2 会話履歴の見方 | logs_view_questions | — | 対応済み（未実装の記載あり） |
+| | conversation-guest | 9.3 ゲスト情報の確認 | （なし） | 任意 | |
+| | conversation-reply | 9.4 エスカレーション対応について | （なし） | 推奨 | **conversation_escalation** |
+| 第10章 ゲスト側の使い方 | guest-flow | 10.1 ゲストの利用フロー | （なし） | **要** | **guest_flow** |
+| | guest-language | 10.2 言語選択画面 | ai_languages | — | 対応済み |
+| | guest-welcome | 10.3 ウェルカム画面 | （なし） | 任意 | |
+| | guest-chat | 10.4 チャット画面 | ai_how_it_works | — | 対応済み |
+| | guest-pwa | 10.5 ホーム画面へのインストール | （なし） | 任意 | **guest_pwa** |
+| | guest-coupon-footer | 10.6 固定フッターとクーポン取得 | （なし） | **要** | **guest_coupon_footer** |
+| 第11章 トラブルシューティング | trouble-faq | 11.1 よくある質問（FAQ） | trouble_contact_support 等 | — | 複数でカバー |
+| | trouble-error | 11.2 エラーメッセージ一覧 | （なし） | 任意 | **trouble_error_list** |
+| | trouble-cache | 11.3 ブラウザキャッシュのクリア | trouble_faq_not_updated | — | キャッシュの記述あり |
+| | trouble-contact | 11.4 問い合わせ方法 | trouble_contact_support | — | 対応済み |
+| 第12章 運用のベストプラクティス | practice-checklist | 12.1 初期設定チェックリスト | setup_first_login | 推奨 | **practice_checklist** |
+| | practice-daily | 12.2 日次運用 | （なし） | **要** | **practice_daily** |
+| | practice-weekly | 12.3 週次運用 | （なし） | **要** | **practice_weekly** |
+| | practice-monthly | 12.4 月次運用 | （なし） | **要** | **practice_monthly** |
+| 第13章 付録 | appendix-glossary | 13.1 用語集 | （なし） | 任意 | ヘルプでは省略可 |
+| | appendix-translation | 13.2 翻訳手引書 | ai_languages | — | 言語の説明で関連 |
+| | appendix-flow | 13.3 画面遷移図 | （なし） | 任意 | |
+| | appendix-template | 13.4 FAQ初期テンプレート例 | faq_template_usage | — | 対応済み |
+| | appendix-history | 13.5 更新履歴 | （なし） | 任意 | |
+
+### 7.3 要追加FAQの整理（ステップ3〜5で使用）
+
+**必須（要）**: 12件
+
+| 推奨 intent_key | 章・節 | 想定カテゴリ |
+|-----------------|--------|--------------|
+| dashboard_coupon_count | 3.8 クーポン発行数 | logs または dashboard |
+| overnight_queue_overview | 5.1 キューとは | overnight_queue（新設） |
+| overnight_queue_list | 5.2 対応キュー一覧の見方 | overnight_queue |
+| overnight_queue_respond | 5.3 質問への対応 | overnight_queue |
+| facility_coupon_settings | 6.5 クーポン設定と公式サイトURL | facility_advanced（新設）または setup |
+| facility_leads_list | 6.6 リード一覧の確認 | facility_advanced または setup |
+| plan_billing_change | 7.3 プラン変更の手順 | billing |
+| guest_flow | 10.1 ゲストの利用フロー | guest（新設）または ai_logic |
+| guest_coupon_footer | 10.6 固定フッターとクーポン取得 | guest |
+| practice_daily | 12.2 日次運用 | practice（新設） |
+| practice_weekly | 12.3 週次運用 | practice |
+| practice_monthly | 12.4 月次運用 | practice |
+
+**推奨（補強）**: 10件程度
+
+- dashboard_overview, dashboard_auto_rate, dashboard_confidence
+- faq_improvement_suggestion, faq_best_practices
+- overnight_queue_manage, facility_overnight_settings
+- plan_billing_overview, plan_billing_current_list, plan_billing_invoices（billing 既存を拡張）
+- conversation_overview, conversation_escalation
+- practice_checklist
+
+**新設カテゴリ案**: `overnight_queue`, `facility_advanced`（または setup に統合）, `guest`, `practice`。既存 billing を「プラン・請求」として拡張する場合は `plan_billing` は不要。
+
+---
+
+## 8. ステップ3 実施記録：プラン・請求まわりFAQ追加（2026-03-01）
+
+### 8.1 バックアップ
+
+- **保存先**: `backups/20260301_operator_faq_step3/`
+- **対象**: `backend/scripts/insert_operator_faqs.py`, `docs/help_system_faq_data.md`, 本計画書
+
+### 8.2 実施内容（第7章 7.1〜7.5 対応）
+
+| intent_key | 節 | 内容 |
+|------------|-----|------|
+| plan_billing_overview | 7.1 | プラン・請求ページの概要（左メニューからアクセス、Stripe未設定時の表示について） |
+| plan_billing_current_list | 7.2 | 現在のプラン・プラン一覧の見方（月額・月間質問数・FAQ数・言語数） |
+| plan_billing_change | 7.3 | プラン変更の手順（ボタン→確認モーダル→変更する、既存設定は維持） |
+| plan_billing_cancel | 7.4 | 解約の手順（期間末解約／即時解約、Freeへ移行後の再変更） |
+| plan_billing_invoices | 7.5 | 請求履歴・領収書の見方（表の項目、領収書表示リンク） |
+
+- **既存修正**: `billing_cancellation` を「解約機能は未実装」から「プラン・請求ページから解約手続き可能」に更新。`related_url` を `/admin/plan-billing` に設定。
+- **カテゴリ**: すべて `billing`。display_order は 89, 88, 87, 86, 85（既存 billing_plans 100, billing_cancellation 95, billing_invoice 90 の次）。
+- **言語**: 各項目とも ja / en の両方を定義（既存フォーマットに合わせて英語も追加）。
+
+### 8.3 DB反映
+
+- **実行コマンド**: `docker compose run --rm -e DATABASE_URL=postgresql://yadopera_user:yadopera_password@postgres:5432/yadopera backend python scripts/update_operator_faqs.py`
+- **結果**: 全36件を更新。カテゴリ別では billing が 8 件（既存3＋新規5）。新規5件は既存DBに同一 intent_key が無ければ作成、あれば更新される挙動で反映済み。
+
+### 8.4 次の作業
+
+- ステップ4: スタッフ不在時間帯キューFAQ追加（第5章）
+- ステージング反映時は、各環境の DATABASE_URL で同スクリプトを実行し、Redis キャッシュ削除または backend 再起動を実施すること。
 
 ---
 
