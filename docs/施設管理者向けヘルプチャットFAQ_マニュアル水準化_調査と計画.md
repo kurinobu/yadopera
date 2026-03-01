@@ -370,6 +370,58 @@ Manual.vue の全章・節を一覧化し、既存30件の operator FAQ（intent
 
 ---
 
+## 9. 「該当ページへ移動」404エラー 調査分析と修正案（2026-03-01）
+
+### 9.1 事象
+
+- ヘルプの「よくある質問」または AI チャットで、プラン・請求まわり FAQ の「→ 該当ページへ移動」をクリックすると、ステージング（`yadopera-frontend-staging.onrender.com/admin/plan-billing`）で **404 ページが見つかりません** となる。
+- バックエンドの API（`/api/v1/help/faqs`, `/api/v1/auth/me`）は 200 OK で正常。フロントのルーティングのみの事象。
+
+### 9.2 原因（調査結果）
+
+| 項目 | 内容 |
+|------|------|
+| **フロントの実ルート** | `frontend/src/router/admin.ts` でプラン・請求ページは **`path: '/admin/billing'`** として定義されている（name: `PlanBilling`, component: `PlanBilling.vue`）。 |
+| **FAQ の related_url** | ステップ3で追加・更新した billing 系 FAQ の `related_url` を **`/admin/plan-billing`** に設定している（`insert_operator_faqs.py`）。 |
+| **齟齬** | **`/admin/plan-billing` という path はルーターに存在しない**。そのため「該当ページへ移動」で `/admin/plan-billing` に遷移すると、Vue Router が該当ルートを見つけられず 404 表示になる。 |
+
+- マニュアル上は「プラン・請求」だが、実装上の URL は `/admin/billing` であり、FAQ データだけが `/admin/plan-billing` を指していることが原因。
+- 該当する FAQ：`billing_cancellation`、`plan_billing_overview`、`plan_billing_current_list`、`plan_billing_change`、`plan_billing_cancel`、`plan_billing_invoices` の 6 件（いずれも `related_url: '/admin/plan-billing'`）。
+
+### 9.3 大原則に照らした方針
+
+- **統一・同一化 > 特殊独自**：リンク先は「実装されているルート」に合わせる。フロントの正の定義は `admin.ts` の `path: '/admin/billing'` である。
+- **根本解決 > 暫定解決**：ルートを `/admin/plan-billing` で追加するのではなく、**FAQ の `related_url` を実ルートに合わせて修正する**。
+
+### 9.4 修正案（指示があるまで実施しない）
+
+1. **対象**  
+   `backend/scripts/insert_operator_faqs.py` の次の 6 件の `related_url` を変更する。  
+   - `billing_cancellation`（ja / en）  
+   - `plan_billing_overview`（ja / en）  
+   - `plan_billing_current_list`（ja / en）  
+   - `plan_billing_change`（ja / en）  
+   - `plan_billing_cancel`（ja / en）  
+   - `plan_billing_invoices`（ja / en）
+
+2. **変更内容**  
+   - 上記すべての `related_url` を **`/admin/plan-billing`** から **`/admin/billing`** に変更する。
+
+3. **DB 反映**  
+   - 変更後、`update_operator_faqs.py` をローカル（およびステージング・本番で必要な場合）で実行し、`operator_faq_translations` の `related_url` を更新する。  
+   - 反映後は Redis の FAQ キャッシュ削除または backend 再起動を行う。
+
+4. **確認**  
+   - ステージングで「該当ページへ移動」をクリックし、`/admin/billing` に遷移し 404 にならないことを確認する。
+
+### 9.5 修正実施記録（2026-03-01）
+
+- **バックアップ**: `backups/20260301_operator_faq_related_url_fix/` に `insert_operator_faqs.py` を保存。
+- **実施内容**: 上記6件の `related_url` を `/admin/plan-billing` → `/admin/billing` に一括変更（`insert_operator_faqs.py`）。Docker 内で `update_operator_faqs.py` を実行し DB 反映済み。
+- **ステージング・本番**: 各環境で `update_operator_faqs.py` を実行し、Redis キャッシュ削除または backend 再起動を行うこと。
+
+---
+
 **参照文書**
 
 - [yadopera-v03-summary.md](Summary/yadopera-v03-summary.md)（要約定義書・付録C 宿泊事業者向けFAQ）

@@ -555,13 +555,13 @@ OPERATOR_FAQ_DATA = [
                 'question': '解約方法は？',
                 'answer': '左メニュー「プラン・請求」ページで「解約する」ボタンから手続きできます。期間末解約（請求期間終了後にFreeへ）または即時解約を選べます。有料プランかつ決済（Stripe）設定済みの施設にのみ解約ブロックが表示されます。解約後もデータは保持され、再度有料プランへはプラン変更から変更できます。',
                 'keywords': '解約,退会,キャンセル,停止',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             },
             'en': {
                 'question': 'How to cancel?',
                 'answer': 'On the left menu "Plan & Billing" page, use the "Cancel" button. You can choose cancel at period end (move to Free after current period) or cancel immediately. The cancel block is shown only for paid plans with Stripe set up. Data is retained after cancellation; you can resubscribe via Plan change.',
                 'keywords': 'cancel,unsubscribe,terminate',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             }
         }
     },
@@ -594,13 +594,13 @@ OPERATOR_FAQ_DATA = [
                 'question': 'プラン・請求ページでは何ができますか？',
                 'answer': '左メニュー「プラン・請求」で、料金プランの確認・変更、解約、請求履歴・領収書の確認ができます。現在のプラン確認、プラン変更、解約、請求履歴・領収書の表示が可能です。Stripe未設定の施設では「プラン変更・解約は利用できません」と表示されます。',
                 'keywords': 'プラン・請求,料金,解約,請求履歴,領収書',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             },
             'en': {
                 'question': 'What can I do on the Plan & Billing page?',
                 'answer': 'From the left menu "Plan & Billing" you can check and change your plan, cancel, and view billing history and receipts. If Stripe is not set up, "Plan change and cancellation are not available" is displayed.',
                 'keywords': 'plan,billing,pricing,cancel,invoice,receipt',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             }
         }
     },
@@ -613,13 +613,13 @@ OPERATOR_FAQ_DATA = [
                 'question': '現在のプランとプラン一覧の見方は？',
                 'answer': 'ページ上部「現在のプラン」でプラン名・月額を確認できます。プラン一覧の表でFree/Mini/Small/Standard/Premiumの月額・月間質問数・FAQ数・言語数を確認できます。現在契約中のプランには「（現在）」と表示されます。料金はFree無料、Mini¥1,980/月+従量、Small¥3,980/月、Standard¥5,980/月、Premium¥7,980/月です。',
                 'keywords': '現在のプラン,プラン一覧,料金,月額,FAQ数',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             },
             'en': {
                 'question': 'How do I view my current plan and plan list?',
                 'answer': 'Check plan name and monthly rate at "Current plan" at the top. The plan table shows Free/Mini/Small/Standard/Premium with monthly rate, question limit, FAQ limit, and language count. Your current plan is marked "(Current)".',
                 'keywords': 'current plan,plan list,pricing,monthly,FAQ limit',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             }
         }
     },
@@ -632,13 +632,13 @@ OPERATOR_FAQ_DATA = [
                 'question': 'プラン変更の手順は？',
                 'answer': 'プラン・請求ページで、変更したいプラン行の「プラン変更」ボタンをクリック→確認モーダルでプラン名・月額を確認→「変更する」で実行。変更後は画面上の現在プラン表示が更新されます。既存のQRコード・FAQ・施設設定はそのまま利用できます。Stripe設定済みで現在と異なるプランの場合のみボタンが表示されます。',
                 'keywords': 'プラン変更,アップグレード,ダウングレード,手順',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             },
             'en': {
                 'question': 'How do I change my plan?',
                 'answer': 'On the Plan & Billing page, click "Change plan" for the desired plan→confirm in the modal→click "Change" to apply. Your current plan display updates. Existing QR codes, FAQs, and facility settings remain. The button appears only when Stripe is set up and the plan is different from current.',
                 'keywords': 'plan change,upgrade,downgrade,procedure',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             }
         }
     },
@@ -651,13 +651,13 @@ OPERATOR_FAQ_DATA = [
                 'question': '解約の手順は？',
                 'answer': 'プラン・請求ページで「解約する」→解約確認モーダルで「期間末で解約」（請求期間終了後にFreeへ）または「即時解約」を選択→「解約する」で完了。解約後はFreeプランになります。再度有料プランへ変更する場合はプラン変更から選択できます。有料プランかつStripe設定済みの施設にのみ解約ブロックが表示されます。',
                 'keywords': '解約,キャンセル,期間末,即時解約,Freeプラン',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             },
             'en': {
                 'question': 'How do I cancel my subscription?',
                 'answer': 'On Plan & Billing page click "Cancel"→in the modal choose "Cancel at period end" (move to Free after current period) or "Cancel immediately"→click "Cancel" to confirm. After cancellation you are on the Free plan. To resubscribe, use Plan change. Cancel block is shown only for paid plans with Stripe set up.',
                 'keywords': 'cancel,subscription,end of period,immediate,Free plan',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             }
         }
     },
@@ -670,13 +670,13 @@ OPERATOR_FAQ_DATA = [
                 'question': '請求履歴と領収書の見方は？',
                 'answer': 'プラン・請求ページの「請求履歴・領収書」の表で、請求日・金額・ステータスを確認できます。各行の「領収書を表示」をクリックすると領収書ページが別タブで開きます。印刷・保存はその画面から行えます。請求がまだない場合は「請求履歴はありません。」と表示されます。',
                 'keywords': '請求履歴,領収書,インボイス,ダウンロード,経費精算',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             },
             'en': {
                 'question': 'How do I view billing history and receipts?',
                 'answer': 'On the Plan & Billing page, the "Billing history & receipts" table shows request date, amount, and status. Click "View receipt" on each row to open the receipt in a new tab. Print or save from that screen. If there are no invoices yet, "No billing history" is displayed.',
                 'keywords': 'billing history,receipt,invoice,download,expense',
-                'related_url': '/admin/plan-billing'
+                'related_url': '/admin/billing'
             }
         }
     },
