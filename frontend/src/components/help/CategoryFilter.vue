@@ -47,6 +47,9 @@ const getCategoryLabel = (category: string): string => {
     troubleshooting: 'トラブルシューティング',
     billing: '料金',
     security: 'セキュリティ',
+    overnight_queue: 'スタッフ不在キュー',
+    guest: 'ゲストの使い方',
+    practice: '運用のコツ',
   }
   return labels[category] || category
 }

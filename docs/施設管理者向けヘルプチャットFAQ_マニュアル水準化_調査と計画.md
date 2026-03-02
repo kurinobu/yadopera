@@ -499,6 +499,19 @@ python scripts/update_operator_faqs.py
 
 ---
 
+### デプロイ完了後のステップ（ステップ・バイ・ステップ）
+
+デプロイが完了したあと、ステージングで新しいFAQを反映するには次の順で行う。
+
+| ステップ | やること | 詳細 |
+|----------|----------|------|
+| **Step 1** | ステージング用 DATABASE_URL を取得する | Render: ダッシュボード → PostgreSQL → Connect/Info → External Database URL をコピー。Railway: PostgreSQL → Variables/Connect でURLをコピー。 |
+| **Step 2** | ローカルでスクリプトを実行する | ターミナルで `cd backend` のあと、`DATABASE_URL='<Step1でコピーしたURL>' python scripts/update_operator_faqs.py` を実行。「✅ 宿泊事業者向けFAQデータ更新完了」と出ればOK。 |
+| **Step 3** | ステージングの backend を再起動する | Render: Backend サービス → 「Restart」または「Manual Deploy」。Railway: 該当サービス → Restart/Redeploy。これで Redis キャッシュがリセットされ、DB の最新FAQが読まれる。 |
+| **Step 4** | ブラウザで確認する | ステージングの管理画面にログイン → ヘルプ（よくある質問）を開く → カテゴリ「料金」「スタッフ不在時間帯対応キュー」「ゲスト」「運用」などに追加したFAQが表示されるか確認。AIチャットで「プラン変更の手順は？」など質問し、回答と「該当ページへ移動」のリンクが正しいか確認。 |
+
+---
+
 ## 9. 「該当ページへ移動」404エラー 調査分析と修正案（2026-03-01）
 
 ### 9.1 事象
@@ -548,6 +561,46 @@ python scripts/update_operator_faqs.py
 - **バックアップ**: `backups/20260301_operator_faq_related_url_fix/` に `insert_operator_faqs.py` を保存。
 - **実施内容**: 上記6件の `related_url` を `/admin/plan-billing` → `/admin/billing` に一括変更（`insert_operator_faqs.py`）。Docker 内で `update_operator_faqs.py` を実行しローカル DB 反映済み。
 - **ステージング・本番**: デプロイ時に「デプロイ時のDB反映」の手順を実行する。
+
+---
+
+## 10. ヘルプチャットボットのカテゴリ表示（英混在）調査結果（2026-03-02）
+
+### 10.1 事象
+
+- ヘルプの「よくある質問」で、カテゴリボタンに **日本語と英語が混在** して表示されている。
+- 例：「AI仕組み」「料金」「FAQ管理」は日本語なのに対し、**「guest」「overnight_queue」「practice」** は英語の内部キーがそのまま表示されている。とくに **「overnight_queue」** はアンダースコア付きで、直感的に分かりにくい。
+
+### 10.2 原因（調査結果）
+
+| 項目 | 内容 |
+|------|------|
+| **表示ロジック** | フロントの `CategoryFilter.vue` と `FaqItem.vue` で、**カテゴリ key → 表示ラベル** の対応が `labels` オブジェクトで定義されている。 |
+| **定義されているカテゴリ** | **従来の8カテゴリのみ**：`setup`→「初期設定」、`qrcode`→「QRコード」、`faq_management`→「FAQ管理」、`ai_logic`→「AI仕組み」、`logs`→「ログ分析」、`troubleshooting`→「トラブルシューティング」、`billing`→「料金」、`security`→「セキュリティ」。 |
+| **フォールバック** | `labels[category] || category` のため、**labels に存在しないカテゴリは DB/API の key がそのまま表示される**。 |
+| **新規カテゴリ** | ステップ4・5で FAQ に追加した **`overnight_queue`**（第5章）、**`guest`**（第10章）、**`practice`**（第12章）は、**フロントの labels に追加していなかった**。そのため「overnight_queue」「guest」「practice」がそのまま表示されている。 |
+
+- **結論**: **意図した表示ではない**。もともと「ユーザーには日本語ラベルを表示する」設計だが、新規カテゴリのラベルをフロントに追加し忘れた結果、内部 key がそのまま出ている。
+
+### 10.3 評価
+
+| 観点 | 評価 |
+|------|------|
+| **適切か** | **不適切**。管理画面は日本語利用が主であり、「practice」「guest」は意味が伝わりにくく、「overnight_queue」のアンダースコアは技術用語のように見えて直感的でない。 |
+| **統一性** | 既存8カテゴリは日本語で統一されているのに対し、新規3カテゴリだけ英語 key 表示になっており、**表示方針が不統一**。 |
+
+### 10.4 修正案（指示があるまで実施しない）
+
+- **対象**: `frontend/src/components/help/CategoryFilter.vue` と `frontend/src/components/help/FaqItem.vue` の **`labels` オブジェクト** に、次の3件を追加する。
+  - `overnight_queue`: **「スタッフ不在キュー」**（または「スタッフ不在時間帯キュー」）
+  - `guest`: **「ゲストの使い方」**
+  - `practice`: **「運用のコツ」**（または「日週月運用」）
+- 両ファイルで同じ key → 日本語ラベルの対応にすれば、フィルタボタンとFAQカードのタグ表示が日本語で統一される。
+
+### 10.5 修正実施記録（2026-03-02）
+
+- **バックアップ**: `backups/20260302_help_category_labels_ja/` に `CategoryFilter.vue`, `FaqItem.vue` を保存。
+- **実施内容**: 上記2ファイルの `labels` に `overnight_queue: 'スタッフ不在キュー'`, `guest: 'ゲストの使い方'`, `practice: '運用のコツ'` を追加。フロントのみの変更のため DB 反映・backend 再起動は不要。デプロイ後、ヘルプのカテゴリボタン・FAQタグが日本語で表示されることを確認すること。
 
 ---
 

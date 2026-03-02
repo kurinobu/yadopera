@@ -108,6 +108,9 @@ const categoryLabel = computed(() => {
     troubleshooting: 'トラブルシューティング',
     billing: '料金',
     security: 'セキュリティ',
+    overnight_queue: 'スタッフ不在キュー',
+    guest: 'ゲストの使い方',
+    practice: '運用のコツ',
   }
   return labels[props.faq.category] || props.faq.category
 })
