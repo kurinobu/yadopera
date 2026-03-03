@@ -46,6 +46,7 @@ class Facility(Base):
     coupon_description = Column(Text, nullable=True)  # 施設が編集する文言
     coupon_validity_months = Column(Integer, nullable=True)  # 発行日から何ヶ月有効か
     official_website_url = Column(String(500), nullable=True)  # 公式サイトURL（クーポン送付メールで案内）
+    show_email_on_guest_screen = Column(Boolean, default=True, nullable=False)  # ゲスト画面にメールアドレスを表示する
     # Stripe 連携（Phase 4 Phase B）
     stripe_customer_id = Column(String(255), nullable=True, unique=True, index=True)
     stripe_subscription_id = Column(String(255), nullable=True)

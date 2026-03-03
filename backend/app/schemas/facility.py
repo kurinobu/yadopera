@@ -34,7 +34,7 @@ class FacilityPublicResponse(BaseModel):
     id: int
     name: str
     slug: str
-    email: str
+    email: Optional[str] = None  # show_email_on_guest_screen が False のときは null
     phone: Optional[str] = None
     check_in_time: Optional[str] = None  # "15:00"形式
     check_out_time: Optional[str] = None  # "11:00"形式
@@ -75,6 +75,7 @@ class FacilityResponse(BaseModel):
     coupon_description: Optional[str] = None
     coupon_validity_months: Optional[int] = Field(None, ge=1, le=24)
     official_website_url: Optional[str] = Field(None, max_length=500, description="公式サイトURL（クーポン送付メールで案内）")
+    show_email_on_guest_screen: bool = True
     created_at: datetime
     updated_at: datetime
 
@@ -125,4 +126,5 @@ class FacilitySettingsUpdateRequest(BaseModel):
     coupon_description: Optional[str] = Field(None, max_length=500)
     coupon_validity_months: Optional[int] = Field(None, ge=1, le=24)
     official_website_url: Optional[str] = Field(None, max_length=500, description="公式サイトURL（任意）")
+    show_email_on_guest_screen: Optional[bool] = None
 

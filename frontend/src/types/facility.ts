@@ -14,7 +14,8 @@ export interface Facility {
   id: number
   name: string
   slug: string
-  email: string
+  /** ゲスト画面に表示するが OFF のときは null */
+  email?: string | null
   phone?: string
   check_in_time: string
   check_out_time: string
@@ -70,6 +71,8 @@ export interface FacilitySettingsFacility {
   coupon_validity_months?: number | null
   /** 公式サイトURL（クーポン送付メールで案内） */
   official_website_url?: string | null
+  /** ゲスト画面にメールアドレスを表示する */
+  show_email_on_guest_screen?: boolean
   created_at: string
   updated_at: string
 }
@@ -100,6 +103,8 @@ export interface FacilitySettingsUpdateRequest {
   coupon_validity_months?: number | null
   /** 公式サイトURL（任意） */
   official_website_url?: string | null
+  /** ゲスト画面にメールアドレスを表示する */
+  show_email_on_guest_screen?: boolean
 }
 
 export interface PasswordChangeRequest {

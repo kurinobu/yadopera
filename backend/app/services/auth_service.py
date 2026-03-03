@@ -347,7 +347,8 @@ class AuthService:
             plan_type=plan_type,
             monthly_question_limit=plan_defaults['monthly_question_limit'],
             faq_limit=plan_defaults['faq_limit'],
-            language_limit=plan_defaults['language_limit']
+            language_limit=plan_defaults['language_limit'],
+            show_email_on_guest_screen=True
         )
         db.add(facility)
         await db.flush()

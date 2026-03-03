@@ -1,8 +1,13 @@
-# 宿泊事業者向けFAQ初期データ（30項目）
+# 宿泊事業者向けFAQデータ（48項目）
 
 **プロジェクト**: YadOPERA Phase 2 統合ヘルプシステム  
 **作成日**: 2025-12-26  
+**最終更新日**: 2026年3月2日  
 **言語**: 日本語・英語
+
+**現行の定義**: 全48項目・11カテゴリ。データの正は `backend/scripts/insert_operator_faqs.py` の `OPERATOR_FAQ_DATA`。DB反映は `update_operator_faqs.py`。実施計画・ステップ実施記録・デプロイ時手順は `docs/施設管理者向けヘルプチャットFAQ_マニュアル水準化_調査と計画.md` を参照。
+
+**カテゴリ（11）**: setup, qrcode, faq_management, ai_logic, logs, troubleshooting, billing, security, overnight_queue, guest, practice。フロントの表示ラベル（日本語）は `CategoryFilter.vue` および `FaqItem.vue` の `labels` で定義。
 
 ---
 
@@ -36,13 +41,13 @@
 
 #### 日本語 (ja)
 - **質問**: 施設情報はどこで登録しますか？
-- **回答**: ログイン後、「設定」→「施設設定」から施設名、住所、チェックイン/アウト時間、WiFi情報、部屋数などを登録できます。これらの情報はゲストへの自動応答に使用されます。
+- **回答**: ログイン後、「設定」→「施設設定」から施設名、住所、チェックイン/アウト時間、WiFi情報、部屋数などを登録できます。これらの情報はゲストへの自動応答に使用されます。ゲストに表示するかは「ゲスト画面にメールアドレスを表示する」スイッチで変更できます。
 - **キーワード**: 施設情報,施設設定,基本情報,WiFi設定,施設登録
 - **関連URL**: /admin/facility
 
 #### 英語 (en)
 - **Question**: Where do I register facility information?
-- **Answer**: After login, go to "Settings" → "Facility Settings" to register facility name, address, check-in/out times, WiFi info, room count, etc. This information is used for automatic guest responses.
+- **Answer**: After login, go to "Settings" → "Facility Settings" to register facility name, address, check-in/out times, WiFi info, room count, etc. This information is used for automatic guest responses. You can turn the "Show email on guest screen" switch on or off to show or hide the facility email to guests.
 - **Keywords**: facility information,facility settings,basic info,WiFi settings,facility registration
 - **Related URL**: /admin/facility
 
@@ -65,6 +70,26 @@
 - **Answer**: Follow these steps: 1. Register facility info (WiFi password, check-out time, etc.), 2. Review/edit initial FAQ templates, 3. Generate/print QR codes, 4. Test with sample questions. Takes about 30 minutes total. See the user manual for details.
 - **Keywords**: first login,initial setup,getting started,start,setup
 - **Related URL**: /admin/manual
+
+---
+
+### FAQ 3.5: setup_facility_contact_email
+
+**intent_key**: `setup_facility_contact_email`  
+**display_order**: 88  
+**category**: `setup`
+
+#### 日本語 (ja)
+- **質問**: ゲスト画面にメールアドレスを表示できますか？
+- **回答**: 施設設定の基本情報で「ゲスト画面にメールアドレスを表示する」をONにすると表示されます。OFFにするとゲストには表示されません。表示する場合は、ログイン用とは別の施設用メールアドレスを設定してください。同じメールアドレスでは保存できません。
+- **キーワード**: 施設設定,メールアドレス,ログイン,連絡先,ゲスト表示,専用メール
+- **関連URL**: /admin/facility/settings
+
+#### 英語 (en)
+- **Question**: Can I show the facility email on the guest screen?
+- **Answer**: In Facility Settings → Basic info, turn ON "Show email on guest screen" to display it. Turn OFF to hide it from guests. If you show it, set a facility or inquiry email different from your login email. You cannot save the same email as your login.
+- **Keywords**: facility settings,email,login,contact,guest display,dedicated email
+- **Related URL**: /admin/facility/settings
 
 ---
 

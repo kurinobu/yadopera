@@ -53,14 +53,33 @@ OPERATOR_FAQ_DATA = [
         'translations': {
             'ja': {
                 'question': '施設情報はどこで登録しますか？',
-                'answer': 'ログイン後、「設定」→「施設設定」から施設名、住所、チェックイン/アウト時間、WiFi情報、部屋数などを登録できます。これらの情報はゲストへの自動応答に使用されます。',
+                'answer': 'ログイン後、「設定」→「施設設定」から施設名、住所、チェックイン/アウト時間、WiFi情報、部屋数などを登録できます。これらの情報はゲストへの自動応答に使用されます。ゲストに表示するかは「ゲスト画面にメールアドレスを表示する」スイッチで変更できます。',
                 'keywords': '施設情報,施設設定,基本情報,WiFi設定,施設登録',
                 'related_url': '/admin/facility/settings'
             },
             'en': {
                 'question': 'Where do I register facility information?',
-                'answer': 'After login, go to "Settings" → "Facility Settings" to register facility name, address, check-in/out times, WiFi info, room count, etc. This information is used for automatic guest responses.',
+                'answer': 'After login, go to "Settings" → "Facility Settings" to register facility name, address, check-in/out times, WiFi info, room count, etc. This information is used for automatic guest responses. You can turn the "Show email on guest screen" switch on or off to show or hide the facility email to guests.',
                 'keywords': 'facility information,facility settings,basic info,WiFi settings,facility registration',
+                'related_url': '/admin/facility/settings'
+            }
+        }
+    },
+    {
+        'intent_key': 'setup_facility_contact_email',
+        'category': 'setup',
+        'display_order': 88,
+        'translations': {
+            'ja': {
+                'question': 'ゲスト画面にメールアドレスを表示できますか？',
+                'answer': '施設設定の基本情報で「ゲスト画面にメールアドレスを表示する」をONにすると表示されます。OFFにするとゲストには表示されません。表示する場合は、ログイン用とは別の施設用メールアドレスを設定してください。同じメールアドレスでは保存できません。',
+                'keywords': '施設設定,メールアドレス,ログイン,連絡先,ゲスト表示,専用メール',
+                'related_url': '/admin/facility/settings'
+            },
+            'en': {
+                'question': 'Can I show the facility email on the guest screen?',
+                'answer': 'In Facility Settings → Basic info, turn ON "Show email on guest screen" to display it. Turn OFF to hide it from guests. If you show it, set a facility or inquiry email different from your login email. You cannot save the same email as your login.',
+                'keywords': 'facility settings,email,login,contact,guest display,dedicated email',
                 'related_url': '/admin/facility/settings'
             }
         }

@@ -84,6 +84,7 @@ async def get_facility_settings(
             coupon_description=getattr(facility, "coupon_description", None),
             coupon_validity_months=getattr(facility, "coupon_validity_months", None),
             official_website_url=getattr(facility, "official_website_url", None),
+            show_email_on_guest_screen=getattr(facility, "show_email_on_guest_screen", True),
             created_at=facility.created_at,
             updated_at=facility.updated_at
         )
@@ -149,11 +150,24 @@ async def update_facility_settings(
         # 施設情報を更新
         update_data = request.dict(exclude_unset=True)
         
+        # 更新後の show_email_on_guest_screen を判定（同一メール禁止は ON のときのみ）
+        show_after = update_data.get("show_email_on_guest_screen")
+        if show_after is None:
+            show_after = getattr(facility, "show_email_on_guest_screen", True)
+        
+        # 同一メール禁止: ゲストに表示するが ON のとき、施設メールがログインメールと同一なら 400
+        if "email" in update_data and update_data["email"] is not None:
+            new_email = update_data["email"].strip()
+            if show_after and new_email.lower() == (current_user.email or "").strip().lower():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="施設の連絡先メールアドレスは、ログインに使用しているメールアドレスとは別のものを設定してください。"
+                )
+            facility.email = update_data["email"]
+        
         # 基本情報の更新
         if "name" in update_data and update_data["name"] is not None:
             facility.name = update_data["name"]
-        if "email" in update_data and update_data["email"] is not None:
-            facility.email = update_data["email"]
         if "phone" in update_data:
             facility.phone = update_data["phone"]
         if "address" in update_data:
@@ -206,6 +220,8 @@ async def update_facility_settings(
             facility.coupon_validity_months = update_data["coupon_validity_months"]
         if "official_website_url" in update_data:
             facility.official_website_url = update_data["official_website_url"]
+        if "show_email_on_guest_screen" in update_data and update_data["show_email_on_guest_screen"] is not None:
+            facility.show_email_on_guest_screen = update_data["show_email_on_guest_screen"]
         
         # スタッフ不在時間帯の更新
         if "staff_absence_periods" in update_data and update_data["staff_absence_periods"] is not None:
@@ -281,6 +297,7 @@ async def update_facility_settings(
             coupon_description=getattr(facility, "coupon_description", None),
             coupon_validity_months=getattr(facility, "coupon_validity_months", None),
             official_website_url=getattr(facility, "official_website_url", None),
+            show_email_on_guest_screen=getattr(facility, "show_email_on_guest_screen", True),
             created_at=facility.created_at,
             updated_at=facility.updated_at
         )

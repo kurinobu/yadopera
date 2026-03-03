@@ -53,6 +53,20 @@
             :maxlength="255"
             :error="errors.email"
           />
+          <div class="flex items-center space-x-2">
+            <input
+              id="show_email_on_guest_screen"
+              v-model="formData.show_email_on_guest_screen"
+              type="checkbox"
+              class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+            />
+            <label for="show_email_on_guest_screen" class="text-sm text-gray-700 dark:text-gray-300">
+              ゲスト画面にメールアドレスを表示する
+            </label>
+          </div>
+          <p v-if="formData.show_email_on_guest_screen" class="text-xs text-amber-600 dark:text-amber-400">
+            このメールアドレスはゲスト画面に表示されます。ログイン用のメールアドレスとは別の、施設用・問い合わせ用のメールアドレスを設定してください。
+          </p>
           <Input
             v-model="formData.phone"
             type="tel"
@@ -474,6 +488,8 @@ const isChangingPassword = ref(false)
 const error = ref<string | null>(null)
 const settings = ref<FacilitySettingsResponse | null>(null)
 const showWifiPassword = ref(false)
+/** ログインユーザーのメール（同一メール禁止チェック用） */
+const currentUserEmail = ref<string>('')
 
 // フォームデータ
 const formData = ref<{
@@ -494,6 +510,7 @@ const formData = ref<{
   coupon_description: string
   coupon_validity_months: number | null
   official_website_url: string
+  show_email_on_guest_screen: boolean
 }>({
   name: '',
   email: '',
@@ -511,7 +528,8 @@ const formData = ref<{
   coupon_discount_percent: null,
   coupon_description: '',
   coupon_validity_months: 6,
-  official_website_url: ''
+  official_website_url: '',
+  show_email_on_guest_screen: true
 })
 
 // パスワード変更フォーム
@@ -589,7 +607,15 @@ const fetchSettings = async () => {
       coupon_discount_percent: response.facility.coupon_discount_percent ?? null,
       coupon_description: response.facility.coupon_description ?? '',
       coupon_validity_months: response.facility.coupon_validity_months ?? 6,
-      official_website_url: response.facility.official_website_url ?? ''
+      official_website_url: response.facility.official_website_url ?? '',
+      show_email_on_guest_screen: response.facility.show_email_on_guest_screen ?? true
+    }
+    // ログインユーザーのメールを取得（同一メール禁止チェック用）
+    try {
+      const user = await authApi.getCurrentUser()
+      currentUserEmail.value = user.email ?? ''
+    } catch {
+      currentUserEmail.value = ''
     }
   } catch (err: any) {
     error.value = '施設設定の取得に失敗しました'
@@ -630,6 +656,15 @@ const handleSave = async () => {
     if (!formData.value.email || formData.value.email.trim().length === 0) {
       errors.value.email = 'メールアドレスは必須です'
       return
+    }
+    // ゲストに表示するが ON のとき、施設メールがログインメールと同一ならエラー
+    if (formData.value.show_email_on_guest_screen && currentUserEmail.value) {
+      const facilityEmail = formData.value.email.trim().toLowerCase()
+      const loginEmail = currentUserEmail.value.trim().toLowerCase()
+      if (facilityEmail === loginEmail) {
+        errors.value.email = '施設の連絡先メールは、ログインに使用しているメールアドレスとは別のものを設定してください。'
+        return
+      }
     }
     
     // WiFiパスワードが空の場合は送信しない
@@ -714,7 +749,7 @@ const handleCancel = () => {
   router.push('/admin/dashboard')
 }
 
-// 初期化
+// 初期化（fetchSettings 内で getCurrentUser も呼ぶ）
 onMounted(() => {
   fetchSettings()
 })

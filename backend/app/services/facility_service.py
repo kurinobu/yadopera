@@ -162,11 +162,12 @@ class FacilityService:
                 validity_months=getattr(facility, "coupon_validity_months", None),
             )
         
+        show_email = getattr(facility, "show_email_on_guest_screen", True)
         return FacilityPublicResponse(
             id=facility.id,
             name=facility.name,
             slug=facility.slug,
-            email=facility.email,
+            email=facility.email if show_email else None,
             phone=facility.phone,
             check_in_time=check_in_time_str,
             check_out_time=check_out_time_str,
