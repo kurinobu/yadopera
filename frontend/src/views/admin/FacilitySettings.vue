@@ -75,6 +75,9 @@
             :maxlength="50"
             :error="errors.phone"
           />
+          <p class="text-xs text-gray-600 dark:text-gray-400">
+            この電話番号は入力して保存するとゲスト画面に表示されます。
+          </p>
           <Input
             v-model="formData.address"
             type="textarea"
