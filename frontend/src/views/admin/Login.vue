@@ -20,6 +20,16 @@
           @submit="handleLogin"
         />
 
+        <!-- パスワードを忘れた場合 -->
+        <div class="mt-4 text-center">
+          <router-link
+            to="/admin/password-reset"
+            class="text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            パスワードを忘れた場合はこちら
+          </router-link>
+        </div>
+
         <!-- フッター -->
         <div class="mt-6 text-center">
           <p class="text-xs text-gray-500 dark:text-gray-400">

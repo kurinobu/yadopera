@@ -42,6 +42,24 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/password-reset',
+    name: 'AdminPasswordResetRequest',
+    component: () => import('@/views/admin/PasswordResetRequest.vue'),
+    meta: {
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/admin/password-reset/confirm',
+    name: 'AdminPasswordResetConfirm',
+    component: () => import('@/views/admin/PasswordResetConfirm.vue'),
+    meta: {
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
     path: '/admin',
     redirect: '/admin/dashboard',
     meta: {

@@ -54,3 +54,17 @@ export interface ResendVerificationResponse {
   email: string
 }
 
+export interface PasswordResetRequest {
+  email: string
+}
+
+export interface PasswordResetConfirmRequest {
+  token: string
+  new_password: string
+  confirm_password: string
+}
+
+export interface PasswordResetResponse {
+  message: string
+}
+

@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 
 # メモリベースの簡易レート制限（本番ではRedis推奨）
 _resend_attempts: Dict[str, datetime] = {}
+_password_reset_attempts: Dict[str, datetime] = {}
 
 
 def check_resend_rate_limit(email: str, cooldown_seconds: int = 60):
@@ -41,24 +42,61 @@ def check_resend_rate_limit(email: str, cooldown_seconds: int = 60):
     logger.info(f"Rate limit check passed: email={email}")
 
 
+def check_password_reset_rate_limit(email: str, cooldown_seconds: int = 60):
+    """
+    パスワードリセット依頼のレート制限チェック
+
+    Args:
+        email: メールアドレス
+        cooldown_seconds: クールダウン秒数（デフォルト60秒）
+
+    Raises:
+        HTTPException: レート制限超過時
+    """
+    now = datetime.utcnow()
+    last_attempt = _password_reset_attempts.get(email)
+
+    if last_attempt and (now - last_attempt).total_seconds() < cooldown_seconds:
+        remaining = cooldown_seconds - int((now - last_attempt).total_seconds())
+        logger.warning(
+            f"Password reset rate limit exceeded: email={email}, remaining={remaining}s"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Please wait {remaining} seconds before requesting another password reset."
+        )
+
+    _password_reset_attempts[email] = now
+    logger.info(f"Password reset rate limit check passed: email={email}")
+
+
 def cleanup_old_attempts(max_age_minutes: int = 60):
     """
     古いレート制限記録を削除（メモリ節約）
-    
+    確認メール再送・パスワードリセット依頼の両方の記録を対象とする。
+
     Args:
         max_age_minutes: 削除対象の経過時間（分）
     """
     now = datetime.utcnow()
     cutoff = now - timedelta(minutes=max_age_minutes)
-    
-    old_keys = [
+
+    old_resend = [
         email for email, timestamp in _resend_attempts.items()
         if timestamp < cutoff
     ]
-    
-    for email in old_keys:
+    for email in old_resend:
         del _resend_attempts[email]
-    
-    if old_keys:
-        logger.info(f"Cleaned up {len(old_keys)} old rate limit records")
+
+    old_reset = [
+        email for email, timestamp in _password_reset_attempts.items()
+        if timestamp < cutoff
+    ]
+    for email in old_reset:
+        del _password_reset_attempts[email]
+
+    if old_resend or old_reset:
+        logger.info(
+            f"Cleaned up {len(old_resend)} resend, {len(old_reset)} password reset rate limit records"
+        )
 

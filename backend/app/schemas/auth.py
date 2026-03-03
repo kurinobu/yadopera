@@ -111,3 +111,26 @@ class ResendVerificationResponse(BaseModel):
     """
     message: str = Field(..., description="再送信完了メッセージ")
     email: str = Field(..., description="送信先メールアドレス")
+
+
+class PasswordResetRequest(BaseModel):
+    """
+    パスワードリセット依頼リクエスト
+    """
+    email: EmailStr = Field(..., description="登録済みメールアドレス")
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    """
+    パスワードリセット確定リクエスト
+    """
+    token: str = Field(..., min_length=1, description="リセットトークン（メール内リンクのtoken）")
+    new_password: str = Field(..., min_length=8, description="新しいパスワード（最小8文字）")
+    confirm_password: str = Field(..., min_length=8, description="新しいパスワード（確認）")
+
+
+class PasswordResetResponse(BaseModel):
+    """
+    パスワードリセット依頼・確定の共通レスポンス
+    """
+    message: str = Field(..., description="完了メッセージ")

@@ -14,10 +14,11 @@ from app.core.security import verify_password, hash_password
 from app.core.jwt import create_access_token
 from app.core.config import settings
 from app.schemas.auth import (
-    LoginRequest, LoginResponse, UserResponse, 
+    LoginRequest, LoginResponse, UserResponse,
     FacilityRegisterRequest, FacilityRegisterResponse,
     VerifyEmailRequest, VerifyEmailResponse,
-    ResendVerificationRequest, ResendVerificationResponse
+    ResendVerificationRequest, ResendVerificationResponse,
+    PasswordResetResponse
 )
 from app.schemas.faq import FAQRequest
 from app.services.faq_service import FAQService
@@ -717,6 +718,106 @@ class AuthService:
         return ResendVerificationResponse(
             message="Verification email resent successfully. Please check your inbox.",
             email=user.email
+        )
+
+    @staticmethod
+    async def request_password_reset(db: AsyncSession, email: str) -> PasswordResetResponse:
+        """
+        パスワードリセット依頼処理。
+        ユーザーが存在しない場合も同じ成功メッセージを返す（情報漏れ防止）。
+        """
+        result = await db.execute(
+            select(User).where(User.email == email, User.is_active == True)
+        )
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            logger.info(f"Password reset requested for unknown email: {email}")
+            return PasswordResetResponse(
+                message="If an account exists for this email, you will receive a password reset link."
+            )
+
+        token = str(uuid.uuid4())
+        expires = datetime.now(timezone.utc) + timedelta(hours=1)
+        user.password_reset_token = token
+        user.password_reset_expires = expires
+        await db.commit()
+        await db.refresh(user)
+
+        reset_url = f"{settings.frontend_url}/admin/password-reset/confirm?token={token}"
+        to_name = user.full_name or user.email
+
+        try:
+            if settings.brevo_api_key:
+                email_service = EmailService()
+                await email_service.send_password_reset_email(
+                    to_email=user.email,
+                    to_name=to_name,
+                    reset_url=reset_url
+                )
+                logger.info(f"Password reset email sent: user_id={user.id}, email={user.email}")
+            else:
+                logger.warning(
+                    "BREVO_API_KEY not set; password reset email not sent. "
+                    f"user_id={user.id}, reset_url={reset_url}"
+                )
+        except Exception as e:
+            logger.error(
+                f"Failed to send password reset email: user_id={user.id}, "
+                f"email={user.email}, error={str(e)}",
+                exc_info=True
+            )
+
+        return PasswordResetResponse(
+            message="If an account exists for this email, you will receive a password reset link."
+        )
+
+    @staticmethod
+    async def confirm_password_reset(
+        db: AsyncSession,
+        token: str,
+        new_password: str,
+        confirm_password: str
+    ) -> PasswordResetResponse:
+        """
+        パスワードリセット確定処理。
+        トークン検証後、パスワードを更新しトークンを無効化する。
+        """
+        if new_password != confirm_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password and confirm password do not match"
+            )
+        if len(new_password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long"
+            )
+
+        now = datetime.now(timezone.utc)
+        result = await db.execute(
+            select(User).where(
+                User.password_reset_token == token,
+                User.password_reset_expires > now
+            )
+        )
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired token"
+            )
+
+        user.password_hash = hash_password(new_password)
+        user.password_reset_token = None
+        user.password_reset_expires = None
+        await db.commit()
+
+        logger.info(f"Password reset completed: user_id={user.id}, email={user.email}")
+
+        return PasswordResetResponse(
+            message="Password has been reset successfully."
         )
 
     @staticmethod

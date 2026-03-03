@@ -129,15 +129,15 @@ OPERATOR_FAQ_DATA = [
         'translations': {
             'ja': {
                 'question': 'パスワードを忘れた場合は？',
-                'answer': '現在、パスワードリセット機能は実装されていません。パスワードを忘れた場合は、管理画面右下の「サポート」ボタンから、施設管理者専用問い合わせフォームにアクセスしてお問い合わせください。',
+                'answer': 'ログイン画面の「パスワードを忘れた場合はこちら」から、登録メールアドレスを入力してリセット用メールを請求してください。メール内のリンクから新しいパスワードを設定できます。',
                 'keywords': 'パスワード忘れ,パスワードリセット,ログインできない,パスワード再設定',
-                'related_url': None
+                'related_url': '/admin/password-reset'
             },
             'en': {
                 'question': 'What if I forget my password?',
-                'answer': 'Password reset functionality is currently not implemented. If you forget your password, please contact us via the support form accessible from the "Support" button at the bottom-right of the admin panel.',
+                'answer': "On the login screen, click 'Forgot password?' and enter your registered email to request a reset link. You can set a new password from the link in the email.",
                 'keywords': 'forgot password,password reset,cannot login,reset password',
-                'related_url': None
+                'related_url': '/admin/password-reset'
             }
         }
     },

@@ -7,13 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
 from app.api.deps import get_current_user
-from app.core.rate_limit import check_resend_rate_limit
+from app.core.rate_limit import check_resend_rate_limit, check_password_reset_rate_limit
 from app.schemas.auth import (
-    LoginRequest, LoginResponse, LogoutResponse, UserResponse, 
+    LoginRequest, LoginResponse, LogoutResponse, UserResponse,
     PasswordChangeRequest, PasswordChangeResponse,
     FacilityRegisterRequest, FacilityRegisterResponse,
     VerifyEmailRequest, VerifyEmailResponse,
-    ResendVerificationRequest, ResendVerificationResponse
+    ResendVerificationRequest, ResendVerificationResponse,
+    PasswordResetRequest, PasswordResetConfirmRequest, PasswordResetResponse
 )
 from app.services.auth_service import AuthService
 from app.models.user import User
@@ -214,6 +215,45 @@ async def resend_verification_email(
     """
     # 🔴 レート制限チェック
     check_resend_rate_limit(request.email, cooldown_seconds=60)
-    
+
     return await AuthService.resend_verification_email(db, request)
+
+
+@router.post("/password-reset", response_model=PasswordResetResponse)
+async def request_password_reset(
+    request: PasswordResetRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    パスワードリセット依頼
+
+    - **email**: 登録済みメールアドレス
+
+    該当ユーザーにリセット用メールを送信します（ユーザー不在時も同じ成功メッセージを返します）。
+    レート制限: 同一メールアドレスで60秒に1回まで。
+    """
+    check_password_reset_rate_limit(request.email, cooldown_seconds=60)
+    return await AuthService.request_password_reset(db, request.email)
+
+
+@router.post("/password-reset/confirm", response_model=PasswordResetResponse)
+async def confirm_password_reset(
+    request: PasswordResetConfirmRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    パスワードリセット確定
+
+    - **token**: リセットトークン（メール内リンクの token パラメータ）
+    - **new_password**: 新しいパスワード（最小8文字）
+    - **confirm_password**: 新しいパスワード（確認）
+
+    トークンが有効な場合、パスワードを更新します。
+    """
+    return await AuthService.confirm_password_reset(
+        db,
+        request.token,
+        request.new_password,
+        request.confirm_password
+    )
 

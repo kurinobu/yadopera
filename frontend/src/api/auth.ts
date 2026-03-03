@@ -3,10 +3,11 @@
  */
 
 import apiClient from './axios'
-import type { 
+import type {
   LoginRequest, RegisterRequest, LoginResponse, User,
   FacilityRegisterResponse, VerifyEmailRequest, VerifyEmailResponse,
-  ResendVerificationRequest, ResendVerificationResponse
+  ResendVerificationRequest, ResendVerificationResponse,
+  PasswordResetRequest, PasswordResetConfirmRequest, PasswordResetResponse
 } from '@/types/auth'
 import type { PasswordChangeRequest } from '@/types/facility'
 
@@ -63,6 +64,22 @@ export const authApi = {
    */
   async changePassword(data: PasswordChangeRequest): Promise<void> {
     await apiClient.put('/auth/password', data)
+  },
+
+  /**
+   * パスワードリセット依頼
+   */
+  async requestPasswordReset(data: PasswordResetRequest): Promise<PasswordResetResponse> {
+    const response = await apiClient.post<PasswordResetResponse>('/auth/password-reset', data)
+    return response.data
+  },
+
+  /**
+   * パスワードリセット確定
+   */
+  async confirmPasswordReset(data: PasswordResetConfirmRequest): Promise<PasswordResetResponse> {
+    const response = await apiClient.post<PasswordResetResponse>('/auth/password-reset/confirm', data)
+    return response.data
   }
 }
 
