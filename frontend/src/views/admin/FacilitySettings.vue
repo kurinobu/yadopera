@@ -406,6 +406,7 @@
             placeholder="現在のパスワードを入力"
             :required="true"
             :error="passwordErrors.current_password"
+            :show-password-toggle="true"
           />
           <Input
             v-model="passwordForm.new_password"
@@ -415,6 +416,7 @@
             :required="true"
             :minlength="8"
             :error="passwordErrors.new_password"
+            :show-password-toggle="true"
           />
           <Input
             v-model="passwordForm.confirm_password"
@@ -424,6 +426,7 @@
             :required="true"
             :minlength="8"
             :error="passwordErrors.confirm_password"
+            :show-password-toggle="true"
           />
           <button
             type="button"

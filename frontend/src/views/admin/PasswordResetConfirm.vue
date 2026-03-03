@@ -61,6 +61,7 @@
             placeholder="8文字以上"
             :required="true"
             :error="errors.new_password"
+            :show-password-toggle="true"
           />
           <Input
             v-model="confirmPassword"
@@ -69,6 +70,7 @@
             placeholder="同じパスワードを再入力"
             :required="true"
             :error="errors.confirm_password"
+            :show-password-toggle="true"
           />
 
           <div

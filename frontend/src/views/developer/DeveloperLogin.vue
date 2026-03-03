@@ -23,20 +23,15 @@
 
         <!-- ログインフォーム -->
         <form @submit.prevent="handleLogin" class="space-y-4">
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              パスワード / Password
-            </label>
-            <input
-              id="password"
-              v-model="password"
-              type="password"
-              required
-              :disabled="isLoading"
-              class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50"
-              placeholder="開発者パスワードを入力"
-            />
-          </div>
+          <Input
+            v-model="password"
+            type="password"
+            label="パスワード / Password"
+            placeholder="開発者パスワードを入力"
+            :required="true"
+            :disabled="isLoading"
+            :show-password-toggle="true"
+          />
 
           <button
             type="submit"
@@ -63,6 +58,7 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDeveloperStore } from '@/stores/developer'
+import Input from '@/components/common/Input.vue'
 
 const router = useRouter()
 const developerStore = useDeveloperStore()

@@ -46,20 +46,14 @@
           </div>
 
           <!-- パスワード -->
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              パスワード / Password
-            </label>
-            <input
-              id="password"
-              v-model="form.password"
-              type="password"
-              required
-              minlength="8"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="8文字以上"
-            />
-          </div>
+          <Input
+            v-model="form.password"
+            type="password"
+            label="パスワード / Password"
+            placeholder="8文字以上"
+            :required="true"
+            :show-password-toggle="true"
+          />
 
           <!-- 料金プラン -->
           <div>
@@ -131,6 +125,7 @@ import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
+import Input from '@/components/common/Input.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

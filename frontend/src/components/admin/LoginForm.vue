@@ -20,6 +20,7 @@
       :required="true"
       :error="errors.password"
       :disabled="isLoading"
+      :show-password-toggle="true"
     />
 
     <!-- エラーメッセージ -->
