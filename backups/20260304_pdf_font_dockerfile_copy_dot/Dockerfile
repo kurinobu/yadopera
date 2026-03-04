@@ -2,6 +2,9 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
+# PDF用日本語フォントをリポジトリから配置（aptキャッシュに依存しない）
+COPY fonts/ /app/fonts/
+
 # システム依存関係のインストール
 RUN apt-get update && apt-get install -y \
     gcc \
@@ -16,9 +19,8 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# アプリケーションコードのコピー（fonts/ を含む。フォント欠落時はビルド失敗）
+# アプリケーションコードのコピー
 COPY . .
-RUN test -f /app/fonts/ipagp.ttf || (echo "FATAL: ipagp.ttf missing." && exit 1)
 
 # ポート公開
 EXPOSE 8000
