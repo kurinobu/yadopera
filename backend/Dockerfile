@@ -2,10 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# PDF用日本語フォントをリポジトリから配置（aptキャッシュに依存しない）
-COPY fonts/ /app/fonts/
-
-# システム依存関係のインストール
+# システム依存関係のインストール（フォントは /app/fonts にコピーして確実に参照）
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
@@ -13,7 +10,9 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-cjk \
     fonts-ipafont \
     fonts-ipafont-gothic \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /app/fonts \
+    && cp /usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf /app/fonts/
 
 # Python依存関係のコピーとインストール
 COPY requirements.txt .
