@@ -16,9 +16,17 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# アプリケーションコードのコピー（fonts/ を含む。フォント欠落時はビルド失敗）
-COPY . .
+# キャッシュ無効化: RENDER_GIT_COMMIT は Render がビルド時に注入。未設定時は CACHEBUST を利用
+ARG RENDER_GIT_COMMIT=
+ARG CACHEBUST=1
+RUN echo "${RENDER_GIT_COMMIT:-$CACHEBUST}" > /tmp/cachebust
+
+# PDF用日本語フォントを単体でコピー（必ず実行され /app/fonts/ に配置）
+COPY fonts/ /app/fonts/
 RUN test -f /app/fonts/ipagp.ttf || (echo "FATAL: ipagp.ttf missing." && exit 1)
+
+# アプリケーションコードのコピー
+COPY . .
 
 # ポート公開
 EXPOSE 8000
