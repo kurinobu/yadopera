@@ -357,6 +357,8 @@ class QRCodeService:
                     
                     # 利用可能な日本語フォントを確認（優先順位順）
                     # 先頭: Dockerfile で /app/fonts にコピーしたパス（ステージング等で確実に存在）
+                    # 利用可能な日本語フォントを確認（優先順位順）
+                    # 先頭: Dockerfile で /app/fonts にコピーしたパス（ステージング等で確実に存在）
                     japanese_font_paths = [
                         "/app/fonts/ipagp.ttf",  # Dockerfile でコピーした IPA ゴシック（最優先）
                         "/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",  # IPAゴシック（opentype）
