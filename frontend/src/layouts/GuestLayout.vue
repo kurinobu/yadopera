@@ -35,7 +35,9 @@ const facilityStore = useFacilityStore()
 
 const facilityId = computed(() => route.params.facilityId as string)
 const facility = computed(() => facilityStore.currentFacility)
-const showOptionFooter = computed(() => !!facility.value?.coupon?.enabled)
+const showOptionFooter = computed(
+  () => !!facility.value?.coupon?.enabled || facility.value?.plan_type === 'Free'
+)
 /** ゲストが選択した言語（固定フッター・モーダルの表示言語に使用） */
 const guestLang = computed(() => (route.query.lang as string) || 'en')
 

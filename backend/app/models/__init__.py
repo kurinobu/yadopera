@@ -24,6 +24,7 @@ from app.models.error_log import ErrorLog
 from app.models.admin_activity_log import AdminActivityLog
 from app.models.faq_view_log import FAQViewLog
 from app.models.guest_lead import GuestLead
+from app.models.ad import Ad
 
 __all__ = [
     "Base",
@@ -49,5 +50,6 @@ __all__ = [
     "AdminActivityLog",
     "FAQViewLog",
     "GuestLead",
+    "Ad",
 ]
 

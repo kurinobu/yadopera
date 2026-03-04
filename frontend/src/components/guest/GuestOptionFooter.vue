@@ -4,7 +4,7 @@
     class="fixed bottom-0 left-0 right-0 z-30 bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 safe-area-pb"
   >
     <div class="overflow-x-auto scrollbar-hide">
-      <div class="flex gap-3 px-4 py-3 min-w-max">
+      <div class="flex gap-3 px-4 py-3 min-w-max items-center">
         <!-- クーポンCTA（有効時のみ） -->
         <button
           v-if="showCoupon"
@@ -14,7 +14,19 @@
         >
           🎁 {{ copy.couponButton }}
         </button>
-        <!-- 後続オプション（延長・延泊等）はここに同じ並びで追加し、横幅不足時は横スライド -->
+        <!-- Freeプラン広告（タイトルにPR含む。タップしたくなるCTAカラー） -->
+        <template v-if="isFreePlan">
+          <a
+            v-for="ad in ads"
+            :key="ad.id"
+            :href="ad.affiliate_url"
+            target="_blank"
+            rel="nofollow sponsored noopener"
+            class="flex-shrink-0 px-5 py-3 rounded-xl bg-blue-500 hover:bg-blue-600 text-white font-medium shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 dark:focus:ring-offset-gray-800 transition-colors"
+          >
+            {{ ad.title }}
+          </a>
+        </template>
       </div>
     </div>
     <CouponEntryModal
@@ -29,9 +41,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import CouponEntryModal from './CouponEntryModal.vue'
 import { getCouponCopy } from '@/utils/couponCopy'
+import { adsApi, type AdItem } from '@/api/ads'
 import type { Facility } from '@/types/facility'
 
 const props = withDefaults(
@@ -45,17 +58,36 @@ const props = withDefaults(
 )
 
 const couponModalOpen = ref(false)
+const ads = ref<AdItem[]>([])
 
 const showCoupon = computed(() => {
   return props.facility?.coupon?.enabled === true
 })
 
+const isFreePlan = computed(() => props.facility?.plan_type === 'Free')
+
 const showFooter = computed(() => {
-  return showCoupon.value
+  return showCoupon.value || isFreePlan.value
 })
 
 const facilityName = computed(() => props.facility?.name ?? '')
 const copy = computed(() => getCouponCopy(props.lang ?? 'en'))
+
+async function fetchAds() {
+  if (!isFreePlan.value || !props.facilitySlug) {
+    ads.value = []
+    return
+  }
+  try {
+    const res = await adsApi.getAds({ facility_slug: props.facilitySlug })
+    ads.value = res.ads ?? []
+  } catch {
+    ads.value = []
+  }
+}
+
+onMounted(() => fetchAds())
+watch(() => [props.facilitySlug, props.facility?.plan_type], () => fetchAds(), { deep: true })
 
 function openCouponModal() {
   couponModalOpen.value = true
