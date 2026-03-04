@@ -4,6 +4,7 @@ WORKDIR /app
 
 # PDF用日本語フォントをリポジトリから配置（aptキャッシュに依存しない）
 COPY fonts/ /app/fonts/
+RUN test -f /app/fonts/ipagp.ttf || (echo "FATAL: ipagp.ttf missing. Clear Render build cache and rebuild." && exit 1)
 
 # システム依存関係のインストール
 RUN apt-get update && apt-get install -y \
