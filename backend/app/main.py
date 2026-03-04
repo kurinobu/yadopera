@@ -5,6 +5,7 @@ from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.debug_env import router as debug_router
 from app.database import check_db_connection
 from app.services.operator_faq_service import OperatorFaqService
 from app.database import AsyncSessionLocal
@@ -278,4 +279,6 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # APIルーター登録
 app.include_router(api_router, prefix="/api/v1")
+# 実行環境同一性確定用（Phase 1 Step 1。原因確定後に削除すること）
+app.include_router(debug_router)
 
