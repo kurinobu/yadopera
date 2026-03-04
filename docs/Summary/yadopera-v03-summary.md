@@ -1,84 +1,18 @@
 # やどぺら v0.3 要約定義書
 
 **作成日**: 2025年11月21日  
-**最終更新日**: 2026年3月4日  
-**バージョン**: v0.3.28  
+**最終更新日**: 2026年2月28日  
+**バージョン**: v0.3.22  
 **ベース**: v0.21要約定義書
 
 ---
-
-## 変更履歴 v0.3.27 → v0.3.28（2026-03-04）
-
-1. **QRコード YadOPERA 縦位置・Notoフォント・SVGフォントサイズ（実施完了）**:
-   - **目的**: QRコード中央余白内の「YadOPERA」を上下中央に配置し、モダンなフォント（Noto Sans）に変更。SVG の横はみ出しを防ぐためフォントサイズを縮小。
-   - **実装**: バックエンド `qr_code_service.py` で PNG/PDF は `anchor="mm"` で中央描画・YadOPERA 用フォントを Noto Sans Bold → DejaVu Sans Bold の優先でロード。SVG は `dominant-baseline="middle"` と縦オフセット・`font_size = width/20` で余白内に収める。Dockerfile に `fonts-noto-core` を追加。
-   - **参照**: `docs/qrcode_design_plan/QRコード_縦位置とNoto_実施記録_20260304.md`、`docs/qrcode_design_plan/QRコード_YadOPERAテキスト_Notoフォント実装準備.md`、`docs/qrcode_design_plan/QRコード_SVG_表示差と修正可否_調査.md`。
-
----
-
-## 変更履歴 v0.3.26 → v0.3.27（2026-03-04）
-
-1. **Freeプラン ゲスト画面固定フッター広告（実施完了）**:
-   - **目的**: Free ユーザー収益化・有料プランへのアップグレード動機形成（広告非表示を有料特典とする）。
-   - **実装**: バックエンドに ads テーブル（マイグレーション 019・020）、GET /api/v1/ads（施設が Free のときのみ広告返却）、楽天トラベル1件シード。フロントに api/ads.ts、GuestLayout（Free 時も固定フッター表示）、GuestOptionFooter（Free 時のみ広告リンク表示・青 CTA・PR はタイトルに含む）。
-   - **コミット**: fb18114（develop）。
-   - **デプロイ**: 完了。ステージングへデプロイ済み。
-   - **ブラウザテスト**: 完了。期待する表示と動作を確認済み。Free プランのみ固定フッターに「PR：次の旅行先の宿を探す（楽天トラベル）」リンクが表示され、Mini 以上では非表示。
-   - 参照: `docs/freeプラン戦略/Freeプラン広告_実装方針.md`、`docs/freeプラン戦略/free_plan_ad_strategy.md`。
-
----
-
-## 変更履歴 v0.3.25 → v0.3.26（2026-03-03）
-
-1. **パスワード見える化（実施完了）**:
-   - **実装**: 共通 `Input.vue` に `showPasswordToggle` を追加。`type="password"` かつ有効時のみ右側に目アイコンを表示し、クリックで表示/非表示を切替。エラー時は右側エラーアイコンを出さず下メッセージのみ（大原則準拠）。
-   - **対象画面**: ログイン（LoginForm）、新規登録（Register）、パスワードリセット確認（PasswordResetConfirm）、施設設定パスワード変更（FacilitySettings）、開発者ログイン（DeveloperLogin）。Register・DeveloperLogin はパスワード欄をネイティブ input から共通 Input に差し替え。
-   - **バックアップ**: 各ステップで `backups/20260303_password_visibility_stepN_*` に保存済み。
-   - **コミット**: 6e7be60（develop）。デプロイ完了・ステージングでブラウザテスト完了。期待する表示と動作を確認済み。
-   - 参照: `docs/パスワード見える化_大原則準拠_実装計画.md`、`docs/パスワード見える化_Step7_ブラウザテスト手順.md`、`docs/20260303_パスワード見える化_作業完了報告.md`。
-
----
-
-## 変更履歴 v0.3.24 → v0.3.25（2026-03-03）
-
-1. **施設設定メール表示スイッチ・ゲスト表示まわり（実施完了）**:
-   - **ゲスト表示スイッチ**: 施設設定に「ゲスト画面にメールアドレスを表示する」ON/OFF を追加（Step 1〜5 完了）。DB migration 018、バックエンド（モデル・スキーマ・facility_service・admin API・auth_service）、フロント（型・FacilitySettings・FacilityHeader）、Manual（6.1/6.2/6.4）、ヘルプFAQ（setup_facility_contact_email 追加・setup_facility_info 追記）を反映。デプロイ・ブラウザテスト完了。
-   - **メールアイコンのみ残る不具合**: メール非表示時にアイコンのみ表示される事象を修正。FacilityHeader で電話・メールの表示条件を `(value ?? '').toString().trim() !== ''` に統一。デプロイ・ブラウザテスト完了。
-   - **電話番号の但し書き**: 施設設定の電話番号入力欄直下に「この電話番号は入力して保存するとゲスト画面に表示されます。」を追加。デプロイ・ブラウザテスト完了。
-   - 参照: `docs/施設設定メールアドレス_ゲスト表示スイッチ_実装計画.md`、`docs/施設設定_ゲスト画面メールアイコンのみ残る不具合_調査と修正案.md`、`docs/施設設定_電話番号ゲスト表示の但し書き_修正案.md`。
-
-2. **パスワード忘れ（リセット）機能（実施完了）**:
-   - **実装**: バックエンド（スキーマ・メール送信・レート制限 60 秒・AuthService・POST /auth/password-reset, /auth/password-reset/confirm）、フロント（型・API・ルート・PasswordResetRequest/Confirm 画面・ログイン画面の「パスワードを忘れた場合はこちら」導線）、マニュアル 2.4「パスワードを忘れた場合」、FAQ（setup_password_reset の回答・related_url）を追加。コミット 9e73f2e（develop）、ステージングデプロイ完了。
-   - **ステージング 404 事象**: メール内リンクで `/admin/password-reset/confirm` にアクセスすると 404 が発生。原因を **Service Worker（PWA）キャッシュ** と特定（古い index.html/JS が SW から返され、新ルートが含まれないため）。サイトデータ消去（またはシークレットウィンドウ）で最新を読むと解消。期待する表示・動作を確認完了。
-   - **見える化**: 2026-03-03 に実施完了（上記 v0.3.25→v0.3.26 を参照）。
-   - 参照: `docs/パスワードリセット機能_大原則準拠_実装計画.md`、`docs/パスワードリセット_ブラウザテスト手順.md`、`docs/パスワードリセット_ステージング404_原因と修正案.md`。
-
----
-
-## 変更履歴 v0.3.23 → v0.3.24（2026-03-02）
-
-1. **施設管理者向けヘルプFAQ マニュアル水準化（実施完了）**:
-   - ヘルプチャットのFAQを利用マニュアルと同等の網羅性・正確性に拡充。**30項目・8カテゴリ → 48項目・11カテゴリ**に増強。
-   - 実施内容: 既存12項目の修正（2026-01-20精査）、プラン・請求5件追加、スタッフ不在時間帯キュー4件、ダッシュボード・施設設定・ゲスト・運用8件追加。該当ページへ移動の404を解消（related_url を `/admin/billing` に統一）。カテゴリ表示の英混在を解消（overnight_queue/guest/practice を「スタッフ不在キュー」「ゲストの使い方」「運用のコツ」に日本語ラベル化）。
-   - デプロイ・ステージングDB反映（update_operator_faqs.py）・backend 再起動・ブラウザテスト完了。期待する表示と動作を確認済み。
-   - 参照: `docs/施設管理者向けヘルプチャットFAQ_マニュアル水準化_調査と計画.md`、`docs/help_system_faq_data.md`。
-
----
-
-## 変更履歴 v0.3.22 → v0.3.23（2026-02-28）
-
-1. **Phase 4 Stripe 実装（Phase F 完了）**:
-   - **Phase F 完了**: ステージングデプロイ・入念テスト（#1〜#11）をすべて実施・記録済み。
-   - **#7 Webhook DB 更新検証**: 実施者が `phaseF_verify_webhook_db_after_cancel.py --expect-canceled` を実行し、解約後の DB 状態（stripe_subscription_id=NULL, plan_type=Free 等）を確認。OK。
-   - **#11 従量課金メーター実機確認**: メーター送信で `stripe.api_requestor` の AttributeError が発生していた不具合を修正（6a57c55）。`stripe.billing.MeterEvent.create()` または httpx で `/v1/billing/meter_events` に POST する方式に変更。デプロイ後、Mini プラン施設でゲストチャット2件送信→Stripe ダッシュボードで2件のイベント記録を目視確認。Phase F 完了。
-   - 関連文書を更新: Phase4_PhaseE完了_PhaseF開始準備、Phase4_PhaseF_テスト手順、Stripe実装計画の実施記録。次は本番 Stripe 導入または Phase 4 他項目。
 
 ## 変更履歴 v0.3.21 → v0.3.22（2026-02-28）
 
 1. **Phase 4 Stripe 実装（Phase F 進行）**:
    - **Phase F #2 新規登録時 Stripe Customer**: 実装完了。`auth_service.register_facility_async_stripe` を追加。有料プラン（Mini/Small/Standard/Premium）で新規登録した場合、コミット後に別トランザクションで Stripe Customer および Subscription を作成し DB を更新。Free プラン・Stripe 未設定時はスキップ。失敗時はログのみで施設はそのまま（プラン変更 API で後から補完可能）。バックアップ: `backups/20260228_phaseF_stripe_customer_on_register/`。
    - **Phase F #1 ステージング**: Webhook 署名検証をステージングで実行済み。`API_BASE_URL=https://yadopera-backend-staging.onrender.com python backend/scripts/verify_phaseF_webhook_signature.py` で 2 件とも 400 を確認。
-   - 残課題: #7 Webhook DB 更新検証、#11 メーター実機確認。#2 はデプロイ後の動作確認を推奨。→ v0.3.23 で Phase F 完了。
+   - 残課題: #7 Webhook DB 更新検証、#11 メーター実機確認。#2 はデプロイ後の動作確認を推奨。
 
 ## 変更履歴 v0.3.20 → v0.3.21（2026-02-27）
 
@@ -966,7 +900,7 @@ updated_at TIMESTAMP
   - 設定画面リンク自動返却
   - サポート工数70%削減目標（PoC期間中のサポート工数削減）
   - データベースセットアップ完了、Backend API実装完了、Frontend実装完了、統合テスト・ブラウザテスト完了、ステージング環境デプロイ完了（2025-01-14）
-  - FAQ全30項目修正完了（2026-01-18）、デプロイ後FAQ自動更新機能実装完了（2026-01-18）。**2026-03**: マニュアル水準化で48項目・11カテゴリに拡充、該当ページ404修正・カテゴリ表示日本語統一完了（v0.3.24）
+  - FAQ全30項目修正完了（2026-01-18）、デプロイ後FAQ自動更新機能実装完了（2026-01-18）
 - **開発者管理ページ実装**★新規
   - 契約宿泊管理者のエラーやスコアなどが閲覧できる統括ページ
   - 全施設のパフォーマンス指標を一覧表示
@@ -1476,11 +1410,11 @@ updated_at TIMESTAMP
 
 ---
 
-**Document Version**: v0.3.27  
+**Document Version**: v0.3.18  
 **Based on**: v0.21 要約定義書  
 **Author**: Air  
-**Last Updated**: 2026年3月4日  
-**Status**: Phase 3 PoC実行中。Freeプラン ゲスト画面固定フッター広告を実装・デプロイ・ブラウザテスト完了（2026-03-04）。
+**Last Updated**: 2026年2月19日  
+**Status**: Phase 3 PoC実行中（ステージング PoC施設2件を Mini→Premium に運用で変更済み）
 
 ---
 
@@ -1503,4 +1437,3 @@ updated_at TIMESTAMP
 | v0.3.9 | 2025-12-23 | **FAQ登録数カウント方法修正完了**（ステップ1-20完了、データベーススキーマ変更、既存データ移行、バックエンド・フロントエンド修正、ドキュメント更新、Docker環境でのテスト、ブラウザテスト完了、Gitコミット・プッシュ完了（コミットハッシュ: `b928c2b`、`develop`ブランチ）） |
 | v0.3.10 | 2026-01-16 | **月次ダッシュボード統計実装完了**（エラーハンドリング統一化完了、空文字列session_idチェック追加完了、データベース拡張完了、バックエンドAPI実装完了、フロントエンドコンポーネント実装完了、ステージング環境デプロイ完了、Gitコミット・プッシュ完了（コミットハッシュ: `d6e46f7`、`develop`ブランチ）） |
 | v0.3.11 | 2026-01-20 | **問い合わせフォーム実装完了**（契約者専用問い合わせフォーム実装完了、Formspree送信機能、Sidebar・HelpModal統合、ダークモード・レスポンシブ対応、ブラウザテスト完了、フォーム送信テスト完了、ステージング環境デプロイ完了、Gitコミット・プッシュ完了（コミットハッシュ: `f5c60ae`, `928fec5`、`develop`ブランチ））、**開発スケジュール更新**（Phase 2・Phase 3の完了タスクを更新） |
-| v0.3.27 | 2026-03-04 | **Freeプラン ゲスト画面固定フッター広告（実施完了）**（ads テーブル・GET /api/v1/ads・楽天トラベル Phase 1、GuestLayout/GuestOptionFooter、デプロイ・ブラウザテスト完了、期待する表示と動作を確認済み。コミット fb18114（develop）） |
