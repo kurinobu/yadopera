@@ -355,17 +355,9 @@ class QRCodeService:
                     from reportlab.pdfbase.ttfonts import TTFont
                     import os
                     
-                    # 利用可能な日本語フォントを確認（優先順位順）
-                    # 先頭: Dockerfile で /app/fonts にコピーしたパス（ステージング等で確実に存在）
-                    # 利用可能な日本語フォントを確認（優先順位順）
-                    # 先頭: Dockerfile で /app/fonts にコピーしたパス（ステージング等で確実に存在）
+                    # PDF用フォント: DejaVu のみ（シンプル・根本。apt で入る）
                     japanese_font_paths = [
-                        "/app/fonts/ipagp.ttf",  # Dockerfile でコピーした IPA ゴシック（最優先）
-                        "/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",  # IPAゴシック（opentype）
-                        "/usr/share/fonts/truetype/ipafont-gothic/ipagp.ttf",  # IPAゴシック（truetype）
-                        "/usr/share/fonts/truetype/ipafont/ipagp.ttf",  # IPAゴシック（別パス）
-                        "/usr/share/fonts/truetype/ipafont/ipag.ttf",  # IPAゴシック（別名）
-                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",  # DejaVu Sans（日本語非対応だが試行）
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                     ]
                     
                     # フォントパスの存在確認と登録
