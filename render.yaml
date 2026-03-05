@@ -2,14 +2,15 @@
 # 参考: https://render.com/docs/yaml-spec
 
 services:
+  # バックエンド: runtime を docker に明示。Blueprint 同期で Dashboard のネイティブ Python 設定を上書きする。
   - type: web
     name: yadopera-backend-staging
+    runtime: docker
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
     region: tokyo
     plan: pro
-    buildCommand: alembic upgrade head
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    preDeployCommand: alembic upgrade head
     envVars:
       - key: DATABASE_URL
         sync: false  # Railway Hobbyから取得
