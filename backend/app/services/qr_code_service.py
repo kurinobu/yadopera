@@ -199,40 +199,43 @@ class QRCodeService:
                 img = img.convert('RGB')
                 
                 if PIL_DRAW_AVAILABLE:
+                    import os
                     draw = ImageDraw.Draw(img)
                     
                     # QRコードサイズを取得
                     qr_width, qr_height = img.size
                     
-                    # テキスト「YadOPERA」を中央に配置
+                    # テキスト「YadOPERA」を中央に配置（Noto Sans Bold 優先、縦中央は anchor="mm"）
                     text = "YadOPERA"
-                    # デフォルトフォントを使用（サイズ指定）
-                    try:
-                        font_size = int(qr_width / 10)
-                        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-                    except:
-                        # フォントが見つからない場合はデフォルトフォント
+                    font_size = int(qr_width / 10)
+                    _overlay_font_paths = [
+                        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    ]
+                    font = None
+                    for _path in _overlay_font_paths:
+                        try:
+                            if os.path.exists(_path):
+                                font = ImageFont.truetype(_path, font_size)
+                                break
+                        except Exception:
+                            continue
+                    if font is None:
                         font = ImageFont.load_default()
                     
-                    # テキストのバウンディングボックスを取得
-                    bbox = draw.textbbox((0, 0), text, font=font)
-                    text_width = bbox[2] - bbox[0]
-                    text_height = bbox[3] - bbox[1]
-                    
-                    # 中央座標を計算
-                    text_x = (qr_width - text_width) / 2
-                    text_y = (qr_height - text_height) / 2
-                    
-                    # 白背景の矩形を描画（テキストより少し大きく）
+                    # 白背景の矩形（中央付近。anchor=mm で使う中心座標の余白）
                     padding = 10
-                    draw.rectangle(
-                        [text_x - padding, text_y - padding, 
-                         text_x + text_width + padding, text_y + text_height + padding],
-                        fill=(255, 255, 255)
-                    )
+                    center_x, center_y = qr_width // 2, qr_height // 2
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                    rect_x1 = center_x - text_w // 2 - padding
+                    rect_y1 = center_y - text_h // 2 - padding
+                    rect_x2 = center_x + text_w // 2 + padding
+                    rect_y2 = center_y + text_h // 2 + padding
+                    draw.rectangle([rect_x1, rect_y1, rect_x2, rect_y2], fill=(255, 255, 255))
                     
-                    # テキストを描画
-                    draw.text((text_x, text_y), text, fill=(0, 0, 0), font=font)
+                    # テキストを中央に描画（anchor="mm" で指定座標がテキストの中央）
+                    draw.text((center_x, center_y), text, fill=(0, 0, 0), font=font, anchor="mm")
                 
                 # BytesIOに保存
                 img_buffer = io.BytesIO()
@@ -306,22 +309,22 @@ class QRCodeService:
                     
                     # テキスト要素を追加（width/heightが取得できた場合）
                     if width is not None and height is not None:
-                        # テキスト要素を追加（既存の処理）
-                        font_size = width / 15
+                        # フォントサイズを縮小して横はみ出しを防止（15→18）
+                        font_size = width / 18
                         text = "YadOPERA"
                         
-                        # 白背景の矩形（テキストの下に配置）
+                        # 白背景の矩形（テキスト中央に合わせる）
                         rect_width = width / 3
                         rect_height = font_size * 1.5
                         rect_x = center_x - rect_width / 2
                         rect_y = center_y - rect_height / 2
                         
-                        # 座標系をmm単位に統一（SVGのwidth/height属性がmm単位のため）
+                        # 縦中央: dominant-baseline="middle" で y=center_y がテキストの中央
                         text_element = f'''
                     <rect x="{rect_x}mm" y="{rect_y}mm" width="{rect_width}mm" height="{rect_height}mm" fill="white"/>
-                    <text x="{center_x}mm" y="{center_y + font_size/3}mm" 
+                    <text x="{center_x}mm" y="{center_y}mm"
                           font-family="sans-serif" font-size="{font_size}mm" font-weight="bold"
-                          fill="black" text-anchor="middle">{text}</text>
+                          fill="black" text-anchor="middle" dominant-baseline="middle">{text}</text>
                 '''
                         
                         # </svg>の直前にテキスト要素を挿入
@@ -419,33 +422,37 @@ class QRCodeService:
                     img_with_text = qr.make_image(fill_color="black", back_color="white")
                     img_with_text = img_with_text.convert('RGB')
                     
-                    # 中央にYadOPERAテキストを追加
+                    # 中央にYadOPERAテキストを追加（Noto Sans Bold 優先、anchor="mm" で縦中央）
                     if PIL_DRAW_AVAILABLE:
+                        import os as _os
                         draw = ImageDraw.Draw(img_with_text)
-                        
                         qr_width, qr_height = img_with_text.size
                         text = "YadOPERA"
-                        
-                        try:
-                            font_size = int(qr_width / 10)
-                            font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", font_size)
-                        except:
+                        font_size = int(qr_width / 10)
+                        _paths = [
+                            "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+                            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                        ]
+                        font = None
+                        for _p in _paths:
+                            try:
+                                if _os.path.exists(_p):
+                                    font = ImageFont.truetype(_p, font_size)
+                                    break
+                            except Exception:
+                                continue
+                        if font is None:
                             font = ImageFont.load_default()
-                        
+                        center_x, center_y = qr_width // 2, qr_height // 2
                         bbox = draw.textbbox((0, 0), text, font=font)
-                        text_width = bbox[2] - bbox[0]
-                        text_height = bbox[3] - bbox[1]
-                        
-                        text_x = (qr_width - text_width) / 2
-                        text_y = (qr_height - text_height) / 2
-                        
+                        text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
                         padding = 10
                         draw.rectangle(
-                            [text_x - padding, text_y - padding, 
-                             text_x + text_width + padding, text_y + text_height + padding],
+                            [center_x - text_w // 2 - padding, center_y - text_h // 2 - padding,
+                             center_x + text_w // 2 + padding, center_y + text_h // 2 + padding],
                             fill=(255, 255, 255)
                         )
-                        draw.text((text_x, text_y), text, fill=(0, 0, 0), font=font)
+                        draw.text((center_x, center_y), text, fill=(0, 0, 0), font=font, anchor="mm")
                     
                     # QRコード画像をPDFに配置
                     img_buffer_final = io.BytesIO()

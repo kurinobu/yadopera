@@ -2,12 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# システム依存関係のインストール（PDF 日本語表示のため IPA フォントを追加）
+# システム依存関係のインストール（PDF 日本語: IPA / QR 中央テキスト: Noto）
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     fonts-dejavu \
     fonts-ipafont \
+    fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Python依存関係のコピーとインストール
