@@ -2,11 +2,12 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# システム依存関係のインストール
+# システム依存関係のインストール（PDF 日本語表示のため IPA フォントを追加）
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     fonts-dejavu \
+    fonts-ipafont \
     && rm -rf /var/lib/apt/lists/*
 
 # Python依存関係のコピーとインストール

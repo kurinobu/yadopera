@@ -355,8 +355,12 @@ class QRCodeService:
                     from reportlab.pdfbase.ttfonts import TTFont
                     import os
                     
-                    # PDF用フォント: DejaVu のみ（シンプル・根本。apt で入る）
+                    # PDF用フォント: IPA を優先（日本語表示）、無ければ DejaVu にフォールバック
                     japanese_font_paths = [
+                        "/app/fonts/ipagp.ttf",  # バンドル（あれば）
+                        "/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",
+                        "/usr/share/fonts/truetype/ipafont-gothic/ipagp.ttf",
+                        "/usr/share/fonts/truetype/ipafont/ipagp.ttf",
                         "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
                     ]
                     
