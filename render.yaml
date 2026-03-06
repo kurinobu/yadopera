@@ -32,7 +32,8 @@ services:
         value: INFO
     healthCheckPath: /api/v1/health
 
-  - type: static
+  - type: web
+    runtime: static
     name: yadopera-frontend-staging
     rootDir: frontend
     buildCommand: npx vite build
