@@ -105,6 +105,7 @@ class FacilitySummaryResponse(BaseModel):
     """
     id: int
     name: str
+    email: str = ""  # 施設連絡先メール（開発者ダッシュボード表示用）
     is_active: bool
     plan_type: str = "Free"  # Free, Mini, Small, Standard, Premium
     faq_count: int = 0

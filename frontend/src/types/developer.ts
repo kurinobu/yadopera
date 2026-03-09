@@ -18,6 +18,7 @@ export interface SystemOverview {
 export interface FacilitySummary {
   id: number
   name: string
+  email?: string  // 施設連絡先メール（開発者ダッシュボード表示用）
   is_active: boolean
   plan_type?: string  // Free, Mini, Small, Standard, Premium
   faq_count: number

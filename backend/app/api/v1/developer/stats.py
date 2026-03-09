@@ -186,6 +186,7 @@ async def get_facilities_summary(
                 FacilitySummaryResponse(
                     id=facility.id,
                     name=facility.name,
+                    email=facility.email or "",
                     is_active=facility.is_active,
                     plan_type=facility.plan_type or "Free",
                     faq_count=row.faq_count or 0,
