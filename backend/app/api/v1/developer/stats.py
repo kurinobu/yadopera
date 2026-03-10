@@ -2,7 +2,10 @@
 統計取得APIエンドポイント
 """
 
+import csv
+import io
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, desc, cast, Date
 from sqlalchemy.orm import selectinload
@@ -197,12 +200,52 @@ async def get_facilities_summary(
             )
         
         return FacilityListResponse(facilities=facility_summaries)
-    
+
     except HTTPException:
         raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error retrieving facilities summary: {str(e)}"
+        )
+
+
+@router.get("/facilities/export")
+async def export_facilities_csv(
+    developer_payload: dict = Depends(get_current_developer),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    施設名・メールアドレス一覧をCSVでダウンロード（開発者認証必須）
+    """
+    try:
+        facilities_result = await db.execute(
+            select(Facility).order_by(Facility.id)
+        )
+        facilities_data = facilities_result.all()
+
+        output = io.StringIO()
+        # UTF-8 BOM（Excel等での文字化け防止）
+        output.write("\ufeff")
+        writer = csv.writer(output)
+        writer.writerow(["施設名", "メールアドレス"])
+        for row in facilities_data:
+            facility = row[0]
+            writer.writerow([facility.name or "", facility.email or ""])
+        output.seek(0)
+
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        filename = f"facilities_{date_str}.csv"
+        return StreamingResponse(
+            iter([output.getvalue()]),
+            media_type="text/csv; charset=utf-8",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error exporting facilities CSV: {str(e)}",
         )
 

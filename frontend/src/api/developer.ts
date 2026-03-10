@@ -81,6 +81,15 @@ export const developerApi = {
   },
 
   /**
+   * 施設名・メールアドレス一覧をCSVでダウンロード用に取得
+   */
+  async exportFacilitiesCsv(): Promise<Blob> {
+    const client = getDeveloperApiClient()
+    const response = await client.get('/stats/facilities/export', { responseType: 'blob' })
+    return response.data
+  },
+
+  /**
    * エラーログ一覧取得
    */
   async getErrors(params: {

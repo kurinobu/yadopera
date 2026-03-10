@@ -81,12 +81,20 @@
 
       <!-- 施設一覧 -->
       <section v-if="facilities.length > 0" class="space-y-6">
-        <div>
+        <div class="flex items-center justify-between">
           <h2 class="text-xl font-bold text-gray-900 dark:text-white">
             施設一覧
           </h2>
+          <button
+            type="button"
+            class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="isExporting"
+            @click="handleExportFacilitiesCsv"
+          >
+            {{ isExporting ? 'ダウンロード中...' : 'CSVダウンロード' }}
+          </button>
         </div>
-        
+
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
           <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
@@ -242,6 +250,7 @@ const router = useRouter()
 
 const loading = ref(true)
 const error = ref('')
+const isExporting = ref(false)
 const overview = ref<SystemOverview | null>(null)
 const facilities = ref<FacilitySummary[]>([])
 const recentErrors = ref<ErrorLog[]>([])
@@ -270,6 +279,23 @@ const fetchData = async () => {
 
 const viewErrorDetail = (errorId: number) => {
   router.push({ name: 'DeveloperErrorLogDetail', params: { errorId } })
+}
+
+const handleExportFacilitiesCsv = async () => {
+  try {
+    isExporting.value = true
+    const blob = await developerApi.exportFacilitiesCsv()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `facilities_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (err: any) {
+    alert(err.response?.data?.detail || err.message || 'CSVのダウンロードに失敗しました')
+  } finally {
+    isExporting.value = false
+  }
 }
 
 const formatDate = (dateString: string) => {
