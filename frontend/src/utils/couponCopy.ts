@@ -1,7 +1,7 @@
 /**
  * 固定フッター・クーポンエントリーモーダル用の表示文言（多言語）
  * ゲストが選択した言語に応じて getCouponCopy(lang) で取得する。
- * 対応: ja, en, zh-TW, fr, es, de, ko, th, vi（SUPPORTED_LANGUAGES と同一）。
+ * 対応: ja, en, zh-TW, zh-CN, fr, es, ko, th（SUPPORTED_LANGUAGES と同一。de・vi は削除済み）。
  * 未対応の言語コードは en にフォールバック。
  */
 
@@ -78,6 +78,25 @@ const COPY_ZH_TW: CouponCopy = {
   errorSendFailed: '發送失敗，請稍後再試。'
 }
 
+/** 简体中文 */
+const COPY_ZH_CN: CouponCopy = {
+  couponButton: '优惠券',
+  modalTitle: '领取优惠券',
+  successTitle: '已发送优惠券。',
+  successDescription: '我们已将优惠券发送至您的邮箱，请查收。',
+  closeButton: '关闭',
+  introText: '我们将为您发送下次住宿可使用的优惠券，请输入您的邮箱。',
+  privacyNote: '用途：发送预约相关信息。提交即表示同意我们的隐私政策。',
+  labelName: '姓名（选填）',
+  labelEmail: '邮箱',
+  placeholderName: '王小明',
+  placeholderEmail: 'example@email.com',
+  cancelButton: '取消',
+  submitButton: '领取优惠券',
+  submittingButton: '发送中...',
+  errorSendFailed: '发送失败，请稍后再试。'
+}
+
 /** Français */
 const COPY_FR: CouponCopy = {
   couponButton: 'Bon de réduction',
@@ -114,25 +133,6 @@ const COPY_ES: CouponCopy = {
   submitButton: 'Obtener cupón',
   submittingButton: 'Enviando...',
   errorSendFailed: 'Error al enviar. Por favor, inténtelo de nuevo más tarde.'
-}
-
-/** Deutsch */
-const COPY_DE: CouponCopy = {
-  couponButton: 'Gutschein',
-  modalTitle: 'Gutschein erhalten',
-  successTitle: 'Gutschein gesendet.',
-  successDescription: 'Wir haben den Gutschein an Ihre E-Mail-Adresse gesendet. Bitte überprüfen Sie Ihren Posteingang.',
-  closeButton: 'Schließen',
-  introText: 'Wir senden Ihnen einen Gutschein für Ihren nächsten Aufenthalt. Bitte geben Sie Ihre E-Mail-Adresse ein.',
-  privacyNote: 'Zweck: Zusendung von Buchungsinformationen. Mit dem Absenden stimmen Sie unserer Datenschutzrichtlinie zu.',
-  labelName: 'Name (optional)',
-  labelEmail: 'E-Mail-Adresse',
-  placeholderName: 'Max Mustermann',
-  placeholderEmail: 'example@email.com',
-  cancelButton: 'Abbrechen',
-  submitButton: 'Gutschein erhalten',
-  submittingButton: 'Wird gesendet...',
-  errorSendFailed: 'Senden fehlgeschlagen. Bitte versuchen Sie es später erneut.'
 }
 
 /** 한국어 */
@@ -173,35 +173,15 @@ const COPY_TH: CouponCopy = {
   errorSendFailed: 'ส่งไม่สำเร็จ กรุณาลองใหม่อีกครั้ง'
 }
 
-/** Tiếng Việt */
-const COPY_VI: CouponCopy = {
-  couponButton: 'Mã giảm giá',
-  modalTitle: 'Nhận mã giảm giá',
-  successTitle: 'Đã gửi mã.',
-  successDescription: 'Chúng tôi đã gửi mã đến địa chỉ email của bạn. Vui lòng kiểm tra hộp thư.',
-  closeButton: 'Đóng',
-  introText: 'Chúng tôi sẽ gửi mã giảm giá cho lần lưu trú tiếp theo. Vui lòng nhập địa chỉ email.',
-  privacyNote: 'Mục đích: Gửi thông tin đặt phòng. Khi gửi, bạn đồng ý với chính sách bảo mật của chúng tôi.',
-  labelName: 'Tên (tùy chọn)',
-  labelEmail: 'Địa chỉ email',
-  placeholderName: 'Nguyễn Văn A',
-  placeholderEmail: 'example@email.com',
-  cancelButton: 'Hủy',
-  submitButton: 'Nhận mã',
-  submittingButton: 'Đang gửi...',
-  errorSendFailed: 'Gửi thất bại. Vui lòng thử lại sau.'
-}
-
 const COPY_MAP: Record<string, CouponCopy> = {
   ja: COPY_JA,
   en: COPY_EN,
   'zh-TW': COPY_ZH_TW,
+  'zh-CN': COPY_ZH_CN,
   fr: COPY_FR,
   es: COPY_ES,
-  de: COPY_DE,
   ko: COPY_KO,
-  th: COPY_TH,
-  vi: COPY_VI
+  th: COPY_TH
 }
 
 const FALLBACK_LANG = 'en'

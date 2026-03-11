@@ -367,13 +367,13 @@
 
 #### 日本語 (ja)
 - **質問**: 対応言語は何語ですか？
-- **回答**: 現在は日本語、英語、繁体中国語、フランス語、韓国語の5言語に対応しています。ゲストが選択した言語で自動的に回答します。FAQは各言語で登録が必要です。翻訳支援機能も今後追加予定です。
+- **回答**: 現在は日本語、英語、繁体中国語、簡体中国語、フランス語、韓国語、スペイン語の7言語に対応しています。ゲスト画面の言語選択で選べます。ドイツ語・ベトナム語は選択肢からは削除しています。FAQは各言語で登録が必要です。
 - **キーワード**: 対応言語,多言語,言語設定,何語,サポート言語
 - **関連URL**: /admin/manual
 
 #### 英語 (en)
 - **Question**: What languages are supported?
-- **Answer**: Currently supports 5 languages: Japanese, English, Traditional Chinese, French, and Korean. Responses are automatically provided in the guest's selected language. FAQs must be registered in each language. Translation assistance feature coming soon.
+- **Answer**: Currently we support 7 languages: Japanese, English, Traditional Chinese, Simplified Chinese, French, Korean, and Spanish. Guests can choose their language on the language selection screen. German and Vietnamese are no longer offered in the guest language options. FAQs must be registered in each language.
 - **Keywords**: supported languages,multilingual,language settings,what languages,supported languages
 - **Related URL**: /admin/manual
 

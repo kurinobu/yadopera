@@ -147,10 +147,9 @@ class FacilityService:
         plan_limits = get_plan_limits(plan_type.lower())
         available_languages = plan_limits.get("languages", ["ja"])
         
-        # Premiumプランの場合、Standardプラン＋韓国語
+        # Premiumプランの場合、7言語（zh-CN・es 追加、de・vi は含めない）
         if plan_type == "Premium" or available_languages is None:
-            # Premiumプラン: Standardプラン（日本語、英語、中国語、フランス語）＋韓国語
-            available_languages = ["ja", "en", "zh-TW", "fr", "ko"]
+            available_languages = ["ja", "en", "zh-TW", "zh-CN", "fr", "ko", "es"]
 
         # クーポン設定（有効かつ割引率が設定されている場合のみ公開）
         coupon = None
