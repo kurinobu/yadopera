@@ -27,10 +27,17 @@ from app.schemas.billing import (
     InvoicesResponse,
     ReceiptResponse,
 )
+from app.core.cache import cache_key, delete_cache
 from app.services.auth_service import get_plan_defaults
 from app.services import stripe_service
 
 logger = logging.getLogger(__name__)
+
+
+async def _invalidate_dashboard_cache(facility_id: int) -> None:
+    """プラン変更後、ダッシュボードAPIのキャッシュを無効化する。"""
+    key = cache_key("dashboard:data", facility_id=facility_id)
+    await delete_cache(key)
 
 router = APIRouter(prefix="/admin", tags=["admin", "billing"])
 
@@ -106,6 +113,7 @@ async def change_plan(
             facility.subscription_status = "canceled"
             facility.cancel_at_period_end = False
             await db.commit()
+            await _invalidate_dashboard_cache(facility.id)
             return PlanChangeResponse(plan_type="Free", message="プランを Free に変更しました。")
         if facility.stripe_subscription_id:
             try:
@@ -124,6 +132,7 @@ async def change_plan(
         facility.subscription_status = "canceled"
         facility.cancel_at_period_end = False
         await db.commit()
+        await _invalidate_dashboard_cache(facility.id)
         return PlanChangeResponse(plan_type="Free", message="プランを Free に変更しました。")
 
     # 有料プランへ変更
@@ -208,6 +217,7 @@ async def change_plan(
     facility.language_limit = defaults.get("language_limit")
     facility.plan_updated_at = now
     await db.commit()
+    await _invalidate_dashboard_cache(facility.id)
     return PlanChangeResponse(plan_type=target, message=f"プランを {target} に変更しました。")
 
 
@@ -252,6 +262,7 @@ async def cancel_subscription(
         facility.language_limit = defaults.get("language_limit")
         facility.plan_updated_at = datetime.now(timezone.utc)
         await db.commit()
+        await _invalidate_dashboard_cache(facility.id)
         return SubscriptionCancelResponse(message="解約しました。")
 
 
