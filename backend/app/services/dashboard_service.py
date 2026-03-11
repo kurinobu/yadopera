@@ -79,7 +79,9 @@ class DashboardService:
         cached_data = await get_cache(cache_key_str)
         if cached_data is not None:
             logger.debug(f"Dashboard cache hit: {cache_key_str}")
-            return DashboardResponse(**cached_data)
+            # monthly_usage（plan_type 含む）はキャッシュに含めず、常に DB から取得する（案A）
+            monthly_usage_fresh = await self.get_monthly_usage(facility_id)
+            return DashboardResponse(**{**cached_data, "monthly_usage": monthly_usage_fresh})
         
         # キャッシュミス: 並列処理でデータ取得
         logger.debug(f"Dashboard cache miss: {cache_key_str}")
@@ -107,8 +109,10 @@ class DashboardService:
             coupon_lead_count=coupon_lead_count
         )
         
-        # キャッシュに保存
-        await set_cache(cache_key_str, dashboard_data.dict(), DASHBOARD_CACHE_TTL)
+        # キャッシュに保存（monthly_usage は含めない＝プラン表示は常に DB から取得するため）
+        cache_payload = dashboard_data.dict()
+        cache_payload["monthly_usage"] = None
+        await set_cache(cache_key_str, cache_payload, DASHBOARD_CACHE_TTL)
         
         return dashboard_data
     
