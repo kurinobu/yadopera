@@ -34,6 +34,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "밤에 정숙 규칙이 있나요?",
                 "answer": "오후 10시 이후에는 조용히 해 주세요. 전화나 대화는 공용 공간에서 해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "晚上有安静规定吗？",
+                "answer": "晚上10点后请尽量保持安静。请在公共区域打电话或交谈。"
+            },
+            {
+                "language": "es",
+                "question": "¿Hay reglas de silencio por la noche?",
+                "answer": "Por favor mantenga el silencio después de las 22:00. Las llamadas y conversaciones deben realizarse en las zonas comunes."
             }
         ]
     },
@@ -66,6 +76,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "흡연 규정이 어떻게 되나요?",
                 "answer": "건물 내부는 금연입니다. 지정된 야외 흡연 구역을 이용해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "馆内吸烟规定是什么？",
+                "answer": "建筑物内全面禁烟。请使用指定的室外吸烟区。"
+            },
+            {
+                "language": "es",
+                "question": "¿Cuál es la política de fumadores?",
+                "answer": "Está prohibido fumar dentro del edificio. Por favor use la zona de fumadores al aire libre."
             }
         ]
     },
@@ -98,6 +118,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "공용 공간은 누구나 사용할 수 있나요?",
                 "answer": "투숙객이라면 자유롭게 이용하실 수 있습니다. 장시간 독점 사용은 자제해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "共用空间谁都可以使用吗？",
+                "answer": "住宿中的客人均可自由使用。请勿长时间占用。"
+            },
+            {
+                "language": "es",
+                "question": "¿Puede cualquiera usar las zonas comunes?",
+                "answer": "Todos los huéspedes pueden usarlas libremente. Evite ocuparlas durante mucho tiempo."
             }
         ]
     },
@@ -130,6 +160,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "다른 투숙객 방에 들어가도 되나요?",
                 "answer": "보안상 다른 투숙객의 방 출입은 금지되어 있습니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "可以进入其他客人的房间吗？",
+                "answer": "出于安全考虑，禁止进入其他客人的房间。"
+            },
+            {
+                "language": "es",
+                "question": "¿Puedo entrar en la habitación de otro huésped?",
+                "answer": "Por razones de seguridad, no está permitido entrar en las habitaciones de otros huéspedes."
             }
         ]
     },
@@ -162,6 +202,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "숙소 안에서 음주해도 되나요?",
                 "answer": "네, 절도 있게 드시면 됩니다. 소음이나 다른 분께 불편을 주는 행위는 자제해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "馆内可以饮酒吗？",
+                "answer": "可以，请适量并自律。请勿喧哗或造成他人困扰。"
+            },
+            {
+                "language": "es",
+                "question": "¿Se puede consumir alcohol en el alojamiento?",
+                "answer": "Sí, con moderación. Evite el ruido y las conductas molestas."
             }
         ]
     },
@@ -194,6 +244,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "숙박 중 문의는 어떻게 하나요?",
                 "answer": "숙박 중에는 이 채팅을 이용해 주세요. 체크아웃 후에는 지원이 불가합니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "住宿期间如何联系？",
+                "answer": "住宿期间请使用此聊天功能。退房后无法提供支持。"
+            },
+            {
+                "language": "es",
+                "question": "¿Cómo puedo contactar durante mi estancia?",
+                "answer": "Por favor use este chat durante su estancia. No hay soporte después del check-out."
             }
         ]
     },
@@ -226,6 +286,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "체크아웃 전에 무엇을 해야 하나요?",
                 "answer": "개인 소지품을 챙기시고, 쓰레기를 처리하시며, 빌려 쓰신 비품을 반납해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "退房前需要做什么？",
+                "answer": "请收拾个人物品、处理垃圾，并归还借用备品。"
+            },
+            {
+                "language": "es",
+                "question": "¿Qué debo hacer antes del check-out?",
+                "answer": "Recoja sus pertenencias, deseche la basura y devuelva los artículos proporcionados."
             }
         ]
     },
@@ -258,6 +328,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "침구류와 수건은 어디에 반납하나요?",
                 "answer": "체크아웃 전에 침구류와 베개커버는 로비 빨간 수거함에, 목욕 수건은 파란 수거함에 넣어 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "床单和浴巾要还到哪里？",
+                "answer": "请您于退房前将床单与枕头套放入大厅红色回收箱，浴巾放入蓝色回收箱。"
+            },
+            {
+                "language": "es",
+                "question": "¿Dónde devuelvo las sábanas y toallas?",
+                "answer": "Deposite sábanas y fundas en la caja roja del lobby, y las toallas en la caja azul antes del check-out."
             }
         ]
     },
@@ -291,6 +371,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "샤워는 언제든 사용할 수 있나요?",
                 "answer": "24시간 이용 가능합니다. 사용 후 환기와 간단한 정리를 부탁드립니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "淋浴随时可以使用吗？",
+                "answer": "24小时均可使用。使用后请通风并简单清洁。"
+            },
+            {
+                "language": "es",
+                "question": "¿Puedo usar la ducha en cualquier momento?",
+                "answer": "Sí, las duchas están disponibles 24 horas. Por favor ventile y limpie después de usar."
             }
         ]
     },
@@ -323,6 +413,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "드라이어는 어디에 있나요?",
                 "answer": "세면대 구역 선반에 있습니다. 사용 후 제자리에 놓아 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "吹风机在哪里？",
+                "answer": "在洗脸区的架子上。使用后请放回原处。"
+            },
+            {
+                "language": "es",
+                "question": "¿Dónde está el secador de pelo?",
+                "answer": "En las estanterías del área del lavabo. Por favor devuélvalo después de usar."
             }
         ]
     },
@@ -355,6 +455,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "공용 주방을 사용해도 되나요?",
                 "answer": "네. 사용 후 청소하시고 조리 도구는 제자리에 놓아 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "共用厨房可以使用吗？",
+                "answer": "可以。使用后请清洁并将厨具归位。"
+            },
+            {
+                "language": "es",
+                "question": "¿Puedo usar la cocina compartida?",
+                "answer": "Sí. Por favor limpie después de usar y devuelva los utensilios a su lugar."
             }
         ]
     },
@@ -387,6 +497,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "냉장고에 음식을 넣어도 되나요?",
                 "answer": "네. 이름과 날짜를 적어 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "冰箱可以放东西吗？",
+                "answer": "可以，请标注姓名与日期。"
+            },
+            {
+                "language": "es",
+                "question": "¿Puedo guardar cosas en el refrigerador?",
+                "answer": "Sí, por favor etiquete sus artículos con nombre y fecha."
             }
         ]
     },
@@ -419,6 +539,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "세탁기와 건조기 사용 방법을 알려주세요.",
                 "answer": "지정된 구역에 있습니다. 게시된 이용 안내를 확인해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "洗衣机和烘干机怎么用？",
+                "answer": "在指定区域。请参阅现场张贴的使用说明。"
+            },
+            {
+                "language": "es",
+                "question": "¿Cómo uso la lavadora y la secadora?",
+                "answer": "Están en la zona indicada. Consulte las instrucciones publicadas."
             }
         ]
     },
@@ -451,6 +581,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "에어컨 온도를 바꿀 수 있나요?",
                 "answer": "객실 리모컨으로 조절하실 수 있습니다. 외출 시에는 전원을 꺼 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "可以调整空调温度吗？",
+                "answer": "请使用房内遥控器。外出时请关闭电源。"
+            },
+            {
+                "language": "es",
+                "question": "¿Puedo cambiar la temperatura del aire acondicionado?",
+                "answer": "Sí, use el mando a distancia de su habitación y apáguelo al salir."
             }
         ]
     },
@@ -483,6 +623,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "WiFi에 연결되지 않아요.",
                 "answer": "WiFi를 끄고 다시 연결해 보세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "无法连上WiFi。",
+                "answer": "请先关闭WiFi后重新连接。"
+            },
+            {
+                "language": "es",
+                "question": "No puedo conectarme al WiFi.",
+                "answer": "Por favor apague el WiFi y vuelva a conectarse."
             }
         ]
     },
@@ -515,6 +665,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "WiFi가 느려요.",
                 "answer": "이용이 많은 시간대에는 속도가 떨어질 수 있습니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "WiFi很慢。",
+                "answer": "高峰时段可能较慢。"
+            },
+            {
+                "language": "es",
+                "question": "El WiFi va lento.",
+                "answer": "La velocidad puede disminuir en horas punta."
             }
         ]
     },
@@ -548,6 +708,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "근처에 편의점이 있나요?",
                 "answer": "도보로 몇 분 거리에 있습니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "附近有便利店吗？",
+                "answer": "步行数分钟内有。"
+            },
+            {
+                "language": "es",
+                "question": "¿Hay una tienda de conveniencia cerca?",
+                "answer": "Sí, a pocos minutos a pie."
             }
         ]
     },
@@ -580,6 +750,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "밤늦게까지 하는 식당이 있나요?",
                 "answer": "근처에 몇 군데 있습니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "有营业到深夜的餐厅吗？",
+                "answer": "附近有几家。"
+            },
+            {
+                "language": "es",
+                "question": "¿Hay restaurantes abiertos hasta tarde?",
+                "answer": "Sí, hay varios cerca."
             }
         ]
     },
@@ -612,6 +792,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "근처에 ATM이 있나요?",
                 "answer": "편의점 내 ATM을 이용하실 수 있습니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "附近有ATM吗？",
+                "answer": "便利店内有取款机。"
+            },
+            {
+                "language": "es",
+                "question": "¿Hay un cajero automático cerca?",
+                "answer": "Sí, hay cajeros en las tiendas de conveniencia."
             }
         ]
     },
@@ -644,6 +834,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "근처에 약국이 있나요?",
                 "answer": "도보 권 내에 있습니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "附近有药店吗？",
+                "answer": "步行可达。"
+            },
+            {
+                "language": "es",
+                "question": "¿Hay una farmacia cerca?",
+                "answer": "Sí, a distancia a pie."
             }
         ]
     },
@@ -676,6 +876,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "택시를 이용하고 싶어요.",
                 "answer": "택시 앱을 이용해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "想叫出租车。",
+                "answer": "请使用叫车App。"
+            },
+            {
+                "language": "es",
+                "question": "Quiero usar un taxi.",
+                "answer": "Por favor use una aplicación de reserva de taxis."
             }
         ]
     },
@@ -708,6 +918,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "가장 가까운 역까지 어떻게 가나요?",
                 "answer": "숙소 내 안내도를 확인해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "最近车站怎么走？",
+                "answer": "请参考馆内地图。"
+            },
+            {
+                "language": "es",
+                "question": "¿Cómo llego a la estación más cercana?",
+                "answer": "Por favor consulte el plano del alojamiento."
             }
         ]
     },
@@ -741,6 +961,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "방 열쇠가 안 열려요.",
                 "answer": "다시 꽂았다가 한 번 더 시도해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "房门钥匙打不开。",
+                "answer": "请重新插入后再试一次。"
+            },
+            {
+                "language": "es",
+                "question": "No puedo abrir la llave de la habitación.",
+                "answer": "Por favor vuelva a insertarla e intente de nuevo."
             }
         ]
     },
@@ -773,6 +1003,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "열쇠를 방에 두고 나왔어요.",
                 "answer": "스태프에게 연락해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "钥匙忘在房里就出来了。",
+                "answer": "请联系工作人员。"
+            },
+            {
+                "language": "es",
+                "question": "Dejé la llave dentro de la habitación.",
+                "answer": "Por favor contacte al personal."
             }
         ]
     },
@@ -805,6 +1045,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "물이나 뜨거운 물이 안 나와요.",
                 "answer": "몇 분 기다려도 나오지 않으면 연락해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "没有水或热水。",
+                "answer": "稍等数分钟仍无改善请联系我们。"
+            },
+            {
+                "language": "es",
+                "question": "No hay agua ni agua caliente.",
+                "answer": "Por favor contacte si no mejora en unos minutos."
             }
         ]
     },
@@ -837,6 +1087,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "조명이나 에어컨이 작동하지 않아요.",
                 "answer": "차단기를 확인해 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "灯或空调不运作。",
+                "answer": "请检查断路器。"
+            },
+            {
+                "language": "es",
+                "question": "Las luces o el aire acondicionado no funcionan.",
+                "answer": "Por favor revise el interruptor automático."
             }
         ]
     },
@@ -869,6 +1129,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "다른 투숙객 행동이 신경 쓰여요.",
                 "answer": "직접 말씀하지 마시고 채팅으로 알려 주세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "其他客人的行为让我不舒服。",
+                "answer": "请勿直接冲突，通过此聊天告知我们即可。"
+            },
+            {
+                "language": "es",
+                "question": "Otro huésped me molesta.",
+                "answer": "Por favor infórmenos por el chat en lugar de confrontarlo."
             }
         ]
     },
@@ -901,6 +1171,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "몸이 안 좋은데 급한 건 아니에요.",
                 "answer": "무리하지 마시고 푹 쉬세요."
+            },
+            {
+                "language": "zh-CN",
+                "question": "身体不适但不是紧急状况。",
+                "answer": "请多休息、保重。"
+            },
+            {
+                "language": "es",
+                "question": "Me siento mal pero no es una emergencia.",
+                "answer": "Por favor descanse y cuídese."
             }
         ]
     },
@@ -933,6 +1213,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "온라인 회의 해도 되나요?",
                 "answer": "일반적으로는 가능하나, 대용량 통신은 불안정할 수 있습니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "可以进行线上会议吗？",
+                "answer": "一般使用可以，高负载时可能不稳定。"
+            },
+            {
+                "language": "es",
+                "question": "¿Puedo hacer reuniones en línea?",
+                "answer": "Sí, pero el uso de mucho ancho de banda puede ser inestable."
             }
         ]
     },
@@ -965,6 +1255,16 @@ FAQ_PRESETS = [
                 "language": "ko",
                 "question": "변환 플러그 있나요?",
                 "answer": "수량 한정으로 준비되어 있습니다."
+            },
+            {
+                "language": "zh-CN",
+                "question": "有转换插头吗？",
+                "answer": "数量有限，有准备。"
+            },
+            {
+                "language": "es",
+                "question": "¿Tienen adaptadores de enchufe?",
+                "answer": "Sí, hay un número limitado disponible."
             }
         ]
     }

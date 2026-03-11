@@ -82,7 +82,7 @@ class ChatService:
         plan_limits = get_plan_limits(plan_type.lower())
         available_languages = plan_limits.get("languages", ["ja"])
         if plan_type == "Premium" or available_languages is None:
-            available_languages = ["ja", "en", "zh-TW", "fr", "ko"]
+            available_languages = ["ja", "en", "zh-TW", "zh-CN", "fr", "ko", "es"]
         if request.language not in available_languages:
             raise ValueError(
                 f"選択可能な言語は {', '.join(available_languages)} のみです。"
