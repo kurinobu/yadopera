@@ -26,6 +26,10 @@ class UserResponse(BaseModel):
     facility_id: int
     is_active: bool
     email_verified: bool  # ★追加
+    show_onboarding_modal: bool = Field(
+        default=False,
+        description="初回ログイン時やることリストモーダルを表示するか（施設の onboarding_modal_shown_at が NULL のとき True）"
+    )
 
     class Config:
         from_attributes = True
@@ -46,6 +50,13 @@ class LogoutResponse(BaseModel):
     ログアウトレスポンス
     """
     message: str = Field(default="Logged out successfully", description="ログアウトメッセージ")
+
+
+class OnboardingSeenResponse(BaseModel):
+    """
+    初回やることリスト表示済み記録のレスポンス
+    """
+    ok: bool = Field(default=True, description="記録成功")
 
 
 class PasswordChangeRequest(BaseModel):

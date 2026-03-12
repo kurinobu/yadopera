@@ -52,6 +52,8 @@ class Facility(Base):
     stripe_subscription_id = Column(String(255), nullable=True)
     subscription_status = Column(String(50), nullable=True)  # active, canceled, past_due, unpaid 等
     cancel_at_period_end = Column(Boolean, default=False, nullable=False)
+    # 初回ログイン時やることリストモーダル表示済み（NULL=未表示、日時=表示済み）
+    onboarding_modal_shown_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

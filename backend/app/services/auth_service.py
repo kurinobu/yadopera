@@ -257,6 +257,11 @@ class AuthService:
             data={"sub": str(user.id), "email": user.email}
         )
         
+        # 初回ログイン時やることリストモーダル表示要否（施設の onboarding_modal_shown_at が NULL なら True）
+        facility_result = await db.execute(select(Facility).where(Facility.id == user.facility_id))
+        facility = facility_result.scalar_one_or_none()
+        show_onboarding_modal = facility is not None and facility.onboarding_modal_shown_at is None
+        
         # レスポンス作成
         return LoginResponse(
             access_token=access_token,
@@ -270,6 +275,7 @@ class AuthService:
                 facility_id=user.facility_id,
                 is_active=user.is_active,
                 email_verified=user.email_verified,  # ★追加
+                show_onboarding_modal=show_onboarding_modal,
             )
         )
     

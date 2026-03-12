@@ -10,6 +10,8 @@ export interface User {
   facility_id: number
   is_active: boolean
   email_verified: boolean  // ★追加
+  /** 初回ログイン時やることリストモーダルを表示するか（施設の onboarding_modal_shown_at が NULL のとき true） */
+  show_onboarding_modal?: boolean
 }
 
 export interface LoginRequest {

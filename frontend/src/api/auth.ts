@@ -60,6 +60,14 @@ export const authApi = {
   },
 
   /**
+   * 初回やることリストモーダルを表示済みとして記録する
+   */
+  async postOnboardingSeen(): Promise<{ ok: boolean }> {
+    const response = await apiClient.post<{ ok: boolean }>('/auth/onboarding-seen')
+    return response.data
+  },
+
+  /**
    * パスワード変更
    */
   async changePassword(data: PasswordChangeRequest): Promise<void> {

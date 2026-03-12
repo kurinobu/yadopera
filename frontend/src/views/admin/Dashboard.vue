@@ -1,5 +1,11 @@
 <template>
   <div class="space-y-6">
+    <!-- 初回ログイン時やることリストモーダル -->
+    <OnboardingTodoModal
+      v-model="showOnboardingModal"
+      @done="onOnboardingDone"
+    />
+
     <!-- ページヘッダー -->
     <div>
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
@@ -145,8 +151,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, h } from 'vue'
+import { ref, computed, onMounted, onActivated, watch, h } from 'vue'
 import { useRouter, onBeforeRouteUpdate } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api/auth'
+import OnboardingTodoModal from '@/components/admin/OnboardingTodoModal.vue'
 import StatsCard from '@/components/admin/StatsCard.vue'
 import CategoryChart from '@/components/admin/CategoryChart.vue'
 import ChatHistoryList from '@/components/admin/ChatHistoryList.vue'
@@ -162,7 +171,31 @@ import { dashboardApi } from '@/api/dashboard'
 import type { DashboardData, ChatHistory, FeedbackStats as FeedbackStatsType } from '@/types/dashboard'
 
 const router = useRouter()
+const authStore = useAuthStore()
 // const route = useRoute() // 未使用のため削除
+
+// 初回ログイン時やることリストモーダル（user.show_onboarding_modal が true のとき表示）
+const showOnboardingModal = ref(false)
+watch(
+  () => authStore.user?.show_onboarding_modal,
+  (val) => {
+    if (val === true) showOnboardingModal.value = true
+  },
+  { immediate: true }
+)
+async function onOnboardingDone(payload: { goToManual: boolean }) {
+  try {
+    await authApi.postOnboardingSeen()
+    if (authStore.user) {
+      authStore.setUser({ ...authStore.user, show_onboarding_modal: false })
+    }
+  } finally {
+    showOnboardingModal.value = false
+    if (payload.goToManual) {
+      router.push({ name: 'AdminManual', hash: '#intro-initial-setup' })
+    }
+  }
+}
 
 // データ状態
 const loading = ref(true)

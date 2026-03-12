@@ -3,13 +3,16 @@
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
+from app.models.facility import Facility
 from app.api.deps import get_current_user
 from app.core.rate_limit import check_resend_rate_limit, check_password_reset_rate_limit
 from app.schemas.auth import (
     LoginRequest, LoginResponse, LogoutResponse, UserResponse,
+    OnboardingSeenResponse,
     PasswordChangeRequest, PasswordChangeResponse,
     FacilityRegisterRequest, FacilityRegisterResponse,
     VerifyEmailRequest, VerifyEmailResponse,
@@ -19,6 +22,7 @@ from app.schemas.auth import (
 from app.services.auth_service import AuthService
 from app.models.user import User
 from app.core.security import hash_password, verify_password
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -92,13 +96,19 @@ async def register_facility(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     現在のユーザー情報取得
     
     JWTトークンから現在のユーザー情報を返却
     """
+    # 初回ログイン時やることリストモーダル表示要否（施設の onboarding_modal_shown_at が NULL なら True）
+    facility_result = await db.execute(select(Facility).where(Facility.id == current_user.facility_id))
+    facility = facility_result.scalar_one_or_none()
+    show_onboarding_modal = facility is not None and facility.onboarding_modal_shown_at is None
+
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
@@ -106,8 +116,28 @@ async def get_current_user_info(
         role=current_user.role,
         facility_id=current_user.facility_id,
         is_active=current_user.is_active,
-        email_verified=current_user.email_verified
+        email_verified=current_user.email_verified,
+        show_onboarding_modal=show_onboarding_modal,
     )
+
+
+@router.post("/onboarding-seen", response_model=OnboardingSeenResponse)
+async def mark_onboarding_seen(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    初回ログイン時やることリストモーダルを表示済みとして記録する
+    
+    認証必須。現在ユーザーの施設の onboarding_modal_shown_at を現在時刻で更新する。
+    以降 GET /me およびログイン応答で show_onboarding_modal は false になる。
+    """
+    facility_result = await db.execute(select(Facility).where(Facility.id == current_user.facility_id))
+    facility = facility_result.scalar_one_or_none()
+    if facility is not None:
+        facility.onboarding_modal_shown_at = datetime.now(timezone.utc)
+        await db.commit()
+    return OnboardingSeenResponse(ok=True)
 
 
 @router.post("/logout", response_model=LogoutResponse)
