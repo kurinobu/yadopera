@@ -2,6 +2,7 @@
 ダッシュボードサービスの請求期間ベース集計テスト
 """
 
+import uuid
 import pytest
 from datetime import datetime, timedelta
 import pytz
@@ -383,4 +384,117 @@ class TestDashboardServiceBillingPeriod:
         assert result.total == 1
         assert result.unresolved == 1
         assert result.resolved == 0
+
+    @pytest.mark.asyncio
+    async def test_get_monthly_usage_over_limit_faq_only_status(self, db_session: AsyncSession):
+        """プラン超過時・overage_behavior=faq_only のとき status が 'faq_only' になる（Step 6 検証）"""
+        jst = pytz.timezone('Asia/Tokyo')
+        utc = pytz.UTC
+        uid = uuid.uuid4().hex[:8]
+        plan_started_at_jst = jst.localize(datetime(2026, 1, 15, 10, 0, 0))
+        plan_started_at_utc = plan_started_at_jst.astimezone(utc)
+
+        facility = Facility(
+            name="Test Hotel Overage FAQ",
+            slug=f"test-hotel-overage-faq-{uid}",
+            email=f"test-overage-faq-{uid}@example.com",
+            plan_type="Small",
+            monthly_question_limit=200,
+            plan_started_at=plan_started_at_utc,
+            overage_behavior="faq_only",
+            is_active=True
+        )
+        db_session.add(facility)
+        await db_session.flush()
+
+        # 請求期間内に上限超過分のユーザーメッセージ（201件）
+        for i in range(201):
+            conv = Conversation(
+                facility_id=facility.id,
+                session_id=f"over-faq-session-{uid}-{i}",
+                started_at=utc.localize(datetime(2026, 1, 20, 6, 0, 0))
+            )
+            db_session.add(conv)
+            await db_session.flush()
+            msg = Message(
+                conversation_id=conv.id,
+                role=MessageRole.USER.value,
+                content=f"質問{i}",
+                created_at=utc.localize(datetime(2026, 1, 20, 6, 0, 0))
+            )
+            db_session.add(msg)
+        await db_session.commit()
+
+        from unittest.mock import patch, MagicMock
+        now_jst = jst.localize(datetime(2026, 1, 25, 15, 0, 0))
+        with patch('app.services.dashboard_service.datetime') as mock_datetime:
+            def mock_now(tz=None):
+                if tz == jst:
+                    return now_jst
+                return datetime.now(tz)
+            mock_datetime.now = MagicMock(side_effect=mock_now)
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            service = DashboardService(db_session)
+            result = await service.get_monthly_usage(facility.id)
+
+        assert result is not None
+        assert result.current_month_questions == 201
+        assert result.plan_limit == 200
+        assert result.status == "faq_only"
+
+    @pytest.mark.asyncio
+    async def test_get_monthly_usage_over_limit_continue_billing_status(self, db_session: AsyncSession):
+        """プラン超過時・overage_behavior=continue_billing のとき status が 'overage' になる（Step 6 検証）"""
+        jst = pytz.timezone('Asia/Tokyo')
+        utc = pytz.UTC
+        uid = uuid.uuid4().hex[:8]
+        plan_started_at_jst = jst.localize(datetime(2026, 1, 15, 10, 0, 0))
+        plan_started_at_utc = plan_started_at_jst.astimezone(utc)
+
+        facility = Facility(
+            name="Test Hotel Overage Billing",
+            slug=f"test-hotel-overage-billing-{uid}",
+            email=f"test-overage-billing-{uid}@example.com",
+            plan_type="Small",
+            monthly_question_limit=200,
+            plan_started_at=plan_started_at_utc,
+            overage_behavior="continue_billing",
+            is_active=True
+        )
+        db_session.add(facility)
+        await db_session.flush()
+
+        for i in range(201):
+            conv = Conversation(
+                facility_id=facility.id,
+                session_id=f"over-billing-session-{uid}-{i}",
+                started_at=utc.localize(datetime(2026, 1, 20, 6, 0, 0))
+            )
+            db_session.add(conv)
+            await db_session.flush()
+            msg = Message(
+                conversation_id=conv.id,
+                role=MessageRole.USER.value,
+                content=f"質問{i}",
+                created_at=utc.localize(datetime(2026, 1, 20, 6, 0, 0))
+            )
+            db_session.add(msg)
+        await db_session.commit()
+
+        from unittest.mock import patch, MagicMock
+        now_jst = jst.localize(datetime(2026, 1, 25, 15, 0, 0))
+        with patch('app.services.dashboard_service.datetime') as mock_datetime:
+            def mock_now(tz=None):
+                if tz == jst:
+                    return now_jst
+                return datetime.now(tz)
+            mock_datetime.now = MagicMock(side_effect=mock_now)
+            mock_datetime.side_effect = lambda *args, **kw: datetime(*args, **kw)
+            service = DashboardService(db_session)
+            result = await service.get_monthly_usage(facility.id)
+
+        assert result is not None
+        assert result.current_month_questions == 201
+        assert result.plan_limit == 200
+        assert result.status == "overage"
 

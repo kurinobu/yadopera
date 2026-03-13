@@ -54,6 +54,8 @@ class Facility(Base):
     cancel_at_period_end = Column(Boolean, default=False, nullable=False)
     # 初回ログイン時やることリストモーダル表示済み（NULL=未表示、日時=表示済み）
     onboarding_modal_shown_at = Column(DateTime(timezone=True), nullable=True)
+    # プラン超過時の挙動（管理者選択制）: continue_billing | faq_only
+    overage_behavior = Column(String(20), default="continue_billing", nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 

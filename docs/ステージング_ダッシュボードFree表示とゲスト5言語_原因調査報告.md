@@ -93,4 +93,10 @@
 | **A. ダッシュボードが Free のまま** | ダッシュボード API の 5 分キャッシュを、プラン変更時に無効化していない。 | プラン変更 API（`change_plan`）実行時に、当該施設のダッシュボードキャッシュ（`dashboard:data`, facility_id）を削除する。既存の `delete_cache` / `delete_cache_pattern` を利用可能。 |
 | **B. ゲストで 5 言語のみ** | ステージングのバックエンドが多言語_5 対応前のコードのため、Premium でも 5 言語の `available_languages` を返している。 | `feature/multilingual-5-zhcn-es-remove-de-vi` を `develop` にマージし、ステージングのバックエンドをそのブランチ（またはマージ後の develop）で再デプロイする。 |
 
+---
+
+## 5. 追記（2026-03-11 解消）
+
+**現象 B（ゲストで 5 言語のみ）** は、同日に多言語_5 を develop にマージしステージングを再デプロイしたことで **解消済み**。ステージングで `RENDER_GIT_COMMIT=7a828ca...` を確認し、Premium 施設の `available_languages` が 7 言語で返ること、ゲスト画面で 7 枚の言語カードが表示されることをブラウザ検証済み。現象 A（ダッシュボードのプラン表示不整合）は残存課題のまま。
+
 以上。

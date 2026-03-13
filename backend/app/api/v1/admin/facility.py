@@ -13,8 +13,9 @@ from app.schemas.facility import (
     FacilitySettingsResponse,
     FacilitySettingsUpdateRequest,
     FacilityResponse,
-    StaffAbsencePeriod
+    StaffAbsencePeriod,
 )
+from app.core.plan_limits import OVERAGE_BEHAVIOR_CHOICES
 from app.core.security import hash_password
 from datetime import time as time_type
 import json
@@ -85,6 +86,7 @@ async def get_facility_settings(
             coupon_validity_months=getattr(facility, "coupon_validity_months", None),
             official_website_url=getattr(facility, "official_website_url", None),
             show_email_on_guest_screen=getattr(facility, "show_email_on_guest_screen", True),
+            overage_behavior=getattr(facility, "overage_behavior", "continue_billing"),
             created_at=facility.created_at,
             updated_at=facility.updated_at
         )
@@ -223,6 +225,16 @@ async def update_facility_settings(
         if "show_email_on_guest_screen" in update_data and update_data["show_email_on_guest_screen"] is not None:
             facility.show_email_on_guest_screen = update_data["show_email_on_guest_screen"]
         
+        # プラン超過時の挙動（管理者選択制）
+        if "overage_behavior" in update_data and update_data["overage_behavior"] is not None:
+            ob = update_data["overage_behavior"]
+            if ob not in OVERAGE_BEHAVIOR_CHOICES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="overage_behavior must be one of: continue_billing, faq_only",
+                )
+            facility.overage_behavior = ob
+        
         # スタッフ不在時間帯の更新
         if "staff_absence_periods" in update_data and update_data["staff_absence_periods"] is not None:
             # バリデーション
@@ -298,6 +310,7 @@ async def update_facility_settings(
             coupon_validity_months=getattr(facility, "coupon_validity_months", None),
             official_website_url=getattr(facility, "official_website_url", None),
             show_email_on_guest_screen=getattr(facility, "show_email_on_guest_screen", True),
+            overage_behavior=getattr(facility, "overage_behavior", "continue_billing"),
             created_at=facility.created_at,
             updated_at=facility.updated_at
         )

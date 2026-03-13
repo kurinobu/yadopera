@@ -12,7 +12,7 @@
         ダッシュボード
       </h1>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        週次サマリーとリアルタイムチャット履歴
+        利用状況とその他の統計
       </p>
     </div>
 

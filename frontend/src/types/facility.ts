@@ -73,6 +73,8 @@ export interface FacilitySettingsFacility {
   official_website_url?: string | null
   /** ゲスト画面にメールアドレスを表示する */
   show_email_on_guest_screen?: boolean
+  /** プラン超過時の挙動（continue_billing | faq_only） */
+  overage_behavior?: string
   created_at: string
   updated_at: string
 }
@@ -105,6 +107,8 @@ export interface FacilitySettingsUpdateRequest {
   official_website_url?: string | null
   /** ゲスト画面にメールアドレスを表示する */
   show_email_on_guest_screen?: boolean
+  /** プラン超過時の挙動（continue_billing | faq_only） */
+  overage_behavior?: 'continue_billing' | 'faq_only'
 }
 
 export interface PasswordChangeRequest {

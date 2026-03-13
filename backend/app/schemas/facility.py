@@ -6,6 +6,9 @@ from pydantic import BaseModel, Field
 from typing import Optional, List, Literal
 from datetime import datetime
 
+# プラン超過時の挙動（管理者選択制）
+OverageBehaviorLiteral = Literal["continue_billing", "faq_only"]
+
 
 class TopQuestion(BaseModel):
     """
@@ -76,6 +79,10 @@ class FacilityResponse(BaseModel):
     coupon_validity_months: Optional[int] = Field(None, ge=1, le=24)
     official_website_url: Optional[str] = Field(None, max_length=500, description="公式サイトURL（クーポン送付メールで案内）")
     show_email_on_guest_screen: bool = True
+    overage_behavior: str = Field(
+        default="continue_billing",
+        description="プラン超過時の挙動（continue_billing=従量課金継続, faq_only=AI停止・FAQ限定）",
+    )
     created_at: datetime
     updated_at: datetime
 
@@ -127,4 +134,8 @@ class FacilitySettingsUpdateRequest(BaseModel):
     coupon_validity_months: Optional[int] = Field(None, ge=1, le=24)
     official_website_url: Optional[str] = Field(None, max_length=500, description="公式サイトURL（任意）")
     show_email_on_guest_screen: Optional[bool] = None
+    overage_behavior: Optional[OverageBehaviorLiteral] = Field(
+        None,
+        description="プラン超過時の挙動（continue_billing | faq_only）",
+    )
 

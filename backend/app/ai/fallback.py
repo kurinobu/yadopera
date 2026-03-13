@@ -41,3 +41,22 @@ def get_fallback_message(language: str = "en") -> str:
     return FALLBACK_MESSAGES.get(language, FALLBACK_MESSAGES["en"])
 
 
+# プラン超過時・FAQ限定モードで該当FAQが無いときのメッセージ
+FAQ_ONLY_NO_MATCH_MESSAGES = {
+    "en": "No matching FAQ was found. Please contact the staff for assistance.",
+    "ja": "該当するFAQが見つかりませんでした。スタッフまでお問い合わせください。",
+    "zh-TW": "未找到對應的常見問題。請聯繫工作人員尋求協助。",
+    "zh-CN": "未找到对应的常见问题。请联系工作人员寻求协助。",
+    "fr": "Aucune FAQ correspondante trouvée. Veuillez contacter le personnel pour obtenir de l'aide.",
+    "ko": "해당 FAQ를 찾을 수 없습니다. 스태프에게 문의해 주세요.",
+    "es": "No se encontró ninguna FAQ coincidente. Por favor, contacte al personal para obtener ayuda.",
+}
+
+
+def get_faq_only_no_match_message(language: str = "en") -> str:
+    """
+    FAQ限定モードで該当FAQが無いときに返すメッセージ（プラン超過時挙動 Step 3）
+    """
+    return FAQ_ONLY_NO_MATCH_MESSAGES.get(language, FAQ_ONLY_NO_MATCH_MESSAGES["en"])
+
+

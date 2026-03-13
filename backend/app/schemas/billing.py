@@ -31,6 +31,10 @@ class PlansResponse(BaseModel):
     current_plan_type: str = Field(..., description="現在のプラン")
     plans: List[PlanInfo] = Field(..., description="変更可能なプラン一覧")
     stripe_configured: bool = Field(False, description="Stripe が利用可能か（プラン変更・解約が可能か）")
+    current_overage_behavior: Optional[str] = Field(
+        None,
+        description="現在のプラン超過時挙動（continue_billing | faq_only）",
+    )
 
 
 class PlanChangeRequest(BaseModel):

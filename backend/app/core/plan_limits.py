@@ -41,6 +41,11 @@ INITIAL_FAQ_COUNTS: Dict[str, int] = {
     "premium": 20    # Premiumプラン: 20件（全言語）
 }
 
+# プラン超過時の挙動（管理者選択制）: docs/プラン超過時の挙動_管理者選択制_実装計画.md
+OVERAGE_BEHAVIOR_CONTINUE_BILLING = "continue_billing"  # 通常継続（従量課金）
+OVERAGE_BEHAVIOR_FAQ_ONLY = "faq_only"  # AI停止・FAQ限定モード
+OVERAGE_BEHAVIOR_CHOICES = (OVERAGE_BEHAVIOR_CONTINUE_BILLING, OVERAGE_BEHAVIOR_FAQ_ONLY)
+
 
 def get_plan_limits(plan: str) -> Dict[str, Any]:
     """

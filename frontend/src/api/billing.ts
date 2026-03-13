@@ -19,6 +19,8 @@ export interface PlansResponse {
   current_plan_type: string
   plans: PlanInfo[]
   stripe_configured: boolean
+  /** 現在のプラン超過時挙動（continue_billing | faq_only） */
+  current_overage_behavior?: string | null
 }
 
 export interface PlanChangeResponse {

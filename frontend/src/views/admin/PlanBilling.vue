@@ -97,6 +97,51 @@
         </div>
       </div>
 
+      <!-- プラン超過時の挙動（Free / Small / Standard / Premium のみ表示。Mini は非表示） -->
+      <div
+        v-if="showOverageBehaviorSection"
+        class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6"
+      >
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          プラン超過時の挙動
+        </h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+          月間質問数がプラン上限を超えた場合の動作を選択します。
+        </p>
+        <div class="space-y-3">
+          <label class="flex items-start gap-3 cursor-pointer">
+            <input
+              v-model="overageBehaviorSelection"
+              type="radio"
+              value="continue_billing"
+              class="mt-1"
+            />
+            <span class="text-gray-700 dark:text-gray-300">
+              <strong>通常継続（従量課金）</strong> — 超過分は ¥30/質問で請求し、AI応答を継続します。
+            </span>
+          </label>
+          <label class="flex items-start gap-3 cursor-pointer">
+            <input
+              v-model="overageBehaviorSelection"
+              type="radio"
+              value="faq_only"
+              class="mt-1"
+            />
+            <span class="text-gray-700 dark:text-gray-300">
+              <strong>AI停止・FAQのみ対応</strong> — 超過分は課金されず、FAQ検索結果のみで応答します。
+            </span>
+          </label>
+        </div>
+        <button
+          type="button"
+          class="mt-4 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="isSavingOverage || overageBehaviorSelection === currentOverageBehavior"
+          @click="saveOverageBehavior"
+        >
+          {{ isSavingOverage ? '保存中...' : '設定を保存' }}
+        </button>
+      </div>
+
       <!-- 解約（有料プランかつ Stripe 設定時のみ表示） -->
       <div
         v-if="stripeConfigured && currentPlanType && currentPlanType !== 'Free'"
@@ -247,12 +292,16 @@ import { ref, computed, onMounted } from 'vue'
 import Loading from '@/components/common/Loading.vue'
 import Modal from '@/components/common/Modal.vue'
 import { billingApi, type PlanInfo, type InvoiceItem } from '@/api/billing'
+import { facilityApi } from '@/api/facility'
 
 const isLoading = ref(false)
 const error = ref<string | null>(null)
 const currentPlanType = ref<string>('')
 const plans = ref<PlanInfo[]>([])
 const stripeConfigured = ref(false)
+const currentOverageBehavior = ref<string>('continue_billing')
+const overageBehaviorSelection = ref<string>('continue_billing')
+const isSavingOverage = ref(false)
 const invoices = ref<InvoiceItem[]>([])
 
 const showPlanChangeModal = ref(false)
@@ -275,6 +324,12 @@ const currentPlanPrice = computed(() => {
   return p ? p.price_yen : 0
 })
 
+/** Free / Small / Standard / Premium のときのみ表示（Mini は上限なしのため非表示） */
+const showOverageBehaviorSection = computed(() => {
+  const t = currentPlanType.value
+  return t === 'Free' || t === 'Small' || t === 'Standard' || t === 'Premium'
+})
+
 function formatInvoiceDate(created: number | null): string {
   if (created == null) return '—'
   try {
@@ -289,6 +344,9 @@ async function fetchPlans() {
   currentPlanType.value = res.current_plan_type
   plans.value = res.plans
   stripeConfigured.value = res.stripe_configured
+  const ob = res.current_overage_behavior ?? 'continue_billing'
+  currentOverageBehavior.value = ob
+  overageBehaviorSelection.value = ob
 }
 
 async function fetchInvoices() {
@@ -349,6 +407,22 @@ async function confirmCancel() {
     alert(typeof msg === 'string' ? msg : '解約に失敗しました')
   } finally {
     isCancelling.value = false
+  }
+}
+
+async function saveOverageBehavior() {
+  try {
+    isSavingOverage.value = true
+    await facilityApi.updateFacilitySettings({ overage_behavior: overageBehaviorSelection.value as 'continue_billing' | 'faq_only' })
+    currentOverageBehavior.value = overageBehaviorSelection.value
+    alert('プラン超過時の挙動を保存しました。')
+  } catch (err: unknown) {
+    const msg = (err as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail
+      || (err as { message?: string })?.message
+      || '保存に失敗しました'
+    alert(typeof msg === 'string' ? msg : '保存に失敗しました')
+  } finally {
+    isSavingOverage.value = false
   }
 }
 

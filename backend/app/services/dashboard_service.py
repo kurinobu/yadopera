@@ -476,18 +476,19 @@ class DashboardService:
                 overage_questions = current_billing_period_questions
                 status = "normal"
             elif plan_limit is not None:
-                # 上限があるプラン
-                # Freeプランの場合は30件超過でfaq_only
+                # 上限があるプラン（Free/Small/Standard/Premium）
+                # 超過時は施設の overage_behavior に応じて status を設定（管理者選択制）
+                overage_behavior = getattr(facility, "overage_behavior", "continue_billing")
                 if plan_type == 'Free' and current_billing_period_questions > 30:
                     overage_questions = current_billing_period_questions - 30
                     usage_percentage = 100.0
                     remaining_questions = 0
-                    status = "faq_only"
+                    status = "faq_only" if overage_behavior == "faq_only" else "overage"
                 elif current_billing_period_questions > plan_limit:
                     overage_questions = current_billing_period_questions - plan_limit
                     usage_percentage = 100.0
                     remaining_questions = 0
-                    status = "overage"
+                    status = "faq_only" if overage_behavior == "faq_only" else "overage"
                 else:
                     usage_percentage = (current_billing_period_questions / plan_limit * 100) if plan_limit > 0 else 0.0
                     remaining_questions = plan_limit - current_billing_period_questions

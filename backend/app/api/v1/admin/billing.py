@@ -81,6 +81,7 @@ async def get_plans(
         current_plan_type=facility.plan_type or "Free",
         plans=_build_plans_list(),
         stripe_configured=stripe_service.is_stripe_configured(),
+        current_overage_behavior=getattr(facility, "overage_behavior", None) or "continue_billing",
     )
 
 
@@ -108,6 +109,7 @@ async def change_plan(
             facility.monthly_question_limit = defaults.get("monthly_question_limit")
             facility.faq_limit = defaults.get("faq_limit")
             facility.language_limit = defaults.get("language_limit")
+            facility.overage_behavior = "faq_only"  # Free のデフォルト
             facility.plan_updated_at = datetime.now(timezone.utc)
             facility.stripe_subscription_id = None
             facility.subscription_status = "canceled"
@@ -127,6 +129,7 @@ async def change_plan(
         facility.monthly_question_limit = defaults.get("monthly_question_limit")
         facility.faq_limit = defaults.get("faq_limit")
         facility.language_limit = defaults.get("language_limit")
+        facility.overage_behavior = "faq_only"  # Free のデフォルト
         facility.plan_updated_at = datetime.now(timezone.utc)
         facility.stripe_subscription_id = None
         facility.subscription_status = "canceled"
@@ -215,6 +218,7 @@ async def change_plan(
     facility.monthly_question_limit = defaults.get("monthly_question_limit")
     facility.faq_limit = defaults.get("faq_limit")
     facility.language_limit = defaults.get("language_limit")
+    facility.overage_behavior = "continue_billing"  # 有料プランのデフォルト
     facility.plan_updated_at = now
     await db.commit()
     await _invalidate_dashboard_cache(facility.id)
@@ -260,6 +264,7 @@ async def cancel_subscription(
         facility.monthly_question_limit = defaults.get("monthly_question_limit")
         facility.faq_limit = defaults.get("faq_limit")
         facility.language_limit = defaults.get("language_limit")
+        facility.overage_behavior = "faq_only"  # Free のデフォルト
         facility.plan_updated_at = datetime.now(timezone.utc)
         await db.commit()
         await _invalidate_dashboard_cache(facility.id)

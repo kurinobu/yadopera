@@ -520,3 +520,25 @@
 - **Answer**: After FAQ update, system prompt reconstruction takes up to 5 minutes. If still not working after 5 minutes, clear browser cache (Ctrl+Shift+R or Cmd+Shift+R). If still unresolved, please contact us via the support form accessible from the "Support" button at the bottom-right of the admin panel.
 - **Keywords**: FAQ not reflected,not updated,not changed,slow reflection
 - **Related URL**: /admin/faqs
+
+---
+
+## Category: billing（料金・プラン・請求）
+
+### FAQ: plan_billing_overage_behavior
+
+**intent_key**: `plan_billing_overage_behavior`  
+**display_order**: 84  
+**category**: `billing`
+
+#### 日本語 (ja)
+- **質問**: 質問数が上限を超過したらAIを止められますか？ / 超過したら停止できますか？
+- **回答**: はい、止められます。「プラン・請求」ページの「プラン超過時の挙動」で**「AI停止・FAQのみ対応」**を選んで「設定を保存」すると、月間質問数がプラン上限を超えたあとは、AIは自動で使われず、登録したFAQの検索結果だけでゲストに応答します。超過分の課金はありません。もう一方の「通常継続（従量課金）」を選ぶと、超過後もAI応答を続け、超過分は1質問あたり¥30で請求されます。Free・Small・Standard・Premiumでこの設定が表示されます（Miniは質問数上限がないため表示されません）。詳細はご利用マニュアル「7.3 プラン超過時の挙動の設定」をご覧ください。
+- **キーワード**: 質問数上限,超過,停止,AI停止,FAQのみ,プラン超過時の挙動,従量課金
+- **関連URL**: /admin/billing
+
+#### 英語 (en)
+- **Question**: Can I stop AI when the question limit is exceeded? / Can it stop after exceeding the limit?
+- **Answer**: Yes. On the "Plan & Billing" page, under "Plan overage behavior", select **"AI stop & FAQ only"** and click "Save settings". After your monthly question count exceeds the plan limit, AI will not be used and only registered FAQ search results will be shown to guests. No charge for overage. If you choose "Normal continuation (usage-based billing)" instead, AI continues and overage is billed at ¥30 per question. This setting is shown for Free, Small, Standard, and Premium (Mini has no question limit, so the setting is not shown). See the user manual section "7.3 Plan overage behavior settings" for details.
+- **Keywords**: question limit,overage,stop,AI stop,FAQ only,plan overage behavior,usage billing
+- **Related URL**: /admin/billing
