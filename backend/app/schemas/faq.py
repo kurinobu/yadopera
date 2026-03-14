@@ -12,6 +12,7 @@ class FAQTranslationRequest(BaseModel):
     language: str = Field(..., description="言語コード（en/ja/zh-TW/fr）")
     question: str = Field(..., min_length=1, max_length=500, description="質問文")
     answer: str = Field(..., min_length=1, max_length=2000, description="回答文")
+    embedding: Optional[List[float]] = Field(None, description="事前計算済み埋め込みベクトル（1536次元）。省略時は登録時にAPIで生成")
 
 
 class FAQTranslationResponse(BaseModel):

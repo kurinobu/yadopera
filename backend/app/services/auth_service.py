@@ -402,7 +402,8 @@ class AuthService:
         from app.data.faq_presets import FAQ_PRESETS
         from app.schemas.faq import FAQRequest
         from app.core.cache import delete_cache_pattern
-        
+        from app.data.faq_presets_embeddings_loader import get_preset_embedding
+
         # 新しいデータベースセッションを作成
         async with AsyncSessionLocal() as db:
             try:
@@ -411,20 +412,33 @@ class AuthService:
                     FAQ_PRESETS,
                     subscription_plan
                 )
-                
-                # プリセットFAQをFAQRequestに変換
+
+                # プリセットFAQをFAQRequestに変換（事前計算embeddingがあれば付与）
                 faq_requests = []
                 for preset in filtered_presets:
+                    intent_key = preset["intent_key"]
+                    trans_list = []
+                    for t in preset["translations"]:
+                        lang = t["language"]
+                        emb = get_preset_embedding(intent_key, lang)
+                        if emb is None:
+                            logger.warning(
+                                "Preset embedding missing: intent_key=%s language=%s",
+                                intent_key,
+                                lang,
+                            )
+                        trans_item = {
+                            "language": lang,
+                            "question": t["question"],
+                            "answer": t["answer"],
+                        }
+                        if emb is not None:
+                            trans_item["embedding"] = emb
+                        trans_list.append(trans_item)
                     faq_request = FAQRequest(
                         category=preset["category"],
-                        intent_key=preset["intent_key"],
-                        translations=[
-                            {
-                                "language": t["language"],
-                                "question": t["question"],
-                                "answer": t["answer"]
-                            } for t in preset["translations"]
-                        ],
+                        intent_key=intent_key,
+                        translations=trans_list,
                         priority=preset["priority"],
                         is_active=True
                     )

@@ -20,6 +20,7 @@ from app.schemas.faq import FAQTranslationRequest
 from app.models.user import User
 from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQTranslationResponse
 from app.ai.embeddings import generate_embedding
+from app.data.faq_presets_embeddings_constants import EMBEDDING_DIMENSION
 from app.core.cache import get_cache, set_cache, delete_cache_pattern, cache_key
 from app.services.csv_parser import (
     CSVParseError,
@@ -469,42 +470,61 @@ class FAQService:
         # FAQTranslationを作成（各翻訳に対して）
         translations = []
         for trans_request in request.translations:
-            # 埋め込みベクトル生成（raise_on_embedding_failure 時は最大3回リトライ）
+            # 事前計算embeddingがあればそのまま使用、なければAPIで生成
             embedding = None
-            last_error = None
-            for attempt in range(3):
-                try:
-                    combined_text = f"{trans_request.question} {trans_request.answer}"
-                    logger.debug(f"Generating FAQ translation embedding: language={trans_request.language}, text_length={len(combined_text)}")
-                    embedding = await generate_embedding(combined_text)
-                    if embedding:
-                        logger.debug(f"FAQ translation embedding generated: language={trans_request.language}, embedding_length={len(embedding)}")
-                        break
-                except Exception as e:
-                    last_error = e
-                    logger.warning(f"Embedding attempt {attempt + 1}/3 failed: {e}")
-                    if raise_on_embedding_failure and attempt == 2:
-                        raise ValueError(
-                            "埋め込みベクトルの生成に失敗しました。しばらく待ってから再度アップロードしてください。"
-                        ) from e
-                    if attempt < 2:
-                        await asyncio.sleep(2 ** attempt)
-            if raise_on_embedding_failure and not embedding:
-                raise ValueError(
-                    "埋め込みベクトルの生成に失敗しました。しばらく待ってから再度アップロードしてください。"
+            if (
+                getattr(trans_request, "embedding", None)
+                and len(trans_request.embedding) == EMBEDDING_DIMENSION
+            ):
+                embedding = trans_request.embedding
+                logger.debug(
+                    "Using precomputed embedding: language=%s",
+                    trans_request.language,
                 )
-            if not raise_on_embedding_failure and not embedding and last_error:
-                logger.error(
-                    f"Error generating FAQ translation embedding: {str(last_error)}",
-                    exc_info=True,
-                    extra={
-                        "language": trans_request.language,
-                        "question": trans_request.question[:100] if trans_request.question else None,
-                        "answer": trans_request.answer[:100] if trans_request.answer else None,
-                        "error": str(last_error)
-                    }
-                )
-            
+            if embedding is None:
+                last_error = None
+                for attempt in range(3):
+                    try:
+                        combined_text = f"{trans_request.question} {trans_request.answer}"
+                        logger.debug(
+                            "Generating FAQ translation embedding: language=%s, text_length=%s",
+                            trans_request.language,
+                            len(combined_text),
+                        )
+                        embedding = await generate_embedding(combined_text)
+                        if embedding:
+                            logger.debug(
+                                "FAQ translation embedding generated: language=%s, embedding_length=%s",
+                                trans_request.language,
+                                len(embedding),
+                            )
+                            break
+                    except Exception as e:
+                        last_error = e
+                        logger.warning("Embedding attempt %s/3 failed: %s", attempt + 1, e)
+                        if raise_on_embedding_failure and attempt == 2:
+                            raise ValueError(
+                                "埋め込みベクトルの生成に失敗しました。しばらく待ってから再度アップロードしてください。"
+                            ) from e
+                        if attempt < 2:
+                            await asyncio.sleep(2 ** attempt)
+                if raise_on_embedding_failure and not embedding:
+                    raise ValueError(
+                        "埋め込みベクトルの生成に失敗しました。しばらく待ってから再度アップロードしてください。"
+                    )
+                if not raise_on_embedding_failure and not embedding and last_error:
+                    logger.error(
+                        "Error generating FAQ translation embedding: %s",
+                        str(last_error),
+                        exc_info=True,
+                        extra={
+                            "language": trans_request.language,
+                            "question": trans_request.question[:100] if trans_request.question else None,
+                            "answer": trans_request.answer[:100] if trans_request.answer else None,
+                            "error": str(last_error),
+                        },
+                    )
+
             # FAQTranslation作成
             faq_translation = FAQTranslation(
                 faq_id=faq.id,
