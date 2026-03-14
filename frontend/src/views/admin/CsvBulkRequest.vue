@@ -3,7 +3,7 @@
     <!-- ページヘッダー -->
     <div>
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
-        CSV一括登録 代行の申し込み
+        CSV一括登録 代行（有料）の申し込み
       </h1>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
         Standard・Premiumプランの施設様向け。FAQ内容をいただき、運営がCSV作成・翻訳・管理画面への登録を行います。
@@ -20,6 +20,39 @@
         <li><strong>添付可能な形式</strong>：.xlsx（Excel）、.csv、.txt、.md（Markdown）</li>
         <li><strong>テンプレート</strong>：<a :href="templateCsvUrl" download class="text-indigo-600 dark:text-indigo-400 hover:underline">CSVテンプレート（4言語）をダウンロード</a></li>
       </ul>
+    </div>
+
+    <!-- 料金の目安 -->
+    <div class="rounded-lg border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-800/50 p-4 space-y-3">
+      <h2 class="text-sm font-semibold text-gray-900 dark:text-gray-100">
+        料金の目安（税別）
+      </h2>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm text-left text-gray-700 dark:text-gray-300">
+          <thead>
+            <tr class="border-b border-gray-200 dark:border-gray-600">
+              <th class="py-2 pr-4 font-medium">プラン</th>
+              <th class="py-2 pr-4 font-medium">件数</th>
+              <th class="py-2 font-medium">料金</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-2 pr-4">Standard（最大100件）</td><td class="py-2 pr-4">〜30件</td><td class="py-2">¥12,000</td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-2 pr-4"></td><td class="py-2 pr-4">〜60件</td><td class="py-2">¥22,000</td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-2 pr-4"></td><td class="py-2 pr-4">〜100件</td><td class="py-2">¥32,000</td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-2 pr-4">Premium（件数無制限）</td><td class="py-2 pr-4">〜50件</td><td class="py-2">¥25,000</td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-2 pr-4"></td><td class="py-2 pr-4">〜100件</td><td class="py-2">¥45,000</td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-2 pr-4"></td><td class="py-2 pr-4">〜200件</td><td class="py-2">¥68,000</td></tr>
+            <tr class="border-b border-gray-100 dark:border-gray-700"><td class="py-2 pr-4"></td><td class="py-2 pr-4">200件超</td><td class="py-2">個別見積（¥90,000〜）</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-600 dark:text-gray-400">
+        <strong>料金に含まれる:</strong> 日本語FAQの自然さ・文法確認、軽微な表現修正、AI翻訳＋品質確認、管理画面への登録作業、表示・動作チェック（初回）。
+      </p>
+      <p class="text-xs text-gray-600 dark:text-gray-400">
+        <strong>料金に含まれない:</strong> FAQの新規企画・構成設計、内容の事実確認、大幅な書き直し・再編集、法的表現監修・翻訳証明。
+      </p>
     </div>
 
     <!-- ローディング表示 -->
@@ -92,7 +125,7 @@
             class="w-full border border-gray-300 dark:border-gray-600 rounded-md px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:bg-gray-700 dark:text-white"
             placeholder="例：30"
           />
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">料金は件数に応じてお見積もりします（料金表はマニュアル等をご参照ください）。</p>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">上記の料金目安をご確認のうえ、希望登録件数（目安）をご記入ください。</p>
         </div>
 
         <!-- 希望言語 -->

@@ -61,7 +61,7 @@
               @click="helpStore.closeModal"
               class="flex items-center justify-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
-              <span>CSV一括登録の代行をお申し込みの方はこちら</span>
+              <span>CSV一括登録代行（有料）をお申し込みの方はこちら</span>
             </router-link>
           </div>
         </div>

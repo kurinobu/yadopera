@@ -24,7 +24,7 @@
           to="/admin/csv-bulk-request"
           class="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
         >
-          代行をご希望の方はこちら
+          CSV一括登録代行（有料）をご希望の方はこちら
         </router-link>
         <button
           @click="onAddFaqClick"
