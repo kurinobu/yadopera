@@ -31,46 +31,46 @@ class TestFilterFaqPresetsByPlan:
                 f"intent_key={preset['intent_key']}: expected {expected_languages}, got {langs}"
             )
 
-    def test_filter_free_returns_20_presets_ja_only(self):
-        """Freeプラン: 20件、日本語のみ"""
+    def test_filter_free_returns_30_presets_ja_only(self):
+        """Freeプラン: 30件、日本語のみ"""
         result = filter_faq_presets_by_plan(FAQ_PRESETS, "free")
-        assert len(result) == 20
+        assert len(result) == 30
         for preset in result:
             langs = [t["language"] for t in preset["translations"]]
             assert langs == ["ja"], f"Free should have only ja, got {langs}"
 
-    def test_filter_mini_returns_20_presets_ja_en(self):
-        """Miniプラン: 20件、日本語＋英語"""
+    def test_filter_mini_returns_30_presets_ja_en(self):
+        """Miniプラン: 30件、日本語＋英語"""
         result = filter_faq_presets_by_plan(FAQ_PRESETS, "mini")
-        assert len(result) == 20
+        assert len(result) == 30
         for preset in result:
             langs = {t["language"] for t in preset["translations"]}
             assert langs == {"ja", "en"}, f"Mini should have ja,en only, got {langs}"
 
-    def test_filter_small_returns_20_presets_ja_en_zh_tw(self):
-        """Smallプラン: 20件、日本語＋英語＋繁体中国語"""
+    def test_filter_small_returns_30_presets_ja_en_zh_tw(self):
+        """Smallプラン: 30件、日本語＋英語＋繁体中国語"""
         result = filter_faq_presets_by_plan(FAQ_PRESETS, "small")
-        assert len(result) == 20
+        assert len(result) == 30
         for preset in result:
             langs = {t["language"] for t in preset["translations"]}
             assert langs == {"ja", "en", "zh-TW"}, (
                 f"Small should have ja,en,zh-TW only, got {langs}"
             )
 
-    def test_filter_standard_returns_20_presets_ja_en_zh_tw_fr(self):
-        """Standardプラン: 20件、日本語＋英語＋繁体中国語＋フランス語"""
+    def test_filter_standard_returns_30_presets_ja_en_zh_tw_fr(self):
+        """Standardプラン: 30件、日本語＋英語＋繁体中国語＋フランス語"""
         result = filter_faq_presets_by_plan(FAQ_PRESETS, "standard")
-        assert len(result) == 20
+        assert len(result) == 30
         for preset in result:
             langs = {t["language"] for t in preset["translations"]}
             assert langs == {"ja", "en", "zh-TW", "fr"}, (
                 f"Standard should have ja,en,zh-TW,fr only, got {langs}"
             )
 
-    def test_filter_premium_returns_20_presets_all_languages(self):
-        """Premiumプラン: 20件、全7言語"""
+    def test_filter_premium_returns_30_presets_all_languages(self):
+        """Premiumプラン: 30件、全7言語"""
         result = filter_faq_presets_by_plan(FAQ_PRESETS, "premium")
-        assert len(result) == 20
+        assert len(result) == 30
         for preset in result:
             langs = {t["language"] for t in preset["translations"]}
             assert langs == {"ja", "en", "zh-TW", "fr", "ko", "zh-CN", "es"}, (
@@ -80,7 +80,7 @@ class TestFilterFaqPresetsByPlan:
     def test_filter_unknown_plan_defaults_to_small(self):
         """未知のプラン名: smallとして扱われること"""
         result = filter_faq_presets_by_plan(FAQ_PRESETS, "unknown_plan")
-        assert len(result) == 20
+        assert len(result) == 30
         for preset in result:
             langs = {t["language"] for t in preset["translations"]}
             assert langs == {"ja", "en", "zh-TW"}
@@ -138,11 +138,11 @@ class TestGetPlanLimits:
 class TestGetInitialFaqCount:
     """get_initial_faq_count のテスト"""
 
-    def test_all_plans_return_20(self):
-        """全プランで初期登録件数は20件"""
+    def test_all_plans_return_30(self):
+        """全プランで初期登録件数は30件"""
         for plan in ("free", "mini", "small", "standard", "premium"):
-            assert get_initial_faq_count(plan) == 20
+            assert get_initial_faq_count(plan) == 30
 
-    def test_unknown_plan_returns_20(self):
-        """未知のプランは20件"""
-        assert get_initial_faq_count("unknown") == 20
+    def test_unknown_plan_returns_30(self):
+        """未知のプランは30件"""
+        assert get_initial_faq_count("unknown") == 30
