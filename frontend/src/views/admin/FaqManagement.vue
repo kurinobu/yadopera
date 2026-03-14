@@ -19,6 +19,13 @@
         >
           CSV一括登録
         </button>
+        <router-link
+          v-if="canUseCsvBulkUpload"
+          to="/admin/csv-bulk-request"
+          class="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+        >
+          代行をご希望の方はこちら
+        </router-link>
         <button
           @click="onAddFaqClick"
           class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"

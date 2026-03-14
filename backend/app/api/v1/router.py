@@ -13,7 +13,7 @@ API v1 ルーター統合
 
 from fastapi import APIRouter
 from app.api.v1 import auth, session, facility, chat, health, help, ads
-from app.api.v1.admin import dashboard, faqs, faq_suggestions, overnight_queue, qr_code, escalations, feedback, facility as admin_facility, facilities, users, leads as admin_leads, billing
+from app.api.v1.admin import dashboard, faqs, faq_suggestions, overnight_queue, qr_code, escalations, feedback, facility as admin_facility, facilities, users, leads as admin_leads, billing, csv_bulk_request
 from app.api.v1.developer import developer_router
 from app.api.v1.webhooks import stripe as webhooks_stripe
 
@@ -41,6 +41,7 @@ api_router.include_router(admin_leads.router, tags=["admin"])
 api_router.include_router(facilities.router, tags=["admin"])
 api_router.include_router(users.router, tags=["admin"])
 api_router.include_router(billing.router, tags=["admin"])
+api_router.include_router(csv_bulk_request.router, tags=["admin"])
 api_router.include_router(developer_router)
 # Webhook（認証不要・署名検証で保護）
 api_router.include_router(webhooks_stripe.router, prefix="/webhooks", tags=["webhooks"])

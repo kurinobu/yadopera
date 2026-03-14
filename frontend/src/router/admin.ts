@@ -85,6 +85,15 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/csv-bulk-request',
+    name: 'CsvBulkRequest',
+    component: () => import('@/views/admin/CsvBulkRequest.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/admin/overnight-queue',
     name: 'AdminOvernightQueue',
     component: () => import('@/views/admin/OvernightQueue.vue'),

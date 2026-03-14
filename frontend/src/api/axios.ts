@@ -18,7 +18,7 @@ const apiClient: AxiosInstance = axios.create({
   }
 })
 
-// リクエストインターセプター: JWTトークン追加
+// リクエストインターセプター: JWTトークン追加 / FormData 時は Content-Type を削除
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const authStore = useAuthStore()
@@ -26,6 +26,11 @@ apiClient.interceptors.request.use(
 
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+
+    // FormData のときは Content-Type を指定しない（multipart/form-data + boundary をブラウザに任せる）
+    if (config.data instanceof FormData && config.headers) {
+      delete config.headers['Content-Type']
     }
 
     return config

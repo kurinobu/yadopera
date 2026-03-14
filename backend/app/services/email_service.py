@@ -2,12 +2,15 @@
 メール送信サービス（Brevo連携）
 """
 
-import sib_api_v3_sdk
-from sib_api_v3_sdk.rest import ApiException
-from app.core.config import settings
+import base64
 import logging
 from typing import Optional
+
+import sib_api_v3_sdk
+from sib_api_v3_sdk.rest import ApiException
 from tenacity import retry, stop_after_attempt, wait_exponential  # 🟡 リトライ
+
+from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -554,4 +557,67 @@ YadOPERA - {facility_name} のクーポン
                 exc_info=True
             )
             raise
+
+    async def send_csv_bulk_request_email(
+        self,
+        form_data: dict,
+        file_bytes: Optional[bytes] = None,
+        filename: Optional[str] = None,
+    ) -> bool:
+        """
+        CSV一括登録代行の申し込み内容を運営あてに送信（添付ファイル対応）。
+        呼び出し元で admin_notification_email 未設定時は 503 を返す想定。
+        """
+        if not settings.admin_notification_email:
+            raise ValueError("ADMIN_NOTIFICATION_EMAIL is not set. CSV bulk request cannot be sent.")
+
+        rows = [
+            ("施設名", form_data.get("csv_facility_name", "")),
+            ("プラン", form_data.get("csv_plan", "")),
+            ("希望登録件数", form_data.get("csv_desired_count", "")),
+            ("希望言語", form_data.get("csv_languages", "")),
+            ("連絡メール", form_data.get("csv_email", "")),
+            ("担当者名", form_data.get("csv_contact_name", "")),
+            ("その他要望", form_data.get("csv_notes", "")),
+        ]
+        table_rows = "".join(
+            f"<tr><td style=\"padding:4px 8px;border:1px solid #ddd;\">{k}</td><td style=\"padding:4px 8px;border:1px solid #ddd;\">{v}</td></tr>"
+            for k, v in rows
+        )
+        html_content = f"""
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><title>CSV一括登録代行 申し込み</title></head>
+<body style="font-family: sans-serif;">
+<h2>【YadOPERA】CSV一括登録代行の申し込み</h2>
+<p>管理画面の申し込みフォームから以下の内容が送信されました。</p>
+<table style="border-collapse: collapse;">
+{table_rows}
+</table>
+<p style="margin-top: 20px; font-size: 12px; color: #666;">このメールは送信専用です。</p>
+</body>
+</html>
+"""
+
+        send_params = {
+            "to": [{"email": settings.admin_notification_email, "name": "YadOPERA Admin"}],
+            "sender": {
+                "email": settings.brevo_sender_email,
+                "name": settings.brevo_sender_name,
+            },
+            "subject": "【YadOPERA】CSV一括登録代行の申し込み",
+            "html_content": html_content,
+        }
+        if file_bytes and filename:
+            send_params["attachment"] = [
+                {"name": filename, "content": base64.b64encode(file_bytes).decode()}
+            ]
+
+        send_smtp_email = sib_api_v3_sdk.SendSmtpEmail(**send_params)
+        api_response = self.api_instance.send_transac_email(send_smtp_email)
+        logger.info(
+            f"CSV bulk request email sent: message_id={api_response.message_id}, "
+            f"attachment={bool(file_bytes)}"
+        )
+        return True
 

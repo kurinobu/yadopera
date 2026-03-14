@@ -118,6 +118,13 @@ const navItems = [
     ])
   },
   {
+    to: '/admin/csv-bulk-request',
+    label: 'CSV代行の申し込み',
+    icon: () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+      h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' })
+    ])
+  },
+  {
     to: '/admin/overnight-queue',
     label: 'スタッフ不在時間帯対応キュー',
     icon: () => h('svg', { class: 'w-5 h-5', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
