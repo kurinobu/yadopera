@@ -18,11 +18,11 @@
       </div>
       <div class="flex-1">
         <h4 class="text-sm font-semibold text-red-900 dark:text-red-300 mb-2">
-          {{ copy.emergency.title }}
+          緊急連絡先 / Emergency Contact
         </h4>
         <div class="space-y-2 text-sm text-red-800 dark:text-red-400">
           <div class="flex items-center space-x-2">
-            <span class="font-medium">{{ copy.emergency.ambulanceFire }}:</span>
+            <span class="font-medium">救急・消防:</span>
             <a
               href="tel:119"
               class="underline hover:no-underline font-semibold"
@@ -31,7 +31,7 @@
             </a>
           </div>
           <div class="flex items-center space-x-2">
-            <span class="font-medium">{{ copy.emergency.police }}:</span>
+            <span class="font-medium">警察:</span>
             <a
               href="tel:110"
               class="underline hover:no-underline font-semibold"
@@ -40,7 +40,7 @@
             </a>
           </div>
           <div v-if="facilityPhone" class="flex items-center space-x-2 mt-3 pt-3 border-t border-red-200 dark:border-red-800">
-            <span class="font-medium">{{ copy.emergency.facilityContact }}:</span>
+            <span class="font-medium">施設連絡先:</span>
             <a
               :href="`tel:${facilityPhone}`"
               class="underline hover:no-underline font-semibold"
@@ -55,19 +55,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { getGuestCopy } from '@/utils/guestCopy'
-
 interface Props {
   facilityPhone?: string
-  lang?: string
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  lang: 'en'
-})
-
-const copy = computed(() => getGuestCopy(props.lang))
+defineProps<Props>()
 </script>
 
 <style scoped>

@@ -1,7 +1,7 @@
 <template>
   <div class="mb-6">
     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-      {{ copy.topQuestions.sectionTitle }}
+      よくある質問 / Frequently Asked Questions
     </h3>
     <div v-if="questions.length > 0" class="space-y-3">
       <button
@@ -31,26 +31,19 @@
       </button>
     </div>
     <div v-else class="text-center py-8 text-gray-500 dark:text-gray-400">
-      <p class="text-sm">{{ copy.topQuestions.emptyMessage }}</p>
+      <p class="text-sm">よくある質問はありません</p>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { getGuestCopy } from '@/utils/guestCopy'
 import type { TopQuestion } from '@/types/facility'
 
 interface Props {
   questions: TopQuestion[]
-  lang?: string
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  lang: 'en'
-})
-
-const copy = computed(() => getGuestCopy(props.lang))
+const props = defineProps<Props>()
 
 const emit = defineEmits<{
   questionClick: [question: TopQuestion]

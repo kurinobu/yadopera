@@ -1,7 +1,7 @@
 <template>
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
     <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-      {{ facility?.name || copy.facilityHeader.loading }}
+      {{ facility?.name || 'Loading...' }}
     </h2>
     <div v-if="facility" class="space-y-2 text-sm text-gray-600 dark:text-gray-400">
       <div v-if="(facility.phone ?? '').toString().trim() !== ''" class="flex items-center space-x-2">
@@ -18,11 +18,11 @@
       </div>
       <div v-if="facility.check_in_time && facility.check_out_time" class="flex items-center space-x-4 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
         <div class="flex items-center space-x-2">
-          <span class="font-medium">{{ copy.facilityHeader.checkIn }}:</span>
+          <span class="font-medium">Check-in:</span>
           <span>{{ facility.check_in_time }}</span>
         </div>
         <div class="flex items-center space-x-2">
-          <span class="font-medium">{{ copy.facilityHeader.checkOut }}:</span>
+          <span class="font-medium">Check-out:</span>
           <span>{{ facility.check_out_time }}</span>
         </div>
       </div>
@@ -31,20 +31,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { getGuestCopy } from '@/utils/guestCopy'
 import type { Facility } from '@/types/facility'
 
 interface Props {
   facility: Facility | null
-  lang?: string
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  lang: 'en'
-})
-
-const copy = computed(() => getGuestCopy(props.lang))
+defineProps<Props>()
 </script>
 
 <style scoped>
