@@ -13,6 +13,11 @@ export interface SystemOverview {
   }
   chats_7d: number
   escalations_7d: number
+  paid_facilities_count?: number
+  questions_current_month?: number
+  new_registrations_current_month?: number
+  new_paid_current_month?: number
+  cancel_at_period_end_count?: number
 }
 
 export interface FacilitySummary {
@@ -25,6 +30,9 @@ export interface FacilitySummary {
   chats_7d: number
   errors_7d: number
   last_admin_login: string | null
+  created_at?: string | null
+  questions_current_month?: number
+  escalations_7d?: number
 }
 
 export interface ErrorLog {

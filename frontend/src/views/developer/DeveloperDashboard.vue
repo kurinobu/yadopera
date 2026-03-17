@@ -59,6 +59,34 @@
           />
         </div>
 
+        <!-- 運営用統計（当月・暦月 JST） -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <StatCard
+            title="有料施設数"
+            :value="overview.paid_facilities_count ?? 0"
+          />
+          <StatCard
+            title="今月の総質問数"
+            :value="overview.questions_current_month ?? 0"
+            subtitle="当月"
+          />
+          <StatCard
+            title="今月の新規登録数"
+            :value="overview.new_registrations_current_month ?? 0"
+            subtitle="当月"
+          />
+          <StatCard
+            title="今月の新規有料数"
+            :value="overview.new_paid_current_month ?? 0"
+            subtitle="当月登録かつ有料"
+          />
+          <StatCard
+            title="解約予定施設数"
+            :value="overview.cancel_at_period_end_count ?? 0"
+            subtitle="期間末解約予定"
+          />
+        </div>
+
         <!-- エラー統計（過去24時間） -->
         <div v-if="overview.errors_24h" class="grid grid-cols-1 md:grid-cols-3 gap-6">
           <StatCard
@@ -101,6 +129,9 @@
             <thead class="bg-gray-50 dark:bg-gray-700">
               <tr>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  施設ID
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   施設名
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -113,6 +144,12 @@
                   料金プラン
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  登録日
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  今月の質問数
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   FAQ数
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
@@ -122,12 +159,18 @@
                   エラー（7日）
                 </th>
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  エスカレーション（7日）
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   最終ログイン
                 </th>
               </tr>
             </thead>
             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               <tr v-for="facility in facilities" :key="facility.id" class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {{ facility.id }}
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                   {{ facility.name }}
                 </td>
@@ -146,6 +189,12 @@
                   {{ facility.plan_type || '-' }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {{ facility.created_at ? formatDate(facility.created_at) : '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {{ facility.questions_current_month ?? 0 }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {{ facility.faq_count }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -153,6 +202,9 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {{ facility.errors_7d }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                  {{ facility.escalations_7d ?? 0 }}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {{ facility.last_admin_login ? formatDate(facility.last_admin_login) : '-' }}

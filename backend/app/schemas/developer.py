@@ -97,6 +97,12 @@ class SystemOverviewResponse(BaseModel):
     errors_24h: Errors24hResponse
     chats_7d: int
     escalations_7d: int
+    # 運営用統計（Phase 2）
+    paid_facilities_count: int = 0
+    questions_current_month: int = 0
+    new_registrations_current_month: int = 0
+    new_paid_current_month: int = 0
+    cancel_at_period_end_count: int = 0
 
 
 class FacilitySummaryResponse(BaseModel):
@@ -112,6 +118,10 @@ class FacilitySummaryResponse(BaseModel):
     chats_7d: int = 0
     errors_7d: int = 0
     last_admin_login: Optional[datetime] = None
+    # 運営用統計（Phase 3）
+    created_at: Optional[datetime] = None
+    questions_current_month: int = 0
+    escalations_7d: int = 0
 
 
 class FacilityListResponse(BaseModel):
