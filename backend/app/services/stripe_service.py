@@ -55,6 +55,9 @@ def create_customer(
             email=email,
             name=name or None,
             metadata={"facility_id": str(facility_id)},
+            # Stripe の請求書/領収書PDF・メール等の表示言語を日本語に寄せる。
+            # 既存顧客の言語は Stripe 側で変更が必要（PDF確定後は過去分に反映されない）。
+            preferred_locales=["ja"],
         )
         return customer
     except stripe.StripeError as e:
