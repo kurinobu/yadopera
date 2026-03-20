@@ -314,6 +314,25 @@ OPERATOR_FAQ_DATA = [
             }
         }
     },
+    {
+        'intent_key': 'faq_csv_columns',
+        'category': 'faq_management',
+        'display_order': 78,
+        'translations': {
+            'ja': {
+                'question': 'CSVの言語列名やis_activeの意味が分かりません',
+                'answer': 'CSVの「列名」は、CSVの1行目（ヘッダー）に入れる文字です。次のどちらかをそのままコピペしてください（カンマ区切り）。\n標準4言語（テンプレートと同じ）:\ncategory,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer\n\n韓国語も追加する場合:\ncategory,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer,language_ko_question,language_ko_answer\n\nポイント: 1) 繁体中国語は zh-TW の「-」が必須です。2) is_active は true（ゲスト向けに使う）/ false（ゲストに出さない）です。3) zh-CN や es などはCSV一括では取り込まれません（必要なら管理画面で個別登録）。',
+                'keywords': 'CSV,言語列,zh-TW,is_active,intent_key,列名,一括登録,繁体中国語,韓国語',
+                'related_url': '/admin/manual#faq-csv-bulk'
+            },
+            'en': {
+                'question': 'What do CSV language column names and is_active mean?',
+                'answer': 'CSV column names are the texts in the 1st row (header). Copy/paste one of the following (comma-separated).\nStandard 4 languages (same as the template):\ncategory,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer\n\nAdd Korean:\ncategory,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer,language_ko_question,language_ko_answer\n\nNotes: 1) Traditional Chinese must be zh-TW (hyphen required). 2) is_active: true = usable for guests, false = not shown. 3) Columns like zh-CN or es are not imported via bulk upload (add those FAQs individually in the admin UI).',
+                'keywords': 'CSV,language columns,zh-TW,is_active,intent_key,column names,bulk import,Traditional Chinese,Korean',
+                'related_url': '/admin/manual#faq-csv-bulk'
+            }
+        }
+    },
     # Category: ai_logic（AI仕組み） - 4項目
     {
         'intent_key': 'ai_how_it_works',

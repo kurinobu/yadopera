@@ -613,15 +613,42 @@ YadOPERAを利用開始する前に、以下の手順で初期設定を行って
 
 **CSV形式**:
 - **必須カラム**: category, language_ja_question, language_ja_answer
-- **オプション**: 多言語列（language_en_*, language_fr_*, language_zh-TW_* 等）、intent_key, priority, is_active。**intent_key（FAQ識別キー）は省略可能です。入力しなくても、カテゴリと質問文から自動で識別キーが作られます。通常は空欄のままで問題ありません。**
+- **オプション**: 多言語列（下表どおり**列名はシステムと完全一致**）、intent_key, priority, is_active
+- **入力しなくてよい／空欄でよい列**: **intent_key** は通常**空欄のままで問題ありません**（未入力の場合、カテゴリと日本語質問から自動で識別キーが作られます）。**priority**・**is_active** を省略した行は、システム側の既定値（priority は 3、is_active は true）が使われます
 - **カテゴリ**: basic, facilities, location, trouble のいずれか
 - **ファイル**: UTF-8（BOM付き推奨）、最大10MB、カンマ区切り
-- **質問・回答にカンマを含む場合**: そのフィールド全体をダブルクォート（"）で囲んでください。囲まないと列がずれることがあります
+- **質問・回答にカンマを含む場合**: そのフィールド全体をダブルクォート（"）で囲んでください。囲まないと列がずれることがあります。**推奨**: 編集後は表計算ソフトの「CSV UTF-8」保存に加え、可能なら全セルをクォートで囲んだ形式（QUOTE_ALL 相当）にすると安全です（運営・開発向け詳細は \`docs/FAQ_CSV一括登録_翻訳生成_必須ルール_AIと運営向け.md\`）
+
+**言語列の名前（一括アップロードで取り込まれるもの）**:
+- 列名は **半角英字・ハイフン・アンダースコアの綴りを一字一句合わせる**必要があります（Excel が列名を勝手に変えていないかも確認してください）
+- **繁体中国語は \`zh-TW\` のハイフン必須**です。\`language_zhtw_question\` や \`language_zh_TW_question\` などは**認識されません**
+
+| 言語 | 質問列 | 回答列 |
+|------|--------|--------|
+| 日本語（必須） | language_ja_question | language_ja_answer |
+| 英語 | language_en_question | language_en_answer |
+| 繁体中国語 | language_zh-TW_question | language_zh-TW_answer |
+| フランス語 | language_fr_question | language_fr_answer |
+| 韓国語 | language_ko_question | language_ko_answer |
+
+**コピペ用：CSVの1行目（ヘッダー）**
+（A）標準4言語（テンプレートと同じ並び）
+category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer
+（B）＋韓国語（必要な場合のみ）
+category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer,language_ko_question,language_ko_answer
+
+- **ゲスト画面では**簡体中国語・スペイン語・タイ語なども選べますが、**CSV 一括登録の仕様上、上表以外の言語列（例: language_zh-CN_question）は現状アップロード時に読み込まれません**。簡体中国語・スペイン語などの FAQ は、**管理画面の個別登録**で追加してください
+- **韓国語を CSV で追加する場合**: ヘッダーに \`language_ko_question\` と \`language_ko_answer\` の2列を追加し、各行に翻訳を入力します（テンプレートに含まれていない場合があります）
+
+**is_active（有効／無効）**:
+- **true**（または空欄・省略）: ゲスト向けに使うFAQ（検索・AI回答の候補に入る）
+- **false**: ゲスト向けに出さないFAQ（AI回答の候補に入れない運用の想定）
+- true / false は小文字で入力してください（例: true）
 
 **テンプレートの入手（一元記載）**:
-- **モーダル内**: FAQ管理画面の「CSV一括登録」ボタンで開くモーダル内にある「テンプレートダウンロード」リンクから、4言語（日本語・英語・フランス語・繁体中国語）の推奨テンプレートをダウンロードできます
+- **モーダル内**: FAQ管理画面の「CSV一括登録」ボタンで開くモーダル内にある「テンプレートダウンロード」リンクから、**日本語＋英語・フランス語・繁体中国語**入りの推奨テンプレートをダウンロードできます（韓国語列は含まれていない場合があります。必要なら上表に従い列を追加してください）
 - **マニュアル内**: この節から [CSVテンプレートをダウンロード](/faq-csv-template/FAQ_CSV_template_4lang.csv) できます
-- Premiumプランでは簡体中国語・スペイン語・韓国語も利用可能です。詳細はヘルプの「対応言語は何語ですか？」をご参照ください
+- ゲスト側の言語一覧とプラン別の言語数上限については、ヘルプの「対応言語は何語ですか？」等をご参照ください。**CSV で増やせる言語列は、上表のとおり一括取り込み対応分に限られます**
 
 **テンプレート形式・Excel等で編集したい場合**:
 - 配布のデフォルトは**CSV**です。表計算ソフトで編集する場合は、保存時に「**CSV UTF-8（カンマ区切り）**」形式で保存してください。
@@ -637,7 +664,7 @@ YadOPERAを利用開始する前に、以下の手順で初期設定を行って
 - テンプレートまたは既存のCSVに、**同じ形式（必須カラム＋任意の言語列）で行を追加**してください。1行＝1件のFAQです。ヘッダー行は1行だけにし、2行目以降にデータを追加します。保存時はUTF-8（BOM付き推奨）で保存し直してください
 
 **CSVで言語を増やす場合の方法**:
-- 既存のCSVに**新しい言語のカラムを追加**します。カラム名は language_XX_question と language_XX_answer（XXは言語コード。例: 韓国語なら language_ko_question / language_ko_answer）です。既存の行にその列を追加して翻訳を入力します。翻訳の作り方は上記「12.2 翻訳手引書」を参照してください。プランの言語数制限（Standardは4言語までなど）に注意してください
+- 既存のCSVに**新しい言語のカラムを追加**します。**質問用・回答用の2列セット**で追加し、列名は上記の表（例: 韓国語なら \`language_ko_question\` / \`language_ko_answer\`、繁体中国語は \`language_zh-TW_question\` / \`language_zh-TW_answer\`）と**完全一致**にしてください。既存の行にその列を翻訳で埋めます。翻訳の作り方は上記「12.2 翻訳手引書」を参照してください。プランの言語数制限（Standardは4言語までなど）に注意してください。**一括取り込み非対応の言語コードの列を足しても、アップロードでは使われません**
 
 **エラー時の対処（一覧）**:
 - **タイムアウト（約60秒超過）**: 一度に登録する行数を減らし、ファイルを分割して複数回に分けてアップロードしてください

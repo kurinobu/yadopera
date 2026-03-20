@@ -1,11 +1,11 @@
-# 宿泊事業者向けFAQデータ（48項目）
+# 宿泊事業者向けFAQデータ（49項目）
 
 **プロジェクト**: YadOPERA Phase 2 統合ヘルプシステム  
 **作成日**: 2025-12-26  
-**最終更新日**: 2026年3月2日  
+**最終更新日**: 2026年3月20日  
 **言語**: 日本語・英語
 
-**現行の定義**: 全48項目・11カテゴリ。データの正は `backend/scripts/insert_operator_faqs.py` の `OPERATOR_FAQ_DATA`。DB反映は `update_operator_faqs.py`。実施計画・ステップ実施記録・デプロイ時手順は `docs/施設管理者向けヘルプチャットFAQ_マニュアル水準化_調査と計画.md` を参照。
+**現行の定義**: 全49項目・11カテゴリ。データの正は `backend/scripts/insert_operator_faqs.py` の `OPERATOR_FAQ_DATA`。DB反映は `update_operator_faqs.py`。実施計画・ステップ実施記録・デプロイ時手順は `docs/施設管理者向けヘルプチャットFAQ_マニュアル水準化_調査と計画.md` を参照。
 
 **カテゴリ（11）**: setup, qrcode, faq_management, ai_logic, logs, troubleshooting, billing, security, overnight_queue, guest, practice。フロントの表示ラベル（日本語）は `CategoryFilter.vue` および `FaqItem.vue` の `labels` で定義。
 
@@ -63,13 +63,13 @@
 - **質問**: 初回ログイン後にまずやるべきことは？
 - **回答**: 以下の順番で設定を行ってください：1. 施設情報登録（WiFiパスワード、チェックアウト時間など）、2. FAQ初期テンプレート確認・編集、3. QRコード生成・印刷、4. テスト質問で動作確認。全て完了するまで約30分程度です。詳細はご利用マニュアルをご参照ください。
 - **キーワード**: 初回ログイン,初期設定,はじめに,スタート,セットアップ
-- **関連URL**: /admin/manual
+- **関連URL**: /admin/manual#faq-csv-bulk
 
 #### 英語 (en)
 - **Question**: What should I do after first login?
 - **Answer**: Follow these steps: 1. Register facility info (WiFi password, check-out time, etc.), 2. Review/edit initial FAQ templates, 3. Generate/print QR codes, 4. Test with sample questions. Takes about 30 minutes total. See the user manual for details.
 - **Keywords**: first login,initial setup,getting started,start,setup
-- **Related URL**: /admin/manual
+- **Related URL**: /admin/manual#faq-csv-bulk
 
 ---
 
@@ -215,7 +215,7 @@
 
 ---
 
-## Category: faq_management（FAQ管理） - 5項目
+## Category: faq_management（FAQ管理） - 6項目
 
 ### FAQ 10: faq_template_usage
 
@@ -317,9 +317,43 @@
 
 ---
 
+### FAQ 15: faq_csv_columns
+
+**intent_key**: `faq_csv_columns`  
+**display_order**: 78  
+**category**: `faq_management`
+
+#### 日本語 (ja)
+- **質問**: CSVの言語列名やis_activeの意味が分かりません
+- **回答**: CSVの「列名」は、CSVの1行目（ヘッダー）に入れる文字です。次のどちらかをそのままコピペしてください（カンマ区切り）。
+  標準4言語（テンプレートと同じ）:
+  category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer
+
+  韓国語も追加する場合:
+  category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer,language_ko_question,language_ko_answer
+
+  ポイント: 1) 繁体中国語は zh-TW の「-」が必須です。2) is_active は true（ゲスト向けに使う）/ false（ゲストに出さない）です。3) zh-CN や es などはCSV一括では取り込まれません（必要なら管理画面で個別登録）。
+- **キーワード**: CSV,言語列,zh-TW,is_active,intent_key,列名,一括登録,繁体中国語,韓国語
+- **関連URL**: /admin/manual
+
+#### 英語 (en)
+- **Question**: What do CSV language column names and is_active mean?
+- **Answer**: CSV column names are the texts in the 1st row (header). Copy/paste one of the following (comma-separated).
+  Standard 4 languages (same as the template):
+  category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer
+
+  Add Korean:
+  category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer,language_ko_question,language_ko_answer
+
+  Notes: 1) Traditional Chinese must be zh-TW (hyphen required). 2) is_active: true = usable for guests, false = not shown. 3) Columns like zh-CN or es are not imported via bulk upload (add those FAQs individually in the admin UI).
+- **Keywords**: CSV,language columns,zh-TW,is_active,intent_key,column names,bulk import,Traditional Chinese,Korean
+- **Related URL**: /admin/manual
+
+---
+
 ## Category: ai_logic（AI仕組み） - 4項目
 
-### FAQ 15: ai_how_it_works
+### FAQ 16: ai_how_it_works
 
 **intent_key**: `ai_how_it_works`  
 **display_order**: 100  
@@ -339,7 +373,7 @@
 
 ---
 
-### FAQ 16: ai_accuracy
+### FAQ 17: ai_accuracy
 
 **intent_key**: `ai_accuracy`  
 **display_order**: 95  
@@ -359,7 +393,7 @@
 
 ---
 
-### FAQ 17: ai_languages
+### FAQ 18: ai_languages
 
 **intent_key**: `ai_languages`  
 **display_order**: 90  
@@ -379,7 +413,7 @@
 
 ---
 
-### FAQ 18: ai_limitations
+### FAQ 19: ai_limitations
 
 **intent_key**: `ai_limitations`  
 **display_order**: 85  
@@ -401,7 +435,7 @@
 
 ## Category: logs（ログ分析） - 3項目
 
-### FAQ 19: logs_view_questions
+### FAQ 20: logs_view_questions
 
 **intent_key**: `logs_view_questions`  
 **display_order**: 100  
@@ -421,7 +455,7 @@
 
 ---
 
-### FAQ 20: logs_unanswered
+### FAQ 21: logs_unanswered
 
 **intent_key**: `logs_unanswered`  
 **display_order**: 95  
@@ -441,7 +475,7 @@
 
 ---
 
-### FAQ 21: logs_analytics
+### FAQ 22: logs_analytics
 
 **intent_key**: `logs_analytics`  
 **display_order**: 90  
@@ -463,7 +497,7 @@
 
 ## Category: troubleshooting（トラブルシューティング） - 5項目
 
-### FAQ 22: trouble_ai_slow
+### FAQ 23: trouble_ai_slow
 
 **intent_key**: `trouble_ai_slow`  
 **display_order**: 100  
@@ -483,7 +517,7 @@
 
 ---
 
-### FAQ 23: trouble_qr_not_working
+### FAQ 24: trouble_qr_not_working
 
 **intent_key**: `trouble_qr_not_working`  
 **display_order**: 95  
@@ -503,7 +537,7 @@
 
 ---
 
-### FAQ 24: trouble_faq_not_updated
+### FAQ 25: trouble_faq_not_updated
 
 **intent_key**: `trouble_faq_not_updated`  
 **display_order**: 90  
