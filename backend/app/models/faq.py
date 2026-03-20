@@ -41,5 +41,8 @@ class FAQ(Base):
     facility = relationship("Facility", back_populates="faqs")
     creator = relationship("User")
     translations = relationship("FAQTranslation", back_populates="faq", cascade="all, delete-orphan")
+    # FAQ削除時に FAQViewLog 側の FK（faq_id）を ORM が NULL 化しないようにする。
+    # DB 側は ON DELETE CASCADE なので、それに委ねる。
+    view_logs = relationship("FAQViewLog", back_populates="faq", passive_deletes=True)
 
 

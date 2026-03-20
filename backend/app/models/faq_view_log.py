@@ -23,7 +23,7 @@ class FAQViewLog(Base):
     viewed_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True, comment='閲覧日時')
 
     # リレーションシップ
-    faq = relationship("FAQ", backref="view_logs")
+    faq = relationship("FAQ", back_populates="view_logs")
     facility = relationship("Facility", backref="faq_view_logs")
     conversation = relationship("Conversation", backref="faq_view_logs")
     message = relationship("Message", backref="faq_view_logs")
