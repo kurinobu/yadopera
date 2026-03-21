@@ -90,3 +90,15 @@ export interface SystemHealthResponse {
   }
 }
 
+export interface DeveloperFaqBulkUploadResult {
+  success_count: number
+  failure_count: number
+  total_count: number
+  skipped_count: number
+  processing_time_seconds: number
+  uploaded_at: string
+  uploaded_by: number
+  errors: Array<Record<string, unknown>>
+  warnings: Array<Record<string, unknown>>
+}
+

@@ -164,6 +164,9 @@
                 <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   最終ログイン
                 </th>
+                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                  操作
+                </th>
               </tr>
             </thead>
             <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
@@ -208,6 +211,15 @@
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {{ facility.last_admin_login ? formatDate(facility.last_admin_login) : '-' }}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                  <button
+                    type="button"
+                    class="px-3 py-2 text-xs font-medium text-white bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    @click="openCsvUploadModal(facility)"
+                  >
+                    CSV一括登録（FAQ）
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -288,6 +300,92 @@
         </div>
       </section>
     </template>
+
+    <!-- CSV一括登録モーダル -->
+    <div
+      v-if="isCsvModalOpen"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      @click.self="closeCsvUploadModal"
+    >
+      <div class="w-full max-w-2xl rounded-lg bg-white dark:bg-gray-800 shadow-xl border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          <h3 class="text-lg font-bold text-gray-900 dark:text-white">FAQ CSV 一括登録</h3>
+          <button
+            type="button"
+            class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            @click="closeCsvUploadModal"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div v-if="selectedFacility" class="px-6 py-5 space-y-4">
+          <div class="rounded-lg border border-yellow-200 bg-yellow-50 dark:border-yellow-800 dark:bg-yellow-900/20 p-3 text-sm text-yellow-900 dark:text-yellow-100">
+            誤登録防止のため、対象施設を確認してください。
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+            <div><span class="font-semibold">施設ID:</span> {{ selectedFacility.id }}</div>
+            <div><span class="font-semibold">施設名:</span> {{ selectedFacility.name }}</div>
+            <div><span class="font-semibold">プラン:</span> {{ selectedFacility.plan_type || '-' }}</div>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              CSVファイル
+            </label>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              class="block w-full text-sm text-gray-700 dark:text-gray-300 file:mr-3 file:rounded file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-sm file:font-medium hover:file:bg-gray-200 dark:file:bg-gray-700 dark:hover:file:bg-gray-600"
+              @change="handleCsvFileChange"
+            />
+            <p v-if="selectedCsvFile" class="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              選択中: {{ selectedCsvFile.name }}
+            </p>
+          </div>
+
+          <label class="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <input
+              v-model="csvConfirmChecked"
+              type="checkbox"
+              class="mt-1"
+            />
+            <span>対象施設・CSV内容を確認し、実行して問題ないことを確認しました。</span>
+          </label>
+
+          <p v-if="csvUploadError" class="text-sm text-red-600 dark:text-red-400">
+            {{ csvUploadError }}
+          </p>
+
+          <div v-if="csvUploadResult" class="rounded-lg border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20 p-3 text-sm text-green-900 dark:text-green-100 space-y-1">
+            <p>アップロード完了</p>
+            <p>成功件数: {{ csvUploadResult.success_count }} / 総件数: {{ csvUploadResult.total_count }}</p>
+            <p>処理時間: {{ csvUploadResult.processing_time_seconds }}秒</p>
+            <p>uploaded_by: {{ csvUploadResult.uploaded_by }}</p>
+          </div>
+        </div>
+
+        <div class="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+          <button
+            type="button"
+            class="px-4 py-2 text-sm rounded border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+            :disabled="isCsvUploading"
+            @click="closeCsvUploadModal"
+          >
+            閉じる
+          </button>
+          <button
+            type="button"
+            class="px-4 py-2 text-sm rounded text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="isCsvUploading || !selectedCsvFile || !csvConfirmChecked"
+            @click="submitCsvUpload"
+          >
+            {{ isCsvUploading ? '実行中...' : 'CSV一括登録を実行' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -295,7 +393,12 @@
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { developerApi } from '@/api/developer'
-import type { SystemOverview, FacilitySummary, ErrorLog } from '@/types/developer'
+import type {
+  SystemOverview,
+  FacilitySummary,
+  ErrorLog,
+  DeveloperFaqBulkUploadResult
+} from '@/types/developer'
 import StatCard from '@/components/developer/StatCard.vue'
 
 const router = useRouter()
@@ -306,6 +409,13 @@ const isExporting = ref(false)
 const overview = ref<SystemOverview | null>(null)
 const facilities = ref<FacilitySummary[]>([])
 const recentErrors = ref<ErrorLog[]>([])
+const isCsvModalOpen = ref(false)
+const isCsvUploading = ref(false)
+const selectedFacility = ref<FacilitySummary | null>(null)
+const selectedCsvFile = ref<File | null>(null)
+const csvConfirmChecked = ref(false)
+const csvUploadError = ref('')
+const csvUploadResult = ref<DeveloperFaqBulkUploadResult | null>(null)
 
 const fetchData = async () => {
   try {
@@ -347,6 +457,54 @@ const handleExportFacilitiesCsv = async () => {
     alert(err.response?.data?.detail || err.message || 'CSVのダウンロードに失敗しました')
   } finally {
     isExporting.value = false
+  }
+}
+
+const openCsvUploadModal = (facility: FacilitySummary) => {
+  selectedFacility.value = facility
+  selectedCsvFile.value = null
+  csvConfirmChecked.value = false
+  csvUploadError.value = ''
+  csvUploadResult.value = null
+  isCsvModalOpen.value = true
+}
+
+const closeCsvUploadModal = () => {
+  if (isCsvUploading.value) return
+  isCsvModalOpen.value = false
+}
+
+const handleCsvFileChange = (event: Event) => {
+  const target = event.target as HTMLInputElement
+  selectedCsvFile.value = target.files?.[0] || null
+  csvUploadError.value = ''
+}
+
+const submitCsvUpload = async () => {
+  if (!selectedFacility.value || !selectedCsvFile.value) return
+  if (!csvConfirmChecked.value) {
+    csvUploadError.value = '確認チェックに同意してください。'
+    return
+  }
+
+  try {
+    isCsvUploading.value = true
+    csvUploadError.value = ''
+    const result = await developerApi.bulkUploadFaqCsv(
+      selectedFacility.value.id,
+      selectedCsvFile.value,
+      'add'
+    )
+    csvUploadResult.value = result
+    await fetchData()
+  } catch (err: any) {
+    csvUploadError.value =
+      err.response?.data?.error?.message ||
+      err.response?.data?.detail ||
+      err.message ||
+      'CSV一括登録に失敗しました'
+  } finally {
+    isCsvUploading.value = false
   }
 }
 

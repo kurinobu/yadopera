@@ -9,7 +9,8 @@ import type {
   FacilitySummary,
   ErrorLogDetail,
   ErrorLogListResponse,
-  SystemHealthResponse
+  SystemHealthResponse,
+  DeveloperFaqBulkUploadResult
 } from '@/types/developer'
 
 const DEVELOPER_API_BASE = '/developer'
@@ -34,18 +35,20 @@ const getDeveloperApiClient = () => {
       throw new Error('Developer token expired')
     }
     
-    // 既存のapiClientを使用し、Authorizationヘッダーを追加
-    const config = {
+    // 既存のapiClientを使用し、Authorizationヘッダーを必ず保持する
+    const mergeOptions = (options?: any) => ({
+      ...(options || {}),
       headers: {
-        Authorization: `Bearer ${token}`
+        Authorization: `Bearer ${token}`,
+        ...(options?.headers || {})
       }
-    }
+    })
     
     return {
-      get: (url: string, options?: any) => apiClient.get(`${DEVELOPER_API_BASE}${url}`, { ...config, ...options }),
-      post: (url: string, data?: any, options?: any) => apiClient.post(`${DEVELOPER_API_BASE}${url}`, data, { ...config, ...options }),
-      put: (url: string, data?: any, options?: any) => apiClient.put(`${DEVELOPER_API_BASE}${url}`, data, { ...config, ...options }),
-      delete: (url: string, options?: any) => apiClient.delete(`${DEVELOPER_API_BASE}${url}`, { ...config, ...options })
+      get: (url: string, options?: any) => apiClient.get(`${DEVELOPER_API_BASE}${url}`, mergeOptions(options)),
+      post: (url: string, data?: any, options?: any) => apiClient.post(`${DEVELOPER_API_BASE}${url}`, data, mergeOptions(options)),
+      put: (url: string, data?: any, options?: any) => apiClient.put(`${DEVELOPER_API_BASE}${url}`, data, mergeOptions(options)),
+      delete: (url: string, options?: any) => apiClient.delete(`${DEVELOPER_API_BASE}${url}`, mergeOptions(options))
     }
   } catch (error) {
     console.error('Error creating developer API client:', error)
@@ -120,6 +123,26 @@ export const developerApi = {
   async getSystemHealth(): Promise<SystemHealthResponse> {
     const client = getDeveloperApiClient()
     const response = await client.get('/health/system')
+    return response.data
+  },
+
+  /**
+   * 指定施設にFAQ CSVを一括登録
+   */
+  async bulkUploadFaqCsv(
+    facilityId: number,
+    file: File,
+    mode: 'add' = 'add'
+  ): Promise<DeveloperFaqBulkUploadResult> {
+    const client = getDeveloperApiClient()
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('mode', mode)
+    // Content-Type はブラウザ/axios に任せる（boundary を自動付与）
+    const response = await client.post(`/facilities/${facilityId}/faqs/bulk-upload`, formData, {
+      // FAQ CSV 一括登録は埋め込み生成を含み、10秒を超えることがあるため延長
+      timeout: 60000
+    })
     return response.data
   }
 }
