@@ -1,11 +1,23 @@
-# やどぺら ランディングページ
+# やどぺら ランディングページ（`landing/`）
 
-PoC募集用のランディングページです。
+静的 HTML。**本番ドメイン `yadopera.com` は GitHub Pages**（`main` の本ディレクトリ）。**Vercel は使用しない**（プロジェクト大原則）。
 
-## 構成
+## ブランチとファイルの役割（重要）
 
-- `index.html`: メインのランディングページ（12セクション構成）
-- `vercel.json`: Vercelデプロイ設定
+| ブランチ | 主なファイル | 役割 |
+|----------|----------------|------|
+| **`main`** | `index.html` | **`https://yadopera.com/` に公開される中身**（当面はティザー）。 |
+| **`develop`** | `index.html` | **本番向け LP（LP v1.0 系）**の作業用。`main` と中身が分岐しうる。 |
+| **`develop`** | `teaser-index.html` | **`main` の `index.html`（ティザー）と揃えるための差し替え元**（2026-03-21〜）。 |
+
+**`develop` のみ push しても `yadopera.com` は更新されない。** ティザーを本番に反映するときは **`main` の `landing/index.html` を更新して push** すること。詳細: `docs/20260321_LPティザー_GitHubPages_ブランチとデプロイ不手際_記録.md`。
+
+## 構成（参考）
+
+- `index.html`: ブランチにより **ティザー（main）** または **本番LP（develop）**
+- `teaser-index.html`: **develop のみ** — ティザー本文の正（`main` へ同期用）
+- `poc-lp-20260120.html`: 旧 PoC 募集 LP のバックアップ
+- `vercel.json`: **使用しない**（歴史的ファイル。削除済みバックアップあり）
 
 ## セクション構成
 
@@ -28,34 +40,26 @@ PoC募集用のランディングページです。
 - Tailwind CSS（CDN）
 - Vanilla JavaScript
 
-## デプロイ
+## デプロイ（GitHub Pages）
 
-### Vercelでのデプロイ
-
-1. Vercelアカウントにログイン
-2. 新しいプロジェクトを作成
-3. `landing/`ディレクトリを選択
-4. カスタムドメイン設定（`yadopera.com`）
+1. **本番反映**: **`main`** にマージ（または `main` 上で直接コミット）し **`landing/**` を push**。
+2. GitHub Actions **「Deploy to GitHub Pages」**（`.github/workflows/pages.yml`）が成功することを確認。
+3. カスタムドメインはリポジトリの Pages 設定で既に `yadopera.com` が紐づいている想定。
 
 ### ローカルでの確認
 
 ```bash
-# シンプルなHTTPサーバーで起動
 cd landing
-python3 -m http.server 8000
-# または
-npx serve .
+python3 -m http.server 8765
 ```
 
-ブラウザで `http://localhost:8001` にアクセス
+ブラウザで `http://127.0.0.1:8765/index.html`（**`develop` checkout 時は本番LP**、**`main` checkout 時はティザー**）または `http://127.0.0.1:8765/teaser-index.html`（**develop** のティザー差し替え元）。
 
-**現在のローカルURL**: http://localhost:8001
-
-**注意**: ポート8000はbackend（FastAPI）が使用しているため、ランディングページはポート8001で起動しています。
+**注意**: バックエンドがポート 8000 を使う場合があるため、`landing/` のプレビューは **空いているポート**（例: 8765）でよい。
 
 ## フォーム連携
 
-現在、フォーム送信はプレースホルダー実装です。実際の運用では以下のいずれかに接続してください：
+ティザー等では **Formspree** を利用。接続先を変える場合は以下を参照：
 
 1. **Google Forms**: フォームをGoogle Formsで作成し、`action`属性にURLを設定
 2. **Formspree**: 無料のフォームサービス（https://formspree.io/）
@@ -101,5 +105,6 @@ Tailwind CSSのカスタムクラスを使用しています。主な色は：
 ## 関連ドキュメント
 
 - `docs/poc-promotion-requirements.md`: PoCプロモーション要件書
-- `docs/yadopera-v03-summary.md`: 要約定義書
+- `docs/Summary/yadopera-v03-summary.md`: 要約定義書
+- `docs/20260321_LPティザー_GitHubPages_ブランチとデプロイ不手際_記録.md`: 本番反映とブランチの注意
 

@@ -67,6 +67,15 @@
 
 ---
 
+## 4-4. デプロイとブランチ（本番URLを更新するとき・必読）
+
+- **本リポジトリでは `https://yadopera.com` = GitHub Pages**。ワークフローは **`main` へ push された `landing/**` のみ**がアップロードされる（`.github/workflows/pages.yml`）。
+- **`develop` だけにコミット・push しても、本番ドメインの表示は変わらない。** ティザーを直すときは **`main` の `landing/index.html`** を必ず更新すること。
+- **差し替え元**: `develop` ブランチに **`landing/teaser-index.html`** を置き、内容を **`main` の `landing/index.html` に同期**する運用とした（2026-03-21）。経緯・原因・教訓は `docs/20260321_LPティザー_GitHubPages_ブランチとデプロイ不手際_記録.md`。
+- **Render 等のステージングデプロイ**はフロント SPA 用。**GitHub Pages とは別パイプライン**。
+
+---
+
 ## 5. ティザーサイトで「出さないこと」
 
 - 機能一覧
