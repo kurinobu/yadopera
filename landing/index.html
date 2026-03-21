@@ -44,7 +44,7 @@
             font-family: 'Noto Sans JP', sans-serif;
         }
         
-        /* カスタムカラー定義（PoC募集LPサイトと同じ） */
+        /* カスタムカラー定義（旧募集LPサイトと同じ） */
         .text-primary {
             color: #0c4a6e;
         }
@@ -104,6 +104,7 @@
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 scroll-smooth">
+    <!-- main の landing/index.html（ティザー）差し替え元。GitHub Pages は main の landing/ を配信。 -->
 
     <main class="min-h-screen">
         
@@ -286,12 +287,32 @@
 
                     </div>
 
-                    <!-- PoC進行中の補足（控えめ） -->
-                    <div class="bg-accent-light rounded-lg p-6 mb-8 text-center">
-                        <p class="text-sm text-gray-700">
-                            現在、PoC（実証実験）を実施中です。<br>
+                    <!-- 宿泊施設実証実験・運営者情報・ストーリー（信頼補強） -->
+                    <div class="bg-accent-light rounded-lg p-6 md:p-8 mb-8">
+                        <p class="text-sm text-gray-700 text-center mb-6">
+                            現在、<strong class="text-primary">宿泊施設実証実験</strong>を実施しています。<br>
                             正式リリースは2026年春を予定しています。
                         </p>
+                        <div class="border-t border-sky-200 pt-6 text-sm md:text-base text-gray-700 leading-relaxed space-y-4">
+                            <h3 class="text-base font-semibold text-primary">開発の背景</h3>
+                            <p>
+                                なぜ開発したか。開発者は 2014 年から「やどびと」というゲストハウス・ホステル専門の求人サイトを運営し、小規模宿泊施設の労働力・業務実態について考察してきました。さらにフリーアコモデーションで 4 箇所の宿泊施設に関わり、宿泊施設が抱えるスタッフ不足・作業の効率化・現場での説明や問い合わせ対応の負担などの課題を体感してきました。
+                            </p>
+                            <p>
+                                これらの知識・体験を活かすべく YadOPERA の開発に着手しました。
+                            </p>
+                            <dl class="pt-2 space-y-2 text-sm md:text-base">
+                                <dt class="font-medium text-gray-900">販売業者</dt>
+                                <dd>アプラウソ株式会社</dd>
+                                <dt class="font-medium text-gray-900 mt-3">運営責任者</dt>
+                                <dd>栗原伸行</dd>
+                                <dt class="font-medium text-gray-900 mt-3">所在地</dt>
+                                <dd>〒652-0806 神戸市兵庫区西出町2丁目3-23</dd>
+                            </dl>
+                            <p class="text-center text-sm text-gray-600 pt-4">
+                                やどびと <a href="https://yadobito.com" class="text-primary hover:underline" target="_blank" rel="noopener noreferrer">https://yadobito.com</a>
+                            </p>
+                        </div>
                     </div>
 
                 </div>
