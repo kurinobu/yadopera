@@ -33,6 +33,17 @@ except ImportError:
     PDF_AVAILABLE = False
     logger.warning("reportlab/PIL not available. PDF generation will be limited.")
 
+# QRコードテキストオーバーレイ用
+import re  # SVG viewBox解析用
+
+# PIL追加インポート（条件付き）
+try:
+    from PIL import ImageDraw, ImageFont
+    PIL_DRAW_AVAILABLE = True
+except ImportError:
+    PIL_DRAW_AVAILABLE = False
+    logger.warning("PIL ImageDraw/ImageFont not available.")
+
 
 class QRCodeService:
     """
@@ -86,6 +97,29 @@ class QRCodeService:
             url += f"&token={session_token}"
         
         return url
+    
+    def _get_location_label(self, location: str, custom_location_name: Optional[str]) -> str:
+        """
+        設置場所コードから日本語表示への変換
+        
+        Args:
+            location: 設置場所コード
+            custom_location_name: カスタム設置場所名（オプション）
+        
+        Returns:
+            str: 日本語表示の設置場所名
+        """
+        if location == 'custom' and custom_location_name:
+            return custom_location_name
+        
+        location_labels = {
+            'entrance': '入口',
+            'room': '客室',
+            'kitchen': 'キッチン',
+            'lounge': 'ラウンジ',
+            'custom': 'カスタム'
+        }
+        return location_labels.get(location, location)
     
     async def generate_qr_code(
         self,
@@ -150,7 +184,7 @@ class QRCodeService:
             # qrcodeライブラリを使用
             qr = qrcode.QRCode(
                 version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_L,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,  # L → H に変更（中央テキスト対応）
                 box_size=10,
                 border=4,
             )
@@ -158,7 +192,52 @@ class QRCodeService:
             qr.make(fit=True)
             
             if format == "png":
+                # QRコード画像を生成
                 img = qr.make_image(fill_color="black", back_color="white")
+                
+                # PIL Imageに変換して中央にテキストを追加
+                img = img.convert('RGB')
+                
+                if PIL_DRAW_AVAILABLE:
+                    import os
+                    draw = ImageDraw.Draw(img)
+                    
+                    # QRコードサイズを取得
+                    qr_width, qr_height = img.size
+                    
+                    # テキスト「YadOPERA」を中央に配置（Noto Sans Bold 優先、縦中央は anchor="mm"）
+                    text = "YadOPERA"
+                    font_size = int(qr_width / 10)
+                    _overlay_font_paths = [
+                        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                    ]
+                    font = None
+                    for _path in _overlay_font_paths:
+                        try:
+                            if os.path.exists(_path):
+                                font = ImageFont.truetype(_path, font_size)
+                                break
+                        except Exception:
+                            continue
+                    if font is None:
+                        font = ImageFont.load_default()
+                    
+                    # 白背景の矩形（中央付近。anchor=mm で使う中心座標の余白）
+                    padding = 10
+                    center_x, center_y = qr_width // 2, qr_height // 2
+                    bbox = draw.textbbox((0, 0), text, font=font)
+                    text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                    rect_x1 = center_x - text_w // 2 - padding
+                    rect_y1 = center_y - text_h // 2 - padding
+                    rect_x2 = center_x + text_w // 2 + padding
+                    rect_y2 = center_y + text_h // 2 + padding
+                    draw.rectangle([rect_x1, rect_y1, rect_x2, rect_y2], fill=(255, 255, 255))
+                    
+                    # テキストを中央に描画（anchor="mm" で指定座標がテキストの中央）
+                    draw.text((center_x, center_y), text, fill=(0, 0, 0), font=font, anchor="mm")
+                
+                # BytesIOに保存
                 img_buffer = io.BytesIO()
                 img.save(img_buffer, format="PNG")
                 img_buffer.seek(0)
@@ -169,10 +248,10 @@ class QRCodeService:
                 try:
                     from qrcode.image.svg import SvgImage
                     
-                    # QRコードオブジェクトを作成（image_factoryを指定）
+                    # QRコードオブジェクトを作成（エラー訂正レベルH、image_factoryを指定）
                     qr_svg = qrcode.QRCode(
                         version=1,
-                        error_correction=qrcode.constants.ERROR_CORRECT_L,
+                        error_correction=qrcode.constants.ERROR_CORRECT_H,  # L → H に変更（中央テキスト対応）
                         box_size=10,
                         border=4,
                         image_factory=SvgImage
@@ -188,8 +267,72 @@ class QRCodeService:
                     img_svg.save(svg_buffer)
                     svg_buffer.seek(0)
                     
+                    # SVGデータを文字列として読み込み
+                    svg_data = svg_buffer.getvalue().decode('utf-8')
+                    
+                    # SVGのviewBoxを解析して中央座標を計算
+                    viewbox_match = re.search(r'viewBox="([^"]+)"', svg_data)
+                    if viewbox_match:
+                        # viewBox属性が存在する場合（既存の処理）
+                        viewbox = viewbox_match.group(1).split()
+                        width = float(viewbox[2])
+                        height = float(viewbox[3])
+                        center_x = width / 2
+                        center_y = height / 2
+                    else:
+                        # viewBox属性がない場合、width/height属性から計算
+                        width_match = re.search(r'width="([^"]+)"', svg_data)
+                        height_match = re.search(r'height="([^"]+)"', svg_data)
+                        
+                        if width_match and height_match:
+                            # mm単位の値を数値に変換（例: "57mm" → 57.0）
+                            width_str = width_match.group(1)
+                            height_str = height_match.group(1)
+                            
+                            # mm単位を数値に変換
+                            width_mm_match = re.search(r'(\d+(?:\.\d+)?)mm', width_str)
+                            height_mm_match = re.search(r'(\d+(?:\.\d+)?)mm', height_str)
+                            
+                            if width_mm_match and height_mm_match:
+                                width = float(width_mm_match.group(1))
+                                height = float(height_mm_match.group(1))
+                                center_x = width / 2
+                                center_y = height / 2
+                            else:
+                                logger.warning("SVG width/height format not recognized, skipping text overlay")
+                                width = None
+                                height = None
+                        else:
+                            logger.warning("SVG width/height attributes not found, skipping text overlay")
+                            width = None
+                            height = None
+                    
+                    # テキスト要素を追加（width/heightが取得できた場合）
+                    if width is not None and height is not None:
+                        # フォントサイズを縮小して横はみ出しを防止（15→18）
+                        font_size = width / 18
+                        text = "YadOPERA"
+                        
+                        # 白背景の矩形（テキスト中央に合わせる）
+                        rect_width = width / 3
+                        rect_height = font_size * 1.5
+                        rect_x = center_x - rect_width / 2
+                        rect_y = center_y - rect_height / 2
+                        
+                        # 縦中央: dominant-baseline="middle" で y=center_y がテキストの中央
+                        text_element = f'''
+                    <rect x="{rect_x}mm" y="{rect_y}mm" width="{rect_width}mm" height="{rect_height}mm" fill="white"/>
+                    <text x="{center_x}mm" y="{center_y}mm"
+                          font-family="sans-serif" font-size="{font_size}mm" font-weight="bold"
+                          fill="black" text-anchor="middle" dominant-baseline="middle">{text}</text>
+                '''
+                        
+                        # </svg>の直前にテキスト要素を挿入
+                        svg_data = svg_data.replace('</svg>', text_element + '</svg>')
+                    
                     # Base64エンコードしてData URL形式で返す
-                    qr_code_url = f"data:image/svg+xml;base64,{base64.b64encode(svg_buffer.getvalue()).decode()}"
+                    svg_bytes = svg_data.encode('utf-8')
+                    qr_code_url = f"data:image/svg+xml;base64,{base64.b64encode(svg_bytes).decode()}"
                 except ImportError as e:
                     # SvgImageが利用できない場合のフォールバック
                     logger.warning(f"SvgImage not available: {str(e)}. Falling back to external API.")
@@ -201,7 +344,7 @@ class QRCodeService:
             
             elif format == "pdf":
                 if PDF_AVAILABLE:
-                    # PDF生成
+                    # 1. 共通のqrオブジェクトからQRコード画像を生成
                     img = qr.make_image(fill_color="black", back_color="white")
                     img_buffer = io.BytesIO()
                     img.save(img_buffer, format="PNG")
@@ -210,13 +353,137 @@ class QRCodeService:
                     pdf_buffer = io.BytesIO()
                     c = canvas.Canvas(pdf_buffer, pagesize=A4)
                     
-                    # QRコードを中央に配置（10cm × 10cm）
-                    qr_size = 100 * mm  # 10cm
-                    x = (A4[0] - qr_size) / 2
-                    y = (A4[1] - qr_size) / 2
+                    # PDF生成の最初に日本語フォントを登録（1回だけ実行）
+                    from reportlab.pdfbase import pdfmetrics
+                    from reportlab.pdfbase.ttfonts import TTFont
+                    import os
                     
-                    img_pil = Image.open(img_buffer)
-                    c.drawImage(ImageReader(img_pil), x, y, width=qr_size, height=qr_size)
+                    # PDF用フォント: IPA を優先（日本語表示）、無ければ DejaVu にフォールバック
+                    japanese_font_paths = [
+                        "/app/fonts/ipagp.ttf",  # バンドル（あれば）
+                        "/usr/share/fonts/opentype/ipafont-gothic/ipagp.ttf",
+                        "/usr/share/fonts/truetype/ipafont-gothic/ipagp.ttf",
+                        "/usr/share/fonts/truetype/ipafont/ipagp.ttf",
+                        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                    ]
+                    
+                    # フォントパスの存在確認と登録
+                    japanese_font_name = None
+                    for font_path in japanese_font_paths:
+                        try:
+                            if os.path.exists(font_path):
+                                # フォント名を生成（ファイル名から拡張子を除く）
+                                font_name = os.path.basename(font_path).replace('.ttf', '').replace('.ttc', '').replace('.otf', '')
+                                # 既に登録されている場合はスキップ
+                                if font_name not in pdfmetrics.getRegisteredFontNames():
+                                    pdfmetrics.registerFont(TTFont(font_name, font_path))
+                                japanese_font_name = font_name
+                                logger.info(f"Japanese font registered: {font_name} from {font_path}")
+                                break
+                        except Exception as e:
+                            logger.warning(f"Failed to register font {font_path}: {str(e)}")
+                            continue
+                    
+                    # フォントが登録されなかった場合のフォールバック
+                    if japanese_font_name is None:
+                        logger.warning("No Japanese font available. Japanese text will not display correctly.")
+                        japanese_font_name = "Helvetica-Bold"  # フォールバック
+                    
+                    # QRコードサイズと位置計算
+                    qr_size = 100 * mm  # 10cm
+                    qr_x = (A4[0] - qr_size) / 2
+                    qr_y = (A4[1] - qr_size) / 2  # 中央配置
+                    
+                    # 2. タイトル「FAQ & AI ChatBot」を描画（最上部、大きめのフォント）
+                    c.setFont("Helvetica-Bold", 18)  # 12pt → 18ptに変更（視認性向上）
+                    c.setFillColorRGB(0, 0, 0)  # 黒色
+                    title_text = "FAQ & AI ChatBot"
+                    title_width = c.stringWidth(title_text, "Helvetica-Bold", 18)  # フォントサイズを更新
+                    title_x = (A4[0] - title_width) / 2  # 中央揃え
+                    title_y = A4[1] - 30 * mm  # 上端から30mm下（最上部）
+                    c.drawString(title_x, title_y, title_text)
+                    
+                    # 3. 施設名を描画（タイトルの下、適切な間隔を確保）
+                    if japanese_font_name != "Helvetica-Bold":
+                        c.setFont(japanese_font_name, 14)
+                    else:
+                        c.setFont("Helvetica-Bold", 14)
+                    facility_name = facility.name
+                    name_width = c.stringWidth(facility_name, japanese_font_name if japanese_font_name != "Helvetica-Bold" else "Helvetica-Bold", 14)
+                    name_x = (A4[0] - name_width) / 2  # 中央揃え
+                    # タイトルのフォントサイズ（18pt）をmmに変換して施設名の位置を計算
+                    title_font_size_mm = 18 * 0.352778  # 1pt = 0.352778mm
+                    spacing_title_name = 10 * mm  # タイトルと施設名の間隔
+                    name_y = title_y - title_font_size_mm - spacing_title_name  # タイトルの下に配置
+                    c.drawString(name_x, name_y, facility_name)
+                    
+                    # 4. QRコードを描画（中央にYadOPERAテキスト付き、ブランディング強化）
+                    # 共通のqrオブジェクトから画像を生成し、YadOPERAテキストを追加
+                    img_with_text = qr.make_image(fill_color="black", back_color="white")
+                    img_with_text = img_with_text.convert('RGB')
+                    
+                    # 中央にYadOPERAテキストを追加（Noto Sans Bold 優先、anchor="mm" で縦中央）
+                    if PIL_DRAW_AVAILABLE:
+                        import os as _os
+                        draw = ImageDraw.Draw(img_with_text)
+                        qr_width, qr_height = img_with_text.size
+                        text = "YadOPERA"
+                        font_size = int(qr_width / 10)
+                        _paths = [
+                            "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+                            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                        ]
+                        font = None
+                        for _p in _paths:
+                            try:
+                                if _os.path.exists(_p):
+                                    font = ImageFont.truetype(_p, font_size)
+                                    break
+                            except Exception:
+                                continue
+                        if font is None:
+                            font = ImageFont.load_default()
+                        center_x, center_y = qr_width // 2, qr_height // 2
+                        bbox = draw.textbbox((0, 0), text, font=font)
+                        text_w, text_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
+                        padding = 10
+                        draw.rectangle(
+                            [center_x - text_w // 2 - padding, center_y - text_h // 2 - padding,
+                             center_x + text_w // 2 + padding, center_y + text_h // 2 + padding],
+                            fill=(255, 255, 255)
+                        )
+                        draw.text((center_x, center_y), text, fill=(0, 0, 0), font=font, anchor="mm")
+                    
+                    # QRコード画像をPDFに配置
+                    img_buffer_final = io.BytesIO()
+                    img_with_text.save(img_buffer_final, format="PNG")
+                    img_buffer_final.seek(0)
+                    img_pil = Image.open(img_buffer_final)
+                    c.drawImage(ImageReader(img_pil), qr_x, qr_y, width=qr_size, height=qr_size)
+                    
+                    # 5. 設置場所を描画（スタッフ用、小さいフォント）
+                    if japanese_font_name != "Helvetica-Bold":
+                        c.setFont(japanese_font_name, 8)
+                    else:
+                        c.setFont("Helvetica", 8)
+                    c.setFillColorRGB(0.5, 0.5, 0.5)  # グレー色
+                    location_label = self._get_location_label(location, custom_location_name)
+                    location_text = f"設置場所: {location_label}"
+                    location_x = qr_x
+                    location_y = qr_y - 15 * mm
+                    c.drawString(location_x, location_y, location_text)
+                    
+                    # 6. 生成日時を描画（スタッフ用、小さいフォント）
+                    if japanese_font_name != "Helvetica-Bold":
+                        c.setFont(japanese_font_name, 8)
+                    else:
+                        c.setFont("Helvetica", 8)
+                    generated_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+                    datetime_text = f"生成日時: {generated_at}"
+                    datetime_x = qr_x
+                    datetime_y = qr_y - 25 * mm
+                    c.drawString(datetime_x, datetime_y, datetime_text)
+                    
                     c.save()
                     
                     pdf_buffer.seek(0)

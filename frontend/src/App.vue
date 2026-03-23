@@ -9,6 +9,7 @@ import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import GuestLayout from '@/layouts/GuestLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
+import DeveloperLayout from '@/layouts/DeveloperLayout.vue'
 import { updateManifestLink } from '@/utils/manifestGenerator'
 
 const route = useRoute()
@@ -22,6 +23,10 @@ const layoutComponent = computed(() => {
   
   if (layout === 'admin') {
     return AdminLayout
+  }
+  
+  if (layout === 'developer') {
+    return DeveloperLayout
   }
   
   // デフォルト（レイアウトなし）

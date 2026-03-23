@@ -19,6 +19,7 @@ from app.models.overnight_queue import OvernightQueue
 from app.models.guest_feedback import GuestFeedback
 from app.models.faq import FAQ
 from app.models.facility import Facility
+from app.models.guest_lead import GuestLead
 from app.schemas.dashboard import (
     DashboardResponse,
     WeeklySummary,
@@ -78,11 +79,13 @@ class DashboardService:
         cached_data = await get_cache(cache_key_str)
         if cached_data is not None:
             logger.debug(f"Dashboard cache hit: {cache_key_str}")
-            return DashboardResponse(**cached_data)
+            # monthly_usage（plan_type 含む）はキャッシュに含めず、常に DB から取得する（案A）
+            monthly_usage_fresh = await self.get_monthly_usage(facility_id)
+            return DashboardResponse(**{**cached_data, "monthly_usage": monthly_usage_fresh})
         
         # キャッシュミス: 並列処理でデータ取得
         logger.debug(f"Dashboard cache miss: {cache_key_str}")
-        summary, recent_conversations, overnight_queue, feedback_stats, monthly_usage, ai_automation, escalations_summary, unresolved_escalations = await asyncio.gather(
+        summary, recent_conversations, overnight_queue, feedback_stats, monthly_usage, ai_automation, escalations_summary, unresolved_escalations, coupon_lead_count = await asyncio.gather(
             self.get_weekly_summary(facility_id),
             self.get_recent_chat_history(facility_id),
             self.get_overnight_queue(facility_id),
@@ -90,7 +93,8 @@ class DashboardService:
             self.get_monthly_usage(facility_id),
             self.get_ai_automation(facility_id),
             self.get_escalations_summary(facility_id),
-            self.get_unresolved_escalations(facility_id)
+            self.get_unresolved_escalations(facility_id),
+            self.get_coupon_lead_count(facility_id)
         )
         
         dashboard_data = DashboardResponse(
@@ -101,11 +105,14 @@ class DashboardService:
             monthly_usage=monthly_usage,
             ai_automation=ai_automation,
             escalations_summary=escalations_summary,
-            unresolved_escalations=unresolved_escalations
+            unresolved_escalations=unresolved_escalations,
+            coupon_lead_count=coupon_lead_count
         )
         
-        # キャッシュに保存
-        await set_cache(cache_key_str, dashboard_data.dict(), DASHBOARD_CACHE_TTL)
+        # キャッシュに保存（monthly_usage は含めない＝プラン表示は常に DB から取得するため）
+        cache_payload = dashboard_data.dict()
+        cache_payload["monthly_usage"] = None
+        await set_cache(cache_key_str, cache_payload, DASHBOARD_CACHE_TTL)
         
         return dashboard_data
     
@@ -469,18 +476,19 @@ class DashboardService:
                 overage_questions = current_billing_period_questions
                 status = "normal"
             elif plan_limit is not None:
-                # 上限があるプラン
-                # Freeプランの場合は30件超過でfaq_only
+                # 上限があるプラン（Free/Small/Standard/Premium）
+                # 超過時は施設の overage_behavior に応じて status を設定（管理者選択制）
+                overage_behavior = getattr(facility, "overage_behavior", "continue_billing")
                 if plan_type == 'Free' and current_billing_period_questions > 30:
                     overage_questions = current_billing_period_questions - 30
                     usage_percentage = 100.0
                     remaining_questions = 0
-                    status = "faq_only"
+                    status = "faq_only" if overage_behavior == "faq_only" else "overage"
                 elif current_billing_period_questions > plan_limit:
                     overage_questions = current_billing_period_questions - plan_limit
                     usage_percentage = 100.0
                     remaining_questions = 0
-                    status = "overage"
+                    status = "faq_only" if overage_behavior == "faq_only" else "overage"
                 else:
                     usage_percentage = (current_billing_period_questions / plan_limit * 100) if plan_limit > 0 else 0.0
                     remaining_questions = plan_limit - current_billing_period_questions
@@ -759,4 +767,26 @@ class DashboardService:
                 exc_info=True
             )
             return []  # エラー時は空のリストを返す
+
+    async def get_coupon_lead_count(self, facility_id: int) -> int:
+        """
+        クーポン発行数（メールアドレス取得数）を取得（累計）
+        
+        Args:
+            facility_id: 施設ID
+        
+        Returns:
+            int: リード件数
+        """
+        try:
+            result = await self.db.execute(
+                select(func.count(GuestLead.id)).where(GuestLead.facility_id == facility_id)
+            )
+            return result.scalar() or 0
+        except Exception as e:
+            logger.error(
+                f"Error getting coupon lead count for facility {facility_id}: {e}",
+                exc_info=True
+            )
+            return 0
 

@@ -12,6 +12,7 @@ class FAQTranslationRequest(BaseModel):
     language: str = Field(..., description="言語コード（en/ja/zh-TW/fr）")
     question: str = Field(..., min_length=1, max_length=500, description="質問文")
     answer: str = Field(..., min_length=1, max_length=2000, description="回答文")
+    embedding: Optional[List[float]] = Field(None, description="事前計算済み埋め込みベクトル（1536次元）。省略時は登録時にAPIで生成")
 
 
 class FAQTranslationResponse(BaseModel):
@@ -96,4 +97,17 @@ class BulkFAQCreateResponse(BaseModel):
     """一括FAQ作成レスポンス"""
     created_count: int = Field(..., description="作成されたFAQ数")
     faqs: List[FAQResponse] = Field(default_factory=list, description="作成されたFAQリスト")
+
+
+class BulkUploadResult(BaseModel):
+    """CSV一括アップロード結果（POST /admin/faqs/bulk-upload）"""
+    success_count: int = Field(..., description="成功件数")
+    failure_count: int = Field(..., description="失敗件数")
+    total_count: int = Field(..., description="総件数")
+    skipped_count: int = Field(..., description="スキップ件数")
+    processing_time_seconds: float = Field(..., description="処理時間（秒）")
+    uploaded_at: str = Field(..., description="アップロード日時（ISO8601）")
+    uploaded_by: int = Field(..., description="アップロード者ユーザーID")
+    errors: List[dict] = Field(default_factory=list, description="エラー詳細")
+    warnings: List[dict] = Field(default_factory=list, description="警告")
 

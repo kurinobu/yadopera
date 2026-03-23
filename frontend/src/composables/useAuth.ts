@@ -29,8 +29,14 @@ export function useAuth() {
   async function register(registerData: RegisterRequest) {
     try {
       const response = await authApi.register(registerData)
-      authStore.login(response.user, response.access_token)
-      await router.push('/admin/dashboard')
+      // メール確認待ち画面へ遷移（ログインはしない）
+      await router.push({
+        name: 'EmailVerificationPending',
+        query: {
+          email: response.email,
+          facility_name: response.facility_name
+        }
+      })
       return response
     } catch (error) {
       throw error

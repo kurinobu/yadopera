@@ -1,0 +1,606 @@
+================================================================================
+QRコードPDFデザイン変更計画書
+================================================================================
+
+作成日: 2026年1月25日
+対象フェーズ: Phase 3（PoC実施中）
+優先度: 中
+実装予定時期: Phase 3
+状態: ⚠️ 未実装（計画段階）
+
+================================================================================
+1. 変更概要
+================================================================================
+
+1.1 目的
+--------
+QRコードPDF出力のデザインを改善し、ブランディングと情報表示を強化する。
+スタッフが設置場所や生成日時を容易に確認できるようにし、運用効率を向上させる。
+
+1.2 変更対象
+------------
+- 出力形式: PDF形式のみ（PNG/SVGは対象外）
+- 対象ファイル: backend/app/services/qr_code_service.py
+
+1.3 変更内容サマリー
+--------------------
+[現在のレイアウト]
+┌─────────────────────────────┐
+│                             │
+│                             │
+│      ┌─────────────┐        │
+│      │             │        │
+│      │  QRコード   │        │
+│      │             │        │
+│      └─────────────┘        │
+│        (中央配置)           │
+│                             │
+│                             │
+└─────────────────────────────┘
+
+[変更後のレイアウト]
+┌─────────────────────────────┐
+│   FAQ & AI ChatBot          │  ← タイトル（12pt、太字）
+│   【施設名】                │  ← 施設名（14pt、太字）
+│                             │
+│      ┌─────────────┐        │
+│      │             │        │
+│      │  QRコード   │        │
+│      │             │        │
+│      └─────────────┘        │
+│        (中央配置)           │
+│                             │
+│   設置場所: 入口            │  ← 設置場所（8pt）
+│   生成日時: 2026-01-25      │  ← 生成日時（8pt）
+└─────────────────────────────┘
+
+1.4 補足事項
+------------
+- 施設名: QRコードの上部に配置（14pt、太字、中央揃え）
+- タイトル: 施設名の上に「FAQ & AI ChatBot」と記載（12pt、太字、中央揃え）
+- 設置場所・生成日時: QRコードの下部に小さいフォント（8pt）で記述（スタッフ用）
+- ゲスト向け情報はQRコードのみ、運用情報は小さく表示
+
+================================================================================
+2. 現状分析
+================================================================================
+
+2.1 現在の実装箇所
+------------------
+ファイル: backend/app/services/qr_code_service.py
+実装箇所: 214行目付近（PDF生成部分）
+
+【現在のコード（194-229行目）】
+```python
+elif format == "pdf":
+    if PDF_AVAILABLE:
+        # PDF生成
+        img = qr.make_image(fill_color="black", back_color="white")
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        
+        pdf_buffer = io.BytesIO()
+        c = canvas.Canvas(pdf_buffer, pagesize=A4)
+        
+        # QRコードを中央に配置（10cm × 10cm）
+        qr_size = 100 * mm  # 10cm
+        x = (A4[0] - qr_size) / 2
+        y = (A4[1] - qr_size) / 2
+        
+        img_pil = Image.open(img_buffer)
+        c.drawImage(ImageReader(img_pil), x, y, width=qr_size, height=qr_size)
+        c.save()
+        
+        pdf_buffer.seek(0)
+        qr_code_url = f"data:application/pdf;base64,{base64.b64encode(pdf_buffer.getvalue()).decode()}"
+    else:
+        # フォールバック: PNGを返す
+        img = qr.make_image(fill_color="black", back_color="white")
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        qr_code_url = f"data:image/png;base64,{base64.b64encode(img_buffer.getvalue()).decode()}"
+        format = "png"  # フォールバック形式
+```
+
+2.2 使用ライブラリ
+------------------
+- reportlab >= 4.0.0: PDF生成（canvas.Canvas使用）
+- Pillow >= 10.0.0: 画像処理（Image.open使用）
+- qrcode: QRコード生成
+
+2.3 データ取得元
+----------------
+以下のデータは既に取得可能:
+1. 施設名: facility.name（Facilityモデルから取得、137行目で取得済み）
+2. 設置場所: location（引数として渡される）
+3. カスタム設置場所名: custom_location_name（引数として渡される、オプション）
+4. 生成日時: datetime.utcnow()（インポート済み）
+
+【データ取得確認コード（129-143行目）】
+```python
+async def generate_qr_code(
+    self,
+    facility_id: int,
+    location: str,
+    custom_location_name: Optional[str] = None,
+    include_session_token: bool = False,
+    format: str = "png",
+    primary_session_id: Optional[str] = None
+) -> dict:
+    # 施設を取得
+    facility = await self.db.get(Facility, facility_id)
+    if not facility:
+        raise ValueError(f"Facility not found: facility_id={facility_id}")
+```
+
+2.4 設置場所ラベル変換
+----------------------
+設置場所コードから日本語表示への変換が必要:
+- entrance → 入口
+- room → 客室
+- kitchen → キッチン
+- lounge → ラウンジ
+- custom → {custom_location_name}（カスタム設置場所名を使用）
+
+================================================================================
+3. 変更仕様
+================================================================================
+
+3.1 レイアウト仕様
+------------------
+A4サイズ（595.27 x 841.89 ポイント）での配置:
+
+┌─────────────────────────────────────────────────────────────┐
+│  上部マージン: 100mm                                        │
+│                                                             │
+│  「FAQ & AI ChatBot」（12pt、太字、中央揃え、黒色）         │
+│  Y座標: A4[1] - 80mm                                        │
+│                                                             │
+│  【施設名】（14pt、太字、中央揃え、黒色）                   │
+│  Y座標: A4[1] - 100mm                                       │
+│                                                             │
+│  ┌─────────────────────────────┐                           │
+│  │                             │                           │
+│  │         QRコード            │                           │
+│  │        (100mm x 100mm)      │                           │
+│  │                             │                           │
+│  └─────────────────────────────┘                           │
+│  X座標: (A4[0] - 100mm) / 2                                 │
+│  Y座標: (A4[1] - 100mm) / 2                                 │
+│                                                             │
+│  設置場所: 【設置場所】（8pt、左揃え、グレー）              │
+│  X座標: (A4[0] - 100mm) / 2                                 │
+│  Y座標: (A4[1] - 100mm) / 2 - 15mm                          │
+│                                                             │
+│  生成日時: 【YYYY-MM-DD HH:MM】（8pt、左揃え、グレー）      │
+│  X座標: (A4[0] - 100mm) / 2                                 │
+│  Y座標: (A4[1] - 100mm) / 2 - 25mm                          │
+│                                                             │
+│  下部マージン: 適宜                                         │
+└─────────────────────────────────────────────────────────────┘
+
+3.2 テキスト仕様
+----------------
+1. タイトル「FAQ & AI ChatBot」
+   - フォント: Helvetica-Bold
+   - サイズ: 12pt
+   - 色: 黒（rgb(0, 0, 0)）
+   - 配置: 中央揃え
+   - Y座標: A4[1] - 80 * mm
+
+2. 施設名
+   - フォント: Helvetica-Bold
+   - サイズ: 14pt
+   - 色: 黒（rgb(0, 0, 0)）
+   - 配置: 中央揃え
+   - Y座標: A4[1] - 100 * mm
+   - テキスト: facility.name
+
+3. 設置場所（スタッフ用）
+   - フォント: Helvetica
+   - サイズ: 8pt
+   - 色: グレー（rgb(0.5, 0.5, 0.5)）
+   - 配置: 左揃え
+   - X座標: (A4[0] - 100 * mm) / 2
+   - Y座標: (A4[1] - 100 * mm) / 2 - 15 * mm
+   - テキスト: "設置場所: {location_label}"
+
+4. 生成日時（スタッフ用）
+   - フォント: Helvetica
+   - サイズ: 8pt
+   - 色: グレー（rgb(0.5, 0.5, 0.5)）
+   - 配置: 左揃え
+   - X座標: (A4[0] - 100 * mm) / 2
+   - Y座標: (A4[1] - 100 * mm) / 2 - 25 * mm
+   - テキスト: "生成日時: {generated_at}"
+   - 日時フォーマット: YYYY-MM-DD HH:MM（例: 2026-01-25 14:30）
+
+3.3 設置場所ラベル変換ロジック
+------------------------------
+```python
+def _get_location_label(location: str, custom_location_name: Optional[str]) -> str:
+    """設置場所コードから日本語表示への変換"""
+    if location == 'custom' and custom_location_name:
+        return custom_location_name
+    
+    location_labels = {
+        'entrance': '入口',
+        'room': '客室',
+        'kitchen': 'キッチン',
+        'lounge': 'ラウンジ',
+        'custom': 'カスタム'
+    }
+    return location_labels.get(location, location)
+```
+
+3.4 日時フォーマット
+--------------------
+```python
+from datetime import datetime
+
+generated_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+# 例: "2026-01-25 14:30"
+```
+
+================================================================================
+4. 実装ステップ
+================================================================================
+
+4.1 事前準備
+------------
+□ ステップ0: バックアップ作成
+  - 対象ファイル: backend/app/services/qr_code_service.py
+  - バックアップファイル名: backend/app/services/qr_code_service.py.bak_YYYYMMDD_HHMMSS
+  - コマンド: cp backend/app/services/qr_code_service.py backend/app/services/qr_code_service.py.bak_$(date +%Y%m%d_%H%M%S)
+
+4.2 実装ステップ
+----------------
+□ ステップ1: ヘルパーメソッド追加
+  - 場所: QRCodeServiceクラス内、generate_qr_codeメソッドの前
+  - 追加内容: _get_location_labelメソッド
+  - 実装内容:
+    ```python
+    def _get_location_label(self, location: str, custom_location_name: Optional[str]) -> str:
+        """
+        設置場所コードから日本語表示への変換
+        
+        Args:
+            location: 設置場所コード
+            custom_location_name: カスタム設置場所名（オプション）
+        
+        Returns:
+            str: 日本語表示の設置場所名
+        """
+        if location == 'custom' and custom_location_name:
+            return custom_location_name
+        
+        location_labels = {
+            'entrance': '入口',
+            'room': '客室',
+            'kitchen': 'キッチン',
+            'lounge': 'ラウンジ',
+            'custom': 'カスタム'
+        }
+        return location_labels.get(location, location)
+    ```
+
+□ ステップ2: PDF生成部分の修正開始位置特定
+  - 対象行: 194-229行目の`elif format == "pdf":`ブロック
+  - 修正範囲: 200-219行目（`if PDF_AVAILABLE:`内の処理）
+
+□ ステップ3: PDF生成ロジック修正
+  - 場所: 200-219行目
+  - 修正内容:
+    ```python
+    if PDF_AVAILABLE:
+        # PDF生成
+        img = qr.make_image(fill_color="black", back_color="white")
+        img_buffer = io.BytesIO()
+        img.save(img_buffer, format="PNG")
+        img_buffer.seek(0)
+        
+        pdf_buffer = io.BytesIO()
+        c = canvas.Canvas(pdf_buffer, pagesize=A4)
+        
+        # QRコードサイズと位置計算
+        qr_size = 100 * mm  # 10cm
+        qr_x = (A4[0] - qr_size) / 2
+        qr_y = (A4[1] - qr_size) / 2
+        
+        # 1. タイトル「FAQ & AI ChatBot」を描画
+        c.setFont("Helvetica-Bold", 12)
+        c.setFillColorRGB(0, 0, 0)  # 黒色
+        title_text = "FAQ & AI ChatBot"
+        title_width = c.stringWidth(title_text, "Helvetica-Bold", 12)
+        title_x = (A4[0] - title_width) / 2  # 中央揃え
+        title_y = A4[1] - 80 * mm
+        c.drawString(title_x, title_y, title_text)
+        
+        # 2. 施設名を描画
+        c.setFont("Helvetica-Bold", 14)
+        facility_name = facility.name
+        name_width = c.stringWidth(facility_name, "Helvetica-Bold", 14)
+        name_x = (A4[0] - name_width) / 2  # 中央揃え
+        name_y = A4[1] - 100 * mm
+        c.drawString(name_x, name_y, facility_name)
+        
+        # 3. QRコードを描画
+        img_pil = Image.open(img_buffer)
+        c.drawImage(ImageReader(img_pil), qr_x, qr_y, width=qr_size, height=qr_size)
+        
+        # 4. 設置場所を描画（スタッフ用、小さいフォント）
+        c.setFont("Helvetica", 8)
+        c.setFillColorRGB(0.5, 0.5, 0.5)  # グレー色
+        location_label = self._get_location_label(location, custom_location_name)
+        location_text = f"設置場所: {location_label}"
+        location_x = qr_x
+        location_y = qr_y - 15 * mm
+        c.drawString(location_x, location_y, location_text)
+        
+        # 5. 生成日時を描画（スタッフ用、小さいフォント）
+        generated_at = datetime.utcnow().strftime('%Y-%m-%d %H:%M')
+        datetime_text = f"生成日時: {generated_at}"
+        datetime_x = qr_x
+        datetime_y = qr_y - 25 * mm
+        c.drawString(datetime_x, datetime_y, datetime_text)
+        
+        c.save()
+        
+        pdf_buffer.seek(0)
+        qr_code_url = f"data:application/pdf;base64,{base64.b64encode(pdf_buffer.getvalue()).decode()}"
+    ```
+
+□ ステップ4: コード整合性チェック
+  - インデント確認: 4スペース統一
+  - インポート確認: datetimeが既にインポート済み（9行目）
+  - 変数スコープ確認: facility, location, custom_location_nameが利用可能
+
+□ ステップ5: ファイル保存
+  - エディタ: Cursor または vim
+  - 文字コード: UTF-8
+  - 改行コード: LF（Unix形式）
+
+4.3 テスト準備
+--------------
+□ ステップ6: Docker環境再起動
+  - コマンド: docker-compose down
+  - コマンド: docker-compose up -d --build backend
+  - 確認: docker-compose ps（backendがUpであることを確認）
+
+□ ステップ7: ブラウザテスト（ステージング環境）
+  - URL: https://yadopera-frontend-staging.onrender.com/admin/qr-code
+  - ログイン: test31@example.com
+  - テスト内容:
+    1. 設置場所「入口」を選択
+    2. PDFダウンロードボタンをクリック
+    3. ダウンロードしたPDFを開く
+    4. 以下を確認:
+       ✓ タイトル「FAQ & AI ChatBot」が表示されている
+       ✓ 施設名が表示されている（QRコードの上部）
+       ✓ QRコードが中央に配置されている
+       ✓ 設置場所「入口」が表示されている（QRコードの下部、小さいフォント）
+       ✓ 生成日時が表示されている（QRコードの下部、小さいフォント）
+       ✓ レイアウトが崩れていない
+
+□ ステップ8: 各設置場所でのテスト
+  - テスト対象: entrance, room, kitchen, lounge, custom
+  - customの場合: カスタム設置場所名「受付カウンター」でテスト
+  - 確認項目: 設置場所ラベルが正しく表示されることを確認
+
+□ ステップ9: スマートフォンでQRコード読み取りテスト
+  - 手順:
+    1. PDFをプリンターで印刷（または画面表示）
+    2. スマートフォンでQRコードを読み取る
+    3. 正しいURLにアクセスできることを確認
+  - 注意: タイトルや施設名がQRコード読み取り領域を覆っていないこと
+
+4.4 デプロイ
+------------
+□ ステップ10: Gitコミット
+  - ブランチ: develop
+  - コミットメッセージ:
+    ```
+    feat: QRコードPDFデザイン変更（タイトル・施設名・設置場所・生成日時追加）
+    
+    - タイトル「FAQ & AI ChatBot」をQRコード上部に追加（12pt、太字）
+    - 施設名をタイトル下部に追加（14pt、太字、中央揃え）
+    - 設置場所と生成日時をQRコード下部に追加（8pt、グレー、スタッフ用）
+    - ヘルパーメソッド _get_location_label 追加（設置場所コードから日本語表示への変換）
+    
+    変更ファイル:
+    - backend/app/services/qr_code_service.py
+    
+    テスト完了:
+    - ブラウザテスト完了（ステージング環境）
+    - PDF生成テスト完了（全設置場所）
+    - QRコード読み取りテスト完了（スマートフォン）
+    
+    Phase 3: PoC実施中
+    ```
+  - コマンド:
+    ```bash
+    git add backend/app/services/qr_code_service.py
+    git commit -m "上記メッセージ"
+    git push origin develop
+    ```
+
+□ ステップ11: Render.com自動デプロイ確認
+  - 確認URL: Render.comダッシュボード
+  - 確認内容: developブランチへのプッシュでバックエンドが自動デプロイされることを確認
+  - デプロイ時間: 約3-5分
+
+□ ステップ12: デプロイ後テスト
+  - URL: https://yadopera-frontend-staging.onrender.com/admin/qr-code
+  - テスト内容: ステップ7-9を再実施
+  - 確認: デプロイ後も正常に動作することを確認
+
+4.5 ドキュメント更新
+--------------------
+□ ステップ13: 引き継ぎ書作成
+  - ファイル名: docs/20260125_QRコードPDFデザイン変更_完了報告.md
+  - 内容:
+    - 変更概要
+    - 修正ファイル一覧
+    - コミット情報
+    - テスト結果
+    - デプロイ状況
+    - 次のセッションで確認すべき項目
+
+□ ステップ14: 要約定義書更新
+  - ファイル: docs/Summary/yadopera-v03-summary.md
+  - 更新箇所: 変更履歴セクション
+  - 追加内容:
+    ```markdown
+    ## 変更履歴 v0.3.11 → v0.3.12（2026-01-25）
+
+    1. **QRコードPDFデザイン変更完了**:
+       - タイトル「FAQ & AI ChatBot」をQRコード上部に追加
+       - 施設名をタイトル下部に追加
+       - 設置場所と生成日時をQRコード下部に追加（スタッフ用）
+       - PDF形式のみ対応（PNG/SVGは対象外）
+       - コミット: `[コミットハッシュ]`（`develop`ブランチ）
+    ```
+
+================================================================================
+5. 技術的注意事項
+================================================================================
+
+5.1 reportlabの座標系
+----------------------
+- 原点: 左下（0, 0）
+- X軸: 右方向が正
+- Y軸: 上方向が正
+- A4サイズ: (595.27, 841.89) ポイント
+- 1mm = 2.83465 ポイント（reportlab.lib.units.mm使用）
+
+5.2 フォント指定
+----------------
+reportlabのデフォルトフォントを使用:
+- Helvetica: 標準フォント
+- Helvetica-Bold: 太字フォント
+- 日本語対応は不要（施設名は英語・ローマ字想定、日本語の場合はフォント埋め込みが必要だが現時点では対応しない）
+
+5.3 中央揃えの実装
+------------------
+```python
+# テキスト幅を取得
+text_width = c.stringWidth(text, font_name, font_size)
+
+# X座標を計算（中央揃え）
+x = (A4[0] - text_width) / 2
+
+# 描画
+c.drawString(x, y, text)
+```
+
+5.4 色指定
+----------
+```python
+# 黒色（RGB）
+c.setFillColorRGB(0, 0, 0)
+
+# グレー色（RGB）
+c.setFillColorRGB(0.5, 0.5, 0.5)
+```
+
+5.5 QRコード読み取り領域への配慮
+--------------------------------
+- QRコードのエラー訂正レベル: ERROR_CORRECT_L（現在の設定、156行目）
+- 中央部分のロゴ配置: 実装しない（読み取り精度を優先）
+- テキスト配置: QRコードの外側に配置（読み取り領域を覆わない）
+
+================================================================================
+6. 想定される問題と対策
+================================================================================
+
+6.1 施設名が長い場合
+--------------------
+問題: 施設名が長い場合、A4用紙の幅を超える可能性がある
+対策:
+- 現時点では対策不要（施設名は通常20文字以内を想定）
+- 将来的な対策案:
+  - 文字数制限（30文字以内）
+  - 自動改行処理
+  - フォントサイズ自動調整
+
+6.2 日本語施設名の表示
+----------------------
+問題: 日本語施設名の場合、フォント埋め込みが必要
+現在の対策: 英語・ローマ字施設名を前提とする
+将来的な対策案:
+- 日本語フォント埋め込み（reportlabのpdfmetrics.registerFont使用）
+- IPAフォント等のオープンソースフォント使用
+
+6.3 生成日時のタイムゾーン
+--------------------------
+問題: datetime.utcnow()はUTC時刻を返す
+現在の対策: UTCのまま表示（スタッフ向け情報なので問題なし）
+将来的な対策案:
+- 施設のタイムゾーン設定を追加
+- datetime.now(tz=施設タイムゾーン)を使用
+
+6.4 PDFファイルサイズ
+---------------------
+問題: テキスト追加によりPDFファイルサイズが増加する可能性
+現在の対策: 影響は軽微（数KB程度の増加を想定）
+将来的な対策案:
+- PDF圧縮オプション使用
+- 画像品質調整
+
+================================================================================
+7. テストケース
+================================================================================
+
+7.1 正常系テスト
+----------------
+TC-001: 設置場所「入口」でPDF生成
+  - 入力: location="entrance", custom_location_name=None
+  - 期待結果:
+    ✓ タイトル「FAQ & AI ChatBot」が表示される
+    ✓ 施設名が表示される
+    ✓ QRコードが中央に配置される
+    ✓ 設置場所「入口」が表示される
+    ✓ 生成日時が表示される（YYYY-MM-DD HH:MM形式）
+
+TC-002: 設置場所「客室」でPDF生成
+  - 入力: location="room", custom_location_name=None
+  - 期待結果: TC-001と同様（設置場所が「客室」）
+
+TC-003: 設置場所「キッチン」でPDF生成
+  - 入力: location="kitchen", custom_location_name=None
+  - 期待結果: TC-001と同様（設置場所が「キッチン」）
+
+TC-004: 設置場所「ラウンジ」でPDF生成
+  - 入力: location="lounge", custom_location_name=None
+  - 期待結果: TC-001と同様（設置場所が「ラウンジ」）
+
+TC-005: カスタム設置場所でPDF生成
+  - 入力: location="custom", custom_location_name="受付カウンター"
+  - 期待結果: TC-001と同様（設置場所が「受付カウンター」）
+
+7.2 異常系テスト
+----------------
+TC-006: 施設情報取得失敗
+  - 入力: facility_id=9999（存在しないID）
+  - 期待結果: ValueErrorが発生（既存の実装）
+
+TC-007: 設置場所コード不正
+  - 入力: location="invalid", custom_location_name=None
+  - 期待結果: 設置場所が「invalid」のまま表示される（_get_location_labelのフォールバック処理）
+
+7.3 スマートフォンQRコード読み取りテスト
+----------------------------------------
+TC-008: iOSデバイスでQRコード読み取り
+  - 手順:
+    1. PDFを印刷またはディスプレイ表示
+    2. iOSカメラアプリでQRコードをスキャン
+    3. 表示されたURLをタップ
+  - 期待結果: 正しいゲスト画面にアクセスできる
+
+TC-009: AndroidデバイスでQRコード読み取り
+  - 手順: TC-008と同様
+  - 期待結果: TC-008と同様
+
+7.4 レイアウトテ

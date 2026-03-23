@@ -175,14 +175,14 @@ class TestFacilityAvailableLanguages:
     async def test_get_facility_premium_plan_languages(
         self, db_session: AsyncSession, test_facility_premium: Facility
     ):
-        """Premiumプラン: Standardプラン＋韓国語が返されることを確認"""
+        """Premiumプラン: 7言語（ja, en, zh-TW, zh-CN, fr, ko, es）が返されることを確認"""
         result = await FacilityService.get_facility_public_info(
             db_session, test_facility_premium.slug
         )
         
         assert result.plan_type == "Premium"
-        # Premiumプラン: Standardプラン（日本語、英語、中国語、フランス語）＋韓国語
-        expected_languages = ["ja", "en", "zh-TW", "fr", "ko"]
+        # Premiumプラン: 日本語、英語、繁体中国語、簡体中国語、フランス語、韓国語、スペイン語
+        expected_languages = ["ja", "en", "zh-TW", "zh-CN", "fr", "ko", "es"]
         assert result.available_languages == expected_languages
     
     @pytest.mark.asyncio

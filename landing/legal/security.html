@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>セキュリティ方針｜YadOPERA</title>
+    <meta name="description" content="YadOPERA のセキュリティ・データ保護方針。通信の暗号化、認証・パスワードの取扱い、アクセス制限、インシデント対応の考え方。">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap'); body { font-family: 'Noto Sans JP', sans-serif; } .text-primary { color: #0c4a6e; }</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <header class="bg-white border-b border-gray-200 shadow-sm">
+        <div class="container mx-auto px-4 py-3">
+            <a href="../index.html" class="text-lg font-bold text-primary">← YadOPERA トップへ</a>
+        </div>
+    </header>
+    <main class="container mx-auto px-4 py-8 max-w-3xl">
+        <h1 class="text-2xl font-bold text-primary mb-6">セキュリティ方針</h1>
+        <p class="text-gray-700 mb-6">アプラウソ株式会社（以下「当社」）は、YadOPERA（以下「本サービス」）において、利用者およびゲストのデータを保護するため、以下のセキュリティ方針に基づいて運用しています。個人情報の取得・利用目的・委託先・保持期間等の詳細は、<a href="privacy.html" class="text-primary hover:underline">プライバシーポリシー</a>をご参照ください。</p>
+
+        <div class="bg-white rounded-lg shadow-sm p-6 md:p-8 space-y-6 text-gray-700 text-sm leading-relaxed">
+            <section>
+                <h2 class="font-bold text-primary mb-2">通信の暗号化</h2>
+                <p>本サービスでは、Web 通信に SSL/TLS による暗号化を利用しています。利用者・ゲストの操作およびデータの送受信は、暗号化された経路で行われます。</p>
+            </section>
+
+            <section>
+                <h2 class="font-bold text-primary mb-2">認証・パスワードの取扱い</h2>
+                <p>利用者（宿泊施設管理者）のパスワードは、bcrypt を用いてハッシュ化したうえで保存しています。平文のパスワードは保存しません。ログイン試行の制限等により、不正アクセスを抑止するよう努めています。</p>
+            </section>
+
+            <section>
+                <h2 class="font-bold text-primary mb-2">個人情報の保存期間・委託先</h2>
+                <p>個人情報の保持期間、業務委託先（決済・AI・アクセス解析等）および委託先における取扱いについては、<a href="privacy.html" class="text-primary hover:underline">プライバシーポリシー</a>の「個人情報の取扱いの委託」「個人データの保持期間」等に記載しています。委託先には、適切な安全管理措置を講じさせ、必要に応じて監督を行います。</p>
+            </section>
+
+            <section>
+                <h2 class="font-bold text-primary mb-2">アクセス制限・運用</h2>
+                <p>データベースおよび管理機能へのアクセスは、必要最小限の権限に限定しています。システムの変更・運用においても、アクセス制御とログの記録により、不正利用の防止に努めています。</p>
+            </section>
+
+            <section>
+                <h2 class="font-bold text-primary mb-2">インシデント時の考え方</h2>
+                <p>セキュリティ上の事象（漏洩・不正アクセス等）が発生した場合、当社は事実関係の把握と再発防止に努めます。法令に基づく報告・通知が必要な場合には、所管機関および関係者への対応を検討します。お気づきの点がありましたら、<a href="mailto:support@yadopera.com" class="text-primary hover:underline">support@yadopera.com</a> までご連絡ください。</p>
+            </section>
+
+            <section class="pt-4 border-t border-gray-200">
+                <h2 class="font-bold text-primary mb-2">お問い合わせ</h2>
+                <p>本方針およびセキュリティに関するお問い合わせは、以下までご連絡ください。<br>サービス名称：YadOPERA（ヤドペラ）<br>運営会社：アプラウソ株式会社<br>運営責任者：栗原伸行<br>メールアドレス：<a href="mailto:support@yadopera.com" class="text-primary hover:underline">support@yadopera.com</a></p>
+            </section>
+        </div>
+    </main>
+    <footer class="bg-white border-t border-gray-200 py-6 mt-8">
+        <div class="container mx-auto px-4 max-w-3xl">
+            <nav class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-600 mb-4">
+                <a href="operation.html" class="hover:text-primary transition-colors">運営</a>
+                <a href="privacy.html" class="hover:text-primary transition-colors">プライバシーポリシー</a>
+                <a href="terms.html" class="hover:text-primary transition-colors">ご利用規約</a>
+                <a href="tokusho.html" class="hover:text-primary transition-colors">特商法表記</a>
+                <a href="faq.html" class="hover:text-primary transition-colors">FAQ</a>
+                <a href="security.html" class="hover:text-primary transition-colors">セキュリティ方針</a>
+            </nav>
+            <p class="text-center text-xs text-gray-500">© 2026 YadOPERA. All rights reserved.</p>
+        </div>
+    </footer>
+</body>
+</html>

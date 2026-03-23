@@ -45,7 +45,7 @@
           <FaqList />
 
           <!-- 問い合わせフォームへのリンク -->
-          <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
             <router-link
               to="/admin/support"
               @click="helpStore.closeModal"
@@ -55,6 +55,13 @@
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
               </svg>
               <span>お問い合わせフォームへ</span>
+            </router-link>
+            <router-link
+              to="/admin/csv-bulk-request"
+              @click="helpStore.closeModal"
+              class="flex items-center justify-center space-x-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <span>CSV一括登録代行（有料）をお申し込みの方はこちら</span>
             </router-link>
           </div>
         </div>

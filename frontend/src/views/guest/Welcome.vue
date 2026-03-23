@@ -17,24 +17,26 @@
       <!-- メインコンテンツ -->
       <div v-else>
         <!-- 施設情報ヘッダー -->
-        <FacilityHeader :facility="facility" />
+        <FacilityHeader :facility="facility" :lang="language" />
 
         <!-- よくある質問TOP3 -->
         <TopQuestions
           :questions="topQuestions"
+          :lang="language"
           @question-click="handleQuestionClick"
         />
 
         <!-- フリー入力フォーム -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <MessageInput
+            :lang="language"
             :disabled="isSubmitting"
             @submit="handleMessageSubmit"
           />
         </div>
 
         <!-- 緊急連絡先 -->
-        <EmergencyContact :facility-phone="facility?.phone" />
+        <EmergencyContact :facility-phone="facility?.phone" :lang="language" />
       </div>
     </div>
   </div>

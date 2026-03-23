@@ -25,11 +25,15 @@ export function handleApiError(error: unknown): AppError {
     
     // HTTPステータスコードに基づくエラーメッセージ
     const status = axiosError.response?.status
+    const responseData = axiosError.response?.data as { detail?: unknown } | undefined
+    const detailMessage = typeof responseData?.detail === 'string' && responseData.detail.trim() !== ''
+      ? responseData.detail
+      : null
     switch (status) {
       case 400:
         return {
           code: 'BAD_REQUEST',
-          message: 'リクエストが不正です。入力内容を確認してください。'
+          message: detailMessage ?? 'リクエストが不正です。入力内容を確認してください。'
         }
       case 401:
         return {

@@ -128,7 +128,7 @@ const scrollToSubsection = (subsectionId: string) => {
 
 .manual-toc:not(.mobile-toc) {
   @apply sticky top-20;
-  @apply max-h-[calc(100vh-100px)];
+  @apply max-h-[calc(100vh-160px)];
 }
 
 .manual-toc.mobile-toc {

@@ -1,31 +1,42 @@
 <template>
   <div class="space-y-6">
+    <!-- 初回ログイン時やることリストモーダル -->
+    <OnboardingTodoModal
+      v-model="showOnboardingModal"
+      @done="onOnboardingDone"
+    />
+
     <!-- ページヘッダー -->
     <div>
       <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
         ダッシュボード
       </h1>
       <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        週次サマリーとリアルタイムチャット履歴
+        利用状況とその他の統計
       </p>
     </div>
 
-    <!-- ローディング表示 -->
-    <Loading v-if="loading" />
+    <!-- CLS 改善: ローディング〜コンテンツの切り替えで高さを揃える -->
+    <div class="min-h-[480px]">
+      <!-- ローディング表示 -->
+      <Loading v-if="loading" />
 
-    <!-- エラー表示 -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-      <p class="text-red-800 dark:text-red-200">{{ error }}</p>
-      <button
-        @click="fetchDashboardData"
-        class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-      >
-        再試行
-      </button>
-    </div>
+      <!-- エラー表示 -->
+      <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <p class="text-red-800 dark:text-red-200">{{ error }}</p>
+        <button
+          type="button"
+          :disabled="retrying"
+          class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          @click="onRetryClick"
+        >
+          <span v-if="retrying">再試行中...</span>
+          <span v-else>再試行</span>
+        </button>
+      </div>
 
-    <!-- ダッシュボードコンテンツ -->
-    <template v-else-if="dashboardData">
+      <!-- ダッシュボードコンテンツ -->
+      <template v-else-if="dashboardData">
       <!-- 月次統計セクション（最優先表示エリア） -->
       <section v-if="monthlyUsage || aiAutomation || escalationsSummary" class="space-y-6">
         <div>
@@ -104,6 +115,13 @@
           :icon="unresolvedIcon"
           color="red"
         />
+        <StatsCard
+          title="クーポン発行（メールアドレス取得数）"
+          :value="couponLeadCount"
+          subtitle="累計"
+          :icon="couponIcon"
+          color="gray"
+        />
         </div>
       </section>
 
@@ -128,12 +146,16 @@
         @respond="handleFeedbackRespond"
       />
     </template>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onActivated, h } from 'vue'
+import { ref, computed, onMounted, onActivated, watch, h } from 'vue'
 import { useRouter, onBeforeRouteUpdate } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import { authApi } from '@/api/auth'
+import OnboardingTodoModal from '@/components/admin/OnboardingTodoModal.vue'
 import StatsCard from '@/components/admin/StatsCard.vue'
 import CategoryChart from '@/components/admin/CategoryChart.vue'
 import ChatHistoryList from '@/components/admin/ChatHistoryList.vue'
@@ -149,15 +171,45 @@ import { dashboardApi } from '@/api/dashboard'
 import type { DashboardData, ChatHistory, FeedbackStats as FeedbackStatsType } from '@/types/dashboard'
 
 const router = useRouter()
+const authStore = useAuthStore()
 // const route = useRoute() // 未使用のため削除
+
+// 初回ログイン時やることリストモーダル（user.show_onboarding_modal が true のとき表示）
+const showOnboardingModal = ref(false)
+watch(
+  () => authStore.user?.show_onboarding_modal,
+  (val) => {
+    if (val === true) showOnboardingModal.value = true
+  },
+  { immediate: true }
+)
+async function onOnboardingDone(payload: { goToManual: boolean }) {
+  try {
+    await authApi.postOnboardingSeen()
+    if (authStore.user) {
+      authStore.setUser({ ...authStore.user, show_onboarding_modal: false })
+    }
+  } finally {
+    showOnboardingModal.value = false
+    if (payload.goToManual) {
+      router.push({ name: 'AdminManual', hash: '#intro-initial-setup' })
+    }
+  }
+}
 
 // データ状態
 const loading = ref(true)
 const error = ref<string | null>(null)
 const dashboardData = ref<DashboardData | null>(null)
+// 重複リクエスト防止: 取得中は追加の fetch を開始しない
+const isFetching = ref(false)
+// INP 改善: 再試行ボタンで即時フィードバック
+const retrying = ref(false)
 
 // データ取得
 const fetchDashboardData = async () => {
+  if (isFetching.value) return
+  isFetching.value = true
   try {
     loading.value = true
     error.value = null
@@ -168,7 +220,17 @@ const fetchDashboardData = async () => {
     error.value = err.response?.data?.detail || 'ダッシュボードデータの取得に失敗しました'
   } finally {
     loading.value = false
+    isFetching.value = false
+    retrying.value = false
   }
+}
+
+// INP 改善: クリックで即 disabled にし、重い処理は次のタスクに回す
+function onRetryClick() {
+  retrying.value = true
+  setTimeout(() => {
+    fetchDashboardData()
+  }, 0)
 }
 
 // コンポーネントマウント時にデータ取得
@@ -214,6 +276,7 @@ const monthlyUsage = computed(() => dashboardData.value?.monthly_usage)
 const aiAutomation = computed(() => dashboardData.value?.ai_automation)
 const escalationsSummary = computed(() => dashboardData.value?.escalations_summary)
 const unresolvedEscalations = computed(() => dashboardData.value?.unresolved_escalations || [])
+const couponLeadCount = computed(() => dashboardData.value?.coupon_lead_count ?? 0)
 
 // アイコン定義
 const statsIcon = () => h('svg', { class: 'w-6 h-6', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
@@ -232,6 +295,10 @@ const unresolvedIcon = () => h('svg', { class: 'w-6 h-6', fill: 'none', stroke: 
   h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' })
 ])
 
+const couponIcon = () => h('svg', { class: 'w-6 h-6', fill: 'none', stroke: 'currentColor', viewBox: '0 0 24 24' }, [
+  h('path', { 'stroke-linecap': 'round', 'stroke-linejoin': 'round', 'stroke-width': '2', d: 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z' })
+])
+
 // イベントハンドラー
 const handleConversationClick = (conversation: ChatHistory) => {
   router.push({
@@ -242,10 +309,8 @@ const handleConversationClick = (conversation: ChatHistory) => {
 
 // handleQueueViewAllは削除（未使用のため）
 
-const handleFeedbackRespond = (answer: FeedbackStatsType['low_rated_answers'][0]) => {
+const handleFeedbackRespond = (_answer: FeedbackStatsType['low_rated_answers'][0]) => {
   // FAQ管理ページにジャンプ（FeedbackStatsコンポーネント内で既に処理されている）
-  // 必要に応じて、追加の処理をここに記述
-  console.log('Navigate to FAQ management page for:', answer)
 }
 </script>
 

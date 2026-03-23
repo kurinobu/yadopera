@@ -3,7 +3,12 @@
  */
 
 import apiClient from './axios'
-import type { LoginRequest, RegisterRequest, LoginResponse, User } from '@/types/auth'
+import type {
+  LoginRequest, RegisterRequest, LoginResponse, User,
+  FacilityRegisterResponse, VerifyEmailRequest, VerifyEmailResponse,
+  ResendVerificationRequest, ResendVerificationResponse,
+  PasswordResetRequest, PasswordResetConfirmRequest, PasswordResetResponse
+} from '@/types/auth'
 import type { PasswordChangeRequest } from '@/types/facility'
 
 export const authApi = {
@@ -18,8 +23,24 @@ export const authApi = {
   /**
    * 施設登録
    */
-  async register(data: RegisterRequest): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>('/auth/register', data)
+  async register(data: RegisterRequest): Promise<FacilityRegisterResponse> {
+    const response = await apiClient.post<FacilityRegisterResponse>('/auth/register', data)
+    return response.data
+  },
+
+  /**
+   * メールアドレス確認
+   */
+  async verifyEmail(data: VerifyEmailRequest): Promise<VerifyEmailResponse> {
+    const response = await apiClient.post<VerifyEmailResponse>('/auth/verify-email', data)
+    return response.data
+  },
+
+  /**
+   * 確認メール再送信
+   */
+  async resendVerification(data: ResendVerificationRequest): Promise<ResendVerificationResponse> {
+    const response = await apiClient.post<ResendVerificationResponse>('/auth/resend-verification', data)
     return response.data
   },
 
@@ -39,10 +60,34 @@ export const authApi = {
   },
 
   /**
+   * 初回やることリストモーダルを表示済みとして記録する
+   */
+  async postOnboardingSeen(): Promise<{ ok: boolean }> {
+    const response = await apiClient.post<{ ok: boolean }>('/auth/onboarding-seen')
+    return response.data
+  },
+
+  /**
    * パスワード変更
    */
   async changePassword(data: PasswordChangeRequest): Promise<void> {
     await apiClient.put('/auth/password', data)
+  },
+
+  /**
+   * パスワードリセット依頼
+   */
+  async requestPasswordReset(data: PasswordResetRequest): Promise<PasswordResetResponse> {
+    const response = await apiClient.post<PasswordResetResponse>('/auth/password-reset', data)
+    return response.data
+  },
+
+  /**
+   * パスワードリセット確定
+   */
+  async confirmPasswordReset(data: PasswordResetConfirmRequest): Promise<PasswordResetResponse> {
+    const response = await apiClient.post<PasswordResetResponse>('/auth/password-reset/confirm', data)
+    return response.data
   }
 }
 

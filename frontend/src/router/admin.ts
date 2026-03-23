@@ -15,9 +15,45 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/register',
+    path: '/admin/register',
     name: 'Register',
     component: () => import('@/views/admin/Register.vue'),
+    meta: {
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/admin/verify-email-pending',
+    name: 'EmailVerificationPending',
+    component: () => import('@/views/admin/EmailVerificationPending.vue'),
+    meta: {
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/admin/verify-email',
+    name: 'EmailVerificationSuccess',
+    component: () => import('@/views/admin/EmailVerificationSuccess.vue'),
+    meta: {
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/admin/password-reset',
+    name: 'AdminPasswordResetRequest',
+    component: () => import('@/views/admin/PasswordResetRequest.vue'),
+    meta: {
+      layout: undefined,
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/admin/password-reset/confirm',
+    name: 'AdminPasswordResetConfirm',
+    component: () => import('@/views/admin/PasswordResetConfirm.vue'),
     meta: {
       layout: undefined,
       requiresAuth: false
@@ -43,6 +79,15 @@ export const adminRoutes: RouteRecordRaw[] = [
     path: '/admin/faqs',
     name: 'AdminFaqs',
     component: () => import('@/views/admin/FaqManagement.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/admin/csv-bulk-request',
+    name: 'CsvBulkRequest',
+    component: () => import('@/views/admin/CsvBulkRequest.vue'),
     meta: {
       layout: 'admin',
       requiresAuth: true
@@ -94,9 +139,27 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/admin/leads',
+    name: 'AdminLeads',
+    component: () => import('@/views/admin/Leads.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/admin/support',
     name: 'AdminSupport',
     component: () => import('@/views/admin/Support.vue'),
+    meta: {
+      layout: 'admin',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/admin/billing',
+    name: 'PlanBilling',
+    component: () => import('@/views/admin/PlanBilling.vue'),
     meta: {
       layout: 'admin',
       requiresAuth: true

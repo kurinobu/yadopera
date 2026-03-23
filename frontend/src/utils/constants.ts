@@ -5,17 +5,16 @@
 // API設定
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
-// 言語設定
+// 言語設定（ゲスト画面で選択可能。de・vi は削除、zh-CN 追加）
 export const SUPPORTED_LANGUAGES = [
   { code: 'ja', name: '日本語', flag: '🇯🇵' },
   { code: 'en', name: 'English', flag: '🇬🇧' },
   { code: 'zh-TW', name: '繁體中文', flag: '🇹🇼' },
+  { code: 'zh-CN', name: '简体中文', flag: '🇨🇳' },
   { code: 'fr', name: 'Français', flag: '🇫🇷' },
   { code: 'es', name: 'Español', flag: '🇪🇸' },
-  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
   { code: 'ko', name: '한국어', flag: '🇰🇷' },
   { code: 'th', name: 'ไทย', flag: '🇹🇭' },
-  { code: 'vi', name: 'Tiếng Việt', flag: '🇻🇳' },
 ] as const
 
 // セッション設定

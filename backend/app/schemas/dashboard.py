@@ -121,5 +121,7 @@ class DashboardResponse(BaseModel):
     ai_automation: Optional[AiAutomationResponse] = Field(None, description="AI自動応答統計")
     escalations_summary: Optional[EscalationsSummaryResponse] = Field(None, description="エスカレーション統計")
     unresolved_escalations: List[UnresolvedEscalation] = Field(default_factory=list, description="未解決エスカレーションリスト")
+    # リードゲット（クーポン発行＝メールアドレス取得数）
+    coupon_lead_count: int = Field(default=0, description="クーポン発行数（メールアドレス取得数）")
 
 

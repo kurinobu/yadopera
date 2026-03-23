@@ -1,0 +1,104 @@
+/**
+ * 開発者管理ページ関連の型定義
+ */
+
+export interface SystemOverview {
+  total_facilities: number
+  active_facilities: number
+  total_faqs: number
+  errors_24h: {
+    critical: number
+    error: number
+    warning: number
+  }
+  chats_7d: number
+  escalations_7d: number
+  paid_facilities_count?: number
+  questions_current_month?: number
+  new_registrations_current_month?: number
+  new_paid_current_month?: number
+  cancel_at_period_end_count?: number
+}
+
+export interface FacilitySummary {
+  id: number
+  name: string
+  email?: string  // 施設連絡先メール（開発者ダッシュボード表示用）
+  is_active: boolean
+  plan_type?: string  // Free, Mini, Small, Standard, Premium
+  faq_count: number
+  chats_7d: number
+  errors_7d: number
+  last_admin_login: string | null
+  created_at?: string | null
+  questions_current_month?: number
+  escalations_7d?: number
+}
+
+export interface ErrorLog {
+  id: number
+  level: 'critical' | 'error' | 'warning'
+  code: string
+  message: string
+  request_path?: string
+  facility_name?: string
+  created_at: string
+}
+
+export interface ErrorLogDetail extends ErrorLog {
+  stack_trace?: string
+  request_method?: string
+  facility?: {
+    id: number
+    name: string
+  }
+  user?: {
+    id: number
+    email: string
+  }
+  ip_address?: string
+  user_agent?: string
+}
+
+export interface PaginationInfo {
+  page: number
+  per_page: number
+  total: number
+  total_pages: number
+}
+
+export interface ErrorLogListResponse {
+  errors: ErrorLog[]
+  pagination: PaginationInfo
+}
+
+export interface SystemHealthResponse {
+  database: {
+    status: string
+    response_time_ms?: number
+    error?: string
+  }
+  redis: {
+    status: string
+    response_time_ms?: number
+    error?: string
+  }
+  openai_api?: {
+    status: string
+    response_time_ms?: number | null
+    error?: string
+  }
+}
+
+export interface DeveloperFaqBulkUploadResult {
+  success_count: number
+  failure_count: number
+  total_count: number
+  skipped_count: number
+  processing_time_seconds: number
+  uploaded_at: string
+  uploaded_by: number
+  errors: Array<Record<string, unknown>>
+  warnings: Array<Record<string, unknown>>
+}
+

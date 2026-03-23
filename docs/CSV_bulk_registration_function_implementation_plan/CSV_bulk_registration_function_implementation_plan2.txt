@@ -1,0 +1,1868 @@
+================================================================================
+FAQ CSV一括登録機能 実装計画書 v2.0（修正版）
+================================================================================
+
+作成日: 2026年1月27日
+最終更新日: 2026年1月27日
+プロジェクト: やどぺら (YadOPERA) v0.3
+対象機能: FAQのCSVファイルによる一括登録機能
+
+【変更履歴】
+- v1.0 (2026-01-27): 初版作成
+- v2.0 (2026-01-27): 評価レポートの推奨事項を全て反映
+  - Phase 0（準備作業）を追加
+  - 既存メソッドとの統合詳細を明確化
+  - 言語数制限チェックのロジックを明確化
+  - トランザクション管理の方針を明確化
+  - 埋め込みベクトル生成失敗時の対応を明確化
+  - プラン制限チェックのタイミングを変更
+  - 文字コード検出のロジックを明確化
+  - Docker環境でのテスト実行を明記
+
+================================================================================
+目次
+================================================================================
+
+1. 概要・目的
+2. 調査結果サマリー
+3. 機能仕様
+4. 技術仕様
+5. 実装計画（フェーズ別）★Phase 0追加
+6. データ構造・CSV仕様
+7. バリデーションルール★言語数制限チェック明確化
+8. エラーハンドリング★埋め込みベクトル生成失敗時の対応明確化
+9. テスト計画★Docker環境での実行明記
+10. リスク・注意事項
+11. 将来の拡張
+
+================================================================================
+1. 概要・目的
+================================================================================
+
+【目的】
+宿泊施設管理者または開発者がCSVファイルをアップロードすることにより、
+FAQを自動で一括登録（上書き/追加）できる機能を実装する。
+
+【ビジネス要件】
+- 宿泊施設管理者が自身で実行する場合: 無料
+- 開発者へFAQ登録依頼する場合: 有料（料金体系は別途）
+- StandardプランおよびPremiumプランのみの機能
+- プラン料金とは別料金が発生（Stripe実装後に継承）
+
+【料金体系】
+■ Standard（最大100件）
+  〜30件：¥12,000
+  〜60件：¥22,000
+  〜100件：¥32,000
+
+■ Premium（件数無制限）
+  〜50件：¥25,000
+  〜100件：¥45,000
+  〜200件：¥68,000
+  200件超：個別見積（¥90,000〜）
+
+【料金に含まれる内容】
+- 日本語FAQの質問文・回答文の自然さ／文法確認
+- 軽微な表現修正（意味変更なし）
+- AI翻訳＋人による品質確認
+- 管理画面への登録作業
+- 表示・動作チェック（初回）
+
+【料金に含まれない内容】
+- FAQの新規企画・構成設計
+- 内容の事実確認（運営保証なし）
+- 大幅な書き直し・再編集
+- 法的表現監修・翻訳証明
+
+================================================================================
+2. 調査結果サマリー
+================================================================================
+
+【データベース構造】
+■ faqsテーブル（インテントベース）
+  - id: FAQ ID
+  - facility_id: 施設ID
+  - category: カテゴリ（basic/facilities/location/trouble）
+  - intent_key: インテント識別キー（例: basic_checkout_time）
+  - priority: 優先度（1-5）
+  - is_active: 有効/無効
+  - created_by: 作成者ID
+  - created_at, updated_at
+
+■ faq_translationsテーブル（言語ごとの翻訳）
+  - id: 翻訳ID
+  - faq_id: FAQ ID（外部キー）
+  - language: 言語コード（en/ja/zh-TW/fr/ko）
+  - question: 質問文
+  - answer: 回答文
+  - embedding: 埋め込みベクトル（vector(1536)）
+  - created_at, updated_at
+
+【プラン管理】
+■ facilitiesテーブル
+  - plan_type: プラン種別（Free/Mini/Small/Standard/Premium）
+  - faq_limit: FAQ登録数上限（Premiumの場合はNULL=無制限）
+  - language_limit: 同時利用言語数上限（Premiumの場合はNULL=無制限）
+  - monthly_question_limit: 月間質問数上限
+
+【プラン別制限（plan_limits.py）】
+  Free: FAQ 20件、言語 1（日本語のみ）
+  Mini: FAQ 30件、言語 2
+  Small: FAQ 50件、言語 3
+  Standard: FAQ 100件、言語 4
+  Premium: FAQ 無制限、言語 無制限
+
+【既存実装の確認】
+✓ bulk_create_faqs()メソッド: 既に存在（faq_service.py L422）
+✓ CSV処理の参考実装: insert_operator_faqs.py
+✓ 認証方式: JWT Bearer Token（get_current_user()）
+✓ エラーハンドリング: HTTPException + try-catch パターン
+✓ 言語数制限・FAQ登録数制限のバリデーションロジック: 実装済み
+
+✗ ファイルアップロード機能: 未実装（新規実装が必要）
+
+【実データ統計（2026年1月27日時点）】
+- 施設数: 41施設
+- FAQ総数: 914件（インテント単位）
+- プラン分布: Free (11), Mini (5), Small (10), Standard (12), Premium (3)
+
+【重要な発見と対応方針】★修正
+⚠ FAQ登録数制限の不整合
+  - 実データ: 全プランfaq_limit=20
+  - plan_limits.py: Standard=100, Premium=無制限
+  - マイグレーション012で初期値20が設定されているため
+  - 【対応】Phase 0でマイグレーション013を作成し、データベースを修正
+
+⚠ Premiumプランのfaq_limit
+  - 実データ: 20（数値）
+  - 仕様: NULL（無制限）
+  - マイグレーション012の不備により、Premiumでもfaq_limit=20が設定されている
+  - 【対応】Phase 0でマイグレーション013を作成し、NULLに修正
+
+================================================================================
+3. 機能仕様
+================================================================================
+
+【3.1 機能概要】
+CSVファイルをアップロードし、FAQを一括登録（追加/上書き）する機能。
+
+【3.2 対象ユーザー】
+- 宿泊施設管理者（自身で登録: 無料）
+- 開発者（依頼を受けて登録: 有料）
+
+【3.3 対象プラン】
+- Standard
+- Premium
+※ Free/Mini/Smallプランでは利用不可（制限メッセージを表示）
+
+【3.4 登録モード】
+■ 追加モード（デフォルト）
+  - CSVの各行を新規FAQとして追加
+  - intent_keyが重複する場合はエラー（トランザクション全体をロールバック）
+
+■ 上書きモード（オプション）★Phase 2以降で実装
+  - CSVにintent_keyカラムがある場合、既存FAQを更新
+  - intent_keyが存在しない場合は新規追加
+  - 【注意】Phase 1では追加モードのみ実装
+
+【3.5 登録件数制限】
+- Standardプラン: 最大100件まで
+  → 既存FAQ数 + CSVの行数 > 100の場合、エラーを返す
+  → エラーメッセージ「Standardプランでは100件までしか登録できません。
+     現在のFAQ数: XX件、CSVの行数: YY件、合計: ZZ件。
+     CSVを調整するか、Premiumプランにアップグレードしてください。」
+
+- Premiumプラン: 無制限
+
+【3.6 アップロード結果の記録・表示】
+以下の情報を日本語で記録・表示する：
+- 成功件数
+- 失敗件数（Phase 1では常に0、全件成功またはエラー）
+- 失敗原因（件数別サマリー + 詳細ログ）
+- 処理時間
+- アップロード日時
+- アップロード者
+
+【3.7 UI/UX要件】
+- FAQ管理画面に「CSV一括登録」ボタンを追加
+  - Free/Mini/Smallプランでは非表示
+  - Standard/Premiumプランでのみ表示
+- モーダルでCSVファイル選択UIを表示
+- ドラッグ&ドロップ対応
+- プログレスバー表示（処理中）
+- 結果サマリー表示（処理完了後）
+- 詳細ログのダウンロード機能（Phase 2以降）
+
+================================================================================
+4. 技術仕様
+================================================================================
+
+【4.1 システム構成】
+■ バックエンド
+  - フレームワーク: FastAPI
+  - 言語: Python 3.11+
+  - データベース: PostgreSQL 15 + pgvector
+  - ORM: SQLAlchemy（非同期）
+  - CSV解析: pandas
+  - 文字コード検出: chardet
+  - 埋め込みベクトル生成: OpenAI Embeddings API
+
+■ フロントエンド
+  - フレームワーク: Vue 3 + TypeScript
+  - ビルドツール: Vite
+  - UIライブラリ: Tailwind CSS
+  - ファイルアップロード: ネイティブ<input type="file">
+
+【4.2 API仕様】
+
+■ エンドポイント
+POST /admin/faqs/bulk-upload
+
+■ リクエスト
+Content-Type: multipart/form-data
+
+フィールド:
+- file: CSVファイル（必須、最大サイズ10MB）
+- mode: 登録モード（optional、デフォルト="add"）
+  - "add": 追加モード（Phase 1で実装）
+  - "upsert": 上書きモード（Phase 2以降で実装）
+
+■ レスポンス（成功時）
+Status: 201 Created
+Content-Type: application/json
+
+{
+  "success_count": 25,
+  "failure_count": 0,
+  "total_count": 25,
+  "skipped_count": 0,
+  "processing_time_seconds": 12.5,
+  "uploaded_at": "2026-01-27T12:34:56Z",
+  "uploaded_by": 123,
+  "errors": [],
+  "warnings": []
+}
+
+■ レスポンス（エラー時）
+Status: 400 Bad Request / 403 Forbidden / 500 Internal Server Error
+Content-Type: application/json
+
+{
+  "detail": "エラーメッセージ（日本語）"
+}
+
+【4.3 CSV仕様】
+
+■ 文字コード
+UTF-8（BOM付き推奨、Excel互換性のため）
+※ chardetによる自動検出対応（UTF-8, CP932/Shift_JIS）
+
+■ 区切り文字
+カンマ（,）
+
+■ 必須カラム
+- category: カテゴリ（basic/facilities/location/trouble）
+- language_ja_question: 日本語の質問文
+- language_ja_answer: 日本語の回答文
+
+■ オプションカラム
+- intent_key: インテント識別キー（指定しない場合は自動生成）
+- priority: 優先度（1-5、デフォルト=3）
+- is_active: 有効/無効（true/false、デフォルト=true）
+- language_en_question: 英語の質問文
+- language_en_answer: 英語の回答文
+- language_zh-TW_question: 繁体中国語の質問文
+- language_zh-TW_answer: 繁体中国語の回答文
+- language_fr_question: フランス語の質問文
+- language_fr_answer: フランス語の回答文
+- language_ko_question: 韓国語の質問文
+- language_ko_answer: 韓国語の回答文
+
+■ CSVサンプル（最小構成）
+```csv
+category,language_ja_question,language_ja_answer
+basic,チェックアウトは何時ですか？,チェックアウトは11時までです。
+basic,WiFiパスワードは何ですか？,WiFiパスワードはguest2024です。
+facilities,キッチンは使えますか？,キッチンは24時間利用可能です。
+```
+
+■ CSVサンプル（多言語対応）
+```csv
+category,intent_key,priority,language_ja_question,language_ja_answer,language_en_question,language_en_answer
+basic,basic_checkout_time,5,チェックアウトは何時ですか？,チェックアウトは11時までです。,What time is check-out?,Check-out is by 11:00 AM.
+basic,basic_wifi_password,5,WiFiパスワードは何ですか？,WiFiパスワードはguest2024です。,What is the WiFi password?,The WiFi password is guest2024.
+```
+
+【4.4 処理フロー】★修正版
+
+0. プラン制限チェック（最優先）
+   - Standard/Premiumプランのみ許可
+   - Free/Mini/Small → 403 Forbidden
+   ↓
+1. CSVファイル受信
+   ↓
+2. ファイルサイズチェック（10MB以内）
+   ↓
+3. 文字コード検出（BOMチェック → chardet → フォールバック）
+   ↓
+4. CSV解析（pandas）
+   - 必須カラムの存在確認
+   - データ型変換
+   ↓
+5. 行数チェック
+   - 既存FAQ数を取得
+   - 既存FAQ数 + CSV行数 ≤ プラン上限をチェック
+   - Standardプラン: 100件以内
+   - Premiumプラン: 無制限
+   ↓
+6. 言語数制限チェック
+   - 既存の言語数を取得
+   - CSVに含まれる新規言語を抽出
+   - 既存言語数 + 新規言語数 ≤ プラン上限をチェック
+   ↓
+7. トランザクション開始
+   ↓
+8. 各行の処理（トランザクション内）
+   a. バリデーション
+      - categoryの妥当性チェック
+      - 質問文・回答文の文字数チェック
+      - priority範囲チェック
+   b. intent_keyの生成または取得
+   c. 重複チェック（追加モードの場合）
+      - 重複があればエラー（トランザクション全体をロールバック）
+   d. FAQレコード作成
+   e. FAQTranslationレコード作成（各言語）
+   f. 埋め込みベクトル生成（各言語、最大3回リトライ）
+      - 失敗時: トランザクション全体をロールバック
+   g. データベース保存
+   ↓
+9. トランザクションコミット
+   - すべての行の処理が成功した場合のみコミット
+   ↓
+10. キャッシュ無効化
+   ↓
+11. レスポンス返却
+
+【4.5 エラーハンドリング】★修正版
+
+■ ファイルレベル
+- プラン制限（Free/Mini/Small）
+  → 403 Forbidden: "CSV一括登録はStandardプランまたはPremiumプランでのみ利用可能です"
+- ファイルサイズ超過（10MB以上）
+  → 400 Bad Request: "ファイルサイズは10MB以内にしてください"
+- CSVフォーマット不正
+  → 400 Bad Request: "CSVファイルの形式が不正です"
+- 必須カラム欠落
+  → 400 Bad Request: "必須カラムが不足しています: category, language_ja_question, language_ja_answer"
+- 文字コード検出失敗
+  → 400 Bad Request: "CSVファイルの文字コードを検出できませんでした。UTF-8（BOM付き推奨）で保存してください。"
+
+■ プラン制限
+- Standardプランで100件超
+  → 400 Bad Request: "Standardプランでは100件までしか登録できません。現在のFAQ数: XX件、CSVの行数: YY件、合計: ZZ件。"
+
+■ 言語数制限
+- プラン上限超
+  → 400 Bad Request: "プランの言語数制限に達しています。既存の言語: ja, en（2言語）、CSVに含まれる新規言語: zh-TW（1言語）、合計: 3言語、プランの上限: 2言語。"
+
+■ 行レベル（トランザクション全体をロールバック）
+- intent_key重複（追加モード）
+  → 400 Bad Request: "FAQ with the same intent_key already exists: basic_wifi_password"
+- 質問文・回答文の文字数超過
+  → 400 Bad Request: "質問文または回答文が長すぎます（行: 5）"
+- 埋め込みベクトル生成失敗
+  → 500 Internal Server Error: "埋め込みベクトルの生成に失敗しました。しばらく待ってから再度アップロードしてください。"
+
+【4.6 セキュリティ】
+- JWT認証必須（get_current_user()）
+- ファイルサイズ制限（10MB）
+- CSVインジェクション対策（pandasで安全に解析）
+- SQLインジェクション対策（ORMを使用、プリペアドステートメント）
+- XSS対策（フロントエンドでサニタイズ）
+
+【4.7 既存メソッドとの統合】★新規追加
+
+■ 関係図
+```
+CSV Upload
+    ↓
+POST /admin/faqs/bulk-upload (faqs.py)
+    ↓
+bulk_create_faqs_from_csv() (新規メソッド)
+    ├─ CSV解析 (csv_parser.py)
+    ├─ 文字コード検出 (chardet)
+    ├─ バリデーション
+    ├─ FAQRequestリスト生成
+    └─ bulk_create_faqs() (既存メソッド) ← 再利用
+        ├─ intent_key生成/取得
+        ├─ FAQ作成
+        ├─ FAQTranslation作成
+        ├─ embedding生成（OpenAI Embeddings API）
+        └─ データベース保存
+```
+
+■ 役割分担
+- bulk_create_faqs_from_csv() (新規):
+  - CSV解析
+  - 文字コード検出
+  - バリデーション
+  - FAQRequestリストへの変換
+  - bulk_create_faqs()の呼び出し
+
+- bulk_create_faqs() (既存):
+  - intent_key生成/取得
+  - FAQ作成
+  - FAQTranslation作成
+  - embedding生成
+  - データベース保存
+  - トランザクション管理
+
+================================================================================
+5. 実装計画（フェーズ別）★Phase 0追加
+================================================================================
+
+【Phase 0: 準備作業】（優先度: 最高、必須）
+
+■ タスク0.1: データベースのfaq_limit修正
+ファイル: backend/app/alembic/versions/013_fix_faq_limit.py（新規）
+内容:
+  - マイグレーション013を作成
+  - facilitiesテーブルのfaq_limitを修正
+    - Free: 20 → 変更なし
+    - Mini: 20 → 30
+    - Small: 20 → 50
+    - Standard: 20 → 100
+    - Premium: 20 → NULL（無制限）
+  - language_limitも同様に修正（必要に応じて）
+
+実施手順:
+  1. マイグレーションファイル作成
+     ```python
+     def upgrade():
+         # plan_typeごとにfaq_limitを更新
+         op.execute("""
+             UPDATE facilities 
+             SET faq_limit = CASE plan_type
+                 WHEN 'Free' THEN 20
+                 WHEN 'Mini' THEN 30
+                 WHEN 'Small' THEN 50
+                 WHEN 'Standard' THEN 100
+                 WHEN 'Premium' THEN NULL
+                 ELSE faq_limit
+             END
+         """)
+     
+     def downgrade():
+         # 全てのfaq_limitを20に戻す
+         op.execute("UPDATE facilities SET faq_limit = 20 WHERE plan_type != 'Premium'")
+     ```
+
+  2. Docker環境でマイグレーション実行
+     ```bash
+     docker-compose exec backend alembic upgrade head
+     ```
+
+  3. データベース確認
+     ```bash
+     docker-compose exec backend python -c "
+     from app.db.session import SessionLocal
+     from app.models.facility import Facility
+     
+     db = SessionLocal()
+     facilities = db.query(Facility).all()
+     for f in facilities:
+         print(f'{f.id}: {f.name} - {f.plan_type} - faq_limit={f.faq_limit}')
+     db.close()
+     "
+     ```
+
+検証項目:
+  - [ ] Free: faq_limit=20
+  - [ ] Mini: faq_limit=30
+  - [ ] Small: faq_limit=50
+  - [ ] Standard: faq_limit=100
+  - [ ] Premium: faq_limit=NULL
+
+■ タスク0.2: 既存のbulk_create_faqs()の動作確認
+ファイル: backend/app/services/faq_service.py
+内容:
+  - bulk_create_faqs()メソッドのコードレビュー
+  - 動作確認（Docker環境でテスト実行）
+
+実施手順:
+  1. コードレビュー
+     - bulk_create_faqs()の処理フローを確認
+     - intent_key生成ロジックを確認
+     - 埋め込みベクトル生成ロジックを確認
+     - トランザクション管理を確認
+
+  2. Docker環境でテスト実行
+     ```bash
+     docker-compose exec backend pytest tests/services/test_faq_service.py::test_bulk_create_faqs -v
+     ```
+
+検証項目:
+  - [ ] FAQRequestのリストから複数FAQを作成できる
+  - [ ] intent_keyが自動生成される
+  - [ ] 埋め込みベクトルが生成される
+  - [ ] トランザクションが正常にコミットされる
+  - [ ] エラー時にロールバックされる
+
+■ タスク0.3: CSVサンプルファイルの作成
+ファイル: backend/tests/data/（新規ディレクトリ）
+内容:
+  - テスト用のCSVサンプルファイルを作成
+  - 正常系と異常系のパターンを網羅
+
+ファイル一覧:
+  - sample_valid_minimal.csv（最小構成、3件）
+  - sample_valid_full.csv（完全版、10件、多言語）
+  - sample_valid_large.csv（大量データ、100件）
+  - sample_invalid_missing_columns.csv（必須カラム欠落）
+  - sample_invalid_duplicate_intent_key.csv（重複intent_key）
+  - sample_invalid_exceeds_limit.csv（150件、Standard超過）
+
+検証項目:
+  - [ ] すべてのCSVファイルが作成されている
+  - [ ] UTF-8（BOM付き）で保存されている
+  - [ ] 各ファイルの内容が仕様通りである
+
+■ タスク0.4: ステージング環境へのデプロイ
+ファイル: .github/workflows/（CI/CDパイプライン）
+内容:
+  - マイグレーション013をステージング環境にデプロイ
+  - Railway Hobbyステージング環境で動作確認
+
+実施手順:
+  1. developブランチにマージ
+     ```bash
+     git checkout develop
+     git merge feature/phase0-database-fix
+     git push origin develop
+     ```
+
+  2. Railway Hobbyへの自動デプロイを確認
+     - デプロイログを確認
+     - マイグレーションが自動実行されることを確認
+
+  3. ステージング環境でマイグレーション実行（手動の場合）
+     ```bash
+     railway run alembic upgrade head
+     ```
+
+  4. データベース確認
+     - ステージング環境のデータベースに接続
+     - facilitiesテーブルのfaq_limitを確認
+
+検証項目:
+  - [ ] マイグレーションが正常に実行された
+  - [ ] 全施設のfaq_limitが正しく修正された
+  - [ ] 既存機能（FAQ登録、編集、削除）が正常に動作する
+
+■ Phase 0の完了条件
+- [ ] すべてのタスクが完了している
+- [ ] すべての検証項目がチェック済み
+- [ ] ステージング環境で動作確認済み
+- [ ] developブランチにマージ済み
+
+================================================================================
+
+【Phase 1: バックエンドAPI実装】（優先度: 高）
+
+■ タスク1.1: 文字コード検出ロジック実装
+ファイル: backend/app/utils/encoding_detector.py（新規）
+内容:
+  - BOMチェック機能
+  - chardetによる文字コード検出
+  - フォールバック処理
+
+実装内容:
+```python
+import chardet
+from typing import Optional
+
+def detect_encoding(file_bytes: bytes) -> tuple[str, float]:
+    """
+    CSVファイルの文字コードを検出する
+    
+    Returns:
+        tuple[str, float]: (文字コード, 信頼度)
+    """
+    # 1. BOMチェック
+    if file_bytes.startswith(b'\xef\xbb\xbf'):
+        return ('utf-8-sig', 1.0)
+    elif file_bytes.startswith(b'\xff\xfe'):
+        return ('utf-16-le', 1.0)
+    elif file_bytes.startswith(b'\xfe\xff'):
+        return ('utf-16-be', 1.0)
+    
+    # 2. chardetによる検出
+    result = chardet.detect(file_bytes)
+    encoding = result['encoding']
+    confidence = result['confidence']
+    
+    if confidence >= 0.8:
+        return (encoding, confidence)
+    
+    # 3. フォールバック（UTF-8を試す）
+    try:
+        file_bytes.decode('utf-8')
+        return ('utf-8', 0.7)
+    except UnicodeDecodeError:
+        pass
+    
+    # 4. フォールバック（CP932を試す）
+    try:
+        file_bytes.decode('cp932')
+        return ('cp932', 0.6)
+    except UnicodeDecodeError:
+        pass
+    
+    # 5. エラー
+    return (None, 0.0)
+```
+
+■ タスク1.2: CSV解析ロジック実装
+ファイル: backend/app/services/csv_parser.py（新規）
+内容:
+  - pandasでCSV読み込み
+  - 文字コード検出（encoding_detector.pyを使用）
+  - 必須カラム検証
+  - 行数制限チェック
+  - データ型変換
+
+実装内容:
+```python
+import pandas as pd
+from app.utils.encoding_detector import detect_encoding
+
+class CSVParser:
+    REQUIRED_COLUMNS = ['category', 'language_ja_question', 'language_ja_answer']
+    
+    def parse(self, file_bytes: bytes) -> pd.DataFrame:
+        # 文字コード検出
+        encoding, confidence = detect_encoding(file_bytes)
+        if encoding is None:
+            raise ValueError("CSVファイルの文字コードを検出できませんでした")
+        
+        # CSV読み込み
+        df = pd.read_csv(io.BytesIO(file_bytes), encoding=encoding)
+        
+        # 必須カラム検証
+        missing_columns = set(self.REQUIRED_COLUMNS) - set(df.columns)
+        if missing_columns:
+            raise ValueError(f"必須カラムが不足しています: {', '.join(missing_columns)}")
+        
+        return df
+```
+
+■ タスク1.3: 言語数制限チェックロジック実装
+ファイル: backend/app/services/faq_service.py
+内容:
+  - 既存の言語数を取得
+  - CSVに含まれる新規言語を抽出
+  - 合計言語数をチェック
+
+実装内容:
+```python
+async def check_language_limit(
+    self,
+    db: AsyncSession,
+    facility_id: int,
+    csv_languages: list[str]
+) -> tuple[bool, str]:
+    """
+    言語数制限をチェックする
+    
+    Returns:
+        tuple[bool, str]: (チェック結果, エラーメッセージ)
+    """
+    # 1. 既存の言語数を取得
+    query = select(distinct(FAQTranslation.language)).where(
+        FAQTranslation.faq_id.in_(
+            select(FAQ.id).where(FAQ.facility_id == facility_id)
+        )
+    )
+    result = await db.execute(query)
+    existing_languages = set([row[0] for row in result])
+    
+    # 2. CSVに含まれる新規言語を抽出
+    new_languages = set(csv_languages) - existing_languages
+    
+    # 3. 施設のプラン情報を取得
+    facility = await self.get_facility(db, facility_id)
+    language_limit = facility.language_limit  # None = 無制限
+    
+    # 4. 言語数制限チェック
+    if language_limit is not None:
+        total_languages = len(existing_languages) + len(new_languages)
+        if total_languages > language_limit:
+            error_msg = (
+                f"プランの言語数制限に達しています。"
+                f"既存の言語: {', '.join(existing_languages)}（{len(existing_languages)}言語）、"
+                f"CSVに含まれる新規言語: {', '.join(new_languages)}（{len(new_languages)}言語）、"
+                f"合計: {total_languages}言語、プランの上限: {language_limit}言語。"
+            )
+            return (False, error_msg)
+    
+    return (True, "")
+```
+
+■ タスク1.4: FAQ一括登録サービス実装
+ファイル: backend/app/services/faq_service.py
+内容:
+  - bulk_create_faqs_from_csv() メソッド追加
+  - CSV解析
+  - バリデーション
+  - FAQRequestリストへの変換
+  - bulk_create_faqs()の呼び出し（既存ロジックを再利用）
+
+実装内容:
+```python
+async def bulk_create_faqs_from_csv(
+    self,
+    db: AsyncSession,
+    facility_id: int,
+    file_bytes: bytes,
+    user_id: int,
+    mode: str = "add"
+) -> dict:
+    """
+    CSVファイルからFAQを一括登録する
+    """
+    start_time = time.time()
+    
+    # 1. CSV解析
+    parser = CSVParser()
+    df = parser.parse(file_bytes)
+    
+    # 2. 行数制限チェック
+    facility = await self.get_facility(db, facility_id)
+    existing_faq_count = await self.get_faq_count(db, facility_id)
+    csv_row_count = len(df)
+    
+    if facility.faq_limit is not None:
+        if existing_faq_count + csv_row_count > facility.faq_limit:
+            raise ValueError(
+                f"{facility.plan_type}プランでは{facility.faq_limit}件までしか登録できません。"
+                f"現在のFAQ数: {existing_faq_count}件、CSVの行数: {csv_row_count}件、"
+                f"合計: {existing_faq_count + csv_row_count}件。"
+            )
+    
+    # 3. 言語数制限チェック
+    csv_languages = parser.extract_languages(df)
+    is_valid, error_msg = await self.check_language_limit(db, facility_id, csv_languages)
+    if not is_valid:
+        raise ValueError(error_msg)
+    
+    # 4. FAQRequestリストへの変換
+    faq_requests = []
+    for _, row in df.iterrows():
+        faq_request = FAQRequest(
+            category=row['category'],
+            intent_key=row.get('intent_key'),
+            priority=row.get('priority', 3),
+            is_active=row.get('is_active', True),
+            translations=[
+                FAQTranslationRequest(
+                    language='ja',
+                    question=row['language_ja_question'],
+                    answer=row['language_ja_answer']
+                )
+            ]
+        )
+        
+        # 他の言語があれば追加
+        for lang in ['en', 'zh-TW', 'fr', 'ko']:
+            q_col = f'language_{lang}_question'
+            a_col = f'language_{lang}_answer'
+            if q_col in row and pd.notna(row[q_col]):
+                faq_request.translations.append(
+                    FAQTranslationRequest(
+                        language=lang,
+                        question=row[q_col],
+                        answer=row[a_col]
+                    )
+                )
+        
+        faq_requests.append(faq_request)
+    
+    # 5. 既存メソッドを呼び出し（トランザクション管理も含む）
+    result = await self.bulk_create_faqs(db, facility_id, faq_requests, user_id)
+    
+    # 6. 処理時間計算
+    processing_time = time.time() - start_time
+    
+    return {
+        "success_count": len(faq_requests),
+        "failure_count": 0,
+        "total_count": len(faq_requests),
+        "skipped_count": 0,
+        "processing_time_seconds": processing_time,
+        "uploaded_at": datetime.utcnow().isoformat() + "Z",
+        "uploaded_by": user_id,
+        "errors": [],
+        "warnings": []
+    }
+```
+
+■ タスク1.5: CSVアップロードエンドポイント作成
+ファイル: backend/app/api/v1/admin/faqs.py
+内容:
+  - POST /admin/faqs/bulk-upload エンドポイント追加
+  - multipart/form-data 対応
+  - プラン制限チェック（最優先）
+  - ファイルサイズチェック（10MB）
+
+実装内容:
+```python
+@router.post("/bulk-upload", status_code=201)
+async def bulk_upload_faqs(
+    file: UploadFile = File(...),
+    mode: str = Form("add"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    CSVファイルからFAQを一括登録する
+    """
+    # 1. プラン制限チェック（最優先）
+    facility = await faq_service.get_facility(db, current_user.facility_id)
+    if facility.plan_type not in ["Standard", "Premium"]:
+        raise HTTPException(
+            status_code=403,
+            detail="CSV一括登録はStandardプランまたはPremiumプランでのみ利用可能です"
+        )
+    
+    # 2. ファイルサイズチェック
+    file_bytes = await file.read()
+    if len(file_bytes) > 10 * 1024 * 1024:  # 10MB
+        raise HTTPException(
+            status_code=400,
+            detail="ファイルサイズは10MB以内にしてください"
+        )
+    
+    # 3. CSV一括登録
+    try:
+        result = await faq_service.bulk_create_faqs_from_csv(
+            db, current_user.facility_id, file_bytes, current_user.id, mode
+        )
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"CSV一括登録エラー: {str(e)}")
+        raise HTTPException(status_code=500, detail="内部サーバーエラーが発生しました")
+```
+
+■ タスク1.6: 埋め込みベクトル生成の最適化
+ファイル: backend/app/services/faq_service.py
+内容:
+  - リトライ戦略（最大3回、指数バックオフ）
+  - エラー時のトランザクションロールバック
+
+実装内容:
+```python
+async def generate_embedding_with_retry(self, text: str, max_retries: int = 3) -> list[float]:
+    """
+    埋め込みベクトルを生成する（リトライ付き）
+    """
+    for i in range(max_retries):
+        try:
+            embedding = await self.openai_service.create_embedding(text)
+            return embedding
+        except Exception as e:
+            if i == max_retries - 1:
+                # 最後のリトライでも失敗した場合、エラーを投げる
+                raise Exception(f"埋め込みベクトルの生成に失敗しました: {str(e)}")
+            
+            # 指数バックオフ（1秒、2秒、4秒）
+            await asyncio.sleep(2 ** i)
+```
+
+■ タスク1.7: ユニットテスト作成
+ファイル: backend/tests/services/test_csv_parser.py（新規）
+内容:
+  - CSV解析のユニットテスト
+  - 文字コード検出のユニットテスト
+  - バリデーションのユニットテスト
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/services/test_csv_parser.py -v
+```
+
+■ タスク1.8: 統合テスト作成
+ファイル: backend/tests/api/test_bulk_upload.py（新規）
+内容:
+  - APIエンドポイントの統合テスト
+  - 認証テスト
+  - プラン制限テスト
+  - 言語数制限テスト
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/api/test_bulk_upload.py -v
+```
+
+================================================================================
+
+【Phase 2: フロントエンド実装】（優先度: 中）
+
+■ タスク2.1: CSV一括登録モーダルUI作成
+ファイル: frontend/src/components/admin/faqs/BulkUploadModal.vue（新規）
+内容:
+  - モーダルコンポーネント作成
+  - ファイル選択UI
+  - ドラッグ&ドロップ対応
+  - プログレスバー表示
+  - 結果サマリー表示
+
+■ タスク2.2: FAQ管理画面へのボタン追加
+ファイル: frontend/src/views/admin/FAQManagement.vue
+内容:
+  - 「CSV一括登録」ボタン追加
+  - Free/Mini/Smallプランでは非表示
+  - Standard/Premiumプランでのみ表示
+
+■ タスク2.3: ファイルアップロード機能実装
+ファイル: frontend/src/services/faq.service.ts
+内容:
+  - API呼び出し（POST /admin/faqs/bulk-upload）
+  - multipart/form-data送信
+  - プログレスイベント処理
+
+実装内容:
+```typescript
+export async function bulkUploadFAQs(
+  file: File,
+  mode: string = 'add',
+  onProgress?: (progress: number) => void
+): Promise<BulkUploadResult> {
+  const formData = new FormData()
+  formData.append('file', file)
+  formData.append('mode', mode)
+
+  const response = await axios.post('/admin/faqs/bulk-upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
+    },
+    onUploadProgress: (progressEvent) => {
+      if (onProgress && progressEvent.total) {
+        const progress = (progressEvent.loaded / progressEvent.total) * 100
+        onProgress(progress)
+      }
+    }
+  })
+
+  return response.data
+}
+```
+
+■ タスク2.4: エラーハンドリング実装
+ファイル: frontend/src/components/admin/faqs/BulkUploadModal.vue
+内容:
+  - エラーメッセージ表示
+  - バリデーションエラー表示
+  - リトライ機能
+
+================================================================================
+
+【Phase 3: E2Eテスト・デバッグ】（優先度: 中）
+
+■ タスク3.1: E2Eテストシナリオ作成
+ファイル: frontend/tests/e2e/bulk-upload.spec.ts（新規）
+内容:
+  - シナリオ1: 正常系（追加モード）
+  - シナリオ2: 異常系（プラン制限）
+  - シナリオ3: 異常系（件数超過）
+  - シナリオ4: 部分成功（現在は全件成功またはエラー）
+
+実行方法:
+```bash
+docker-compose exec frontend npm run test:e2e
+```
+
+■ タスク3.2: ブラウザテスト
+内容:
+  - Chrome、Firefox、Safariでの動作確認
+  - レスポンシブデザイン確認
+  - ダークモード対応確認
+
+■ タスク3.3: パフォーマンステスト
+内容:
+  - 100件のFAQ登録（Standardプラン上限）
+  - 処理時間: 30秒以内目標
+  - メモリ使用量: 512MB以内
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/performance/test_bulk_upload_performance.py -v
+```
+
+================================================================================
+
+【Phase 4: デプロイ・リリース】（優先度: 中）
+
+■ タスク4.1: ステージング環境へのデプロイ
+内容:
+  - developブランチにマージ
+  - Railway Hobbyへの自動デプロイ
+  - 動作確認
+
+実施手順:
+```bash
+git checkout develop
+git merge feature/csv-bulk-upload
+git push origin develop
+```
+
+■ タスク4.2: ドキュメント作成
+ファイル: docs/csv-bulk-upload-manual.md（新規）
+内容:
+  - ユーザーマニュアル作成
+  - CSV仕様書
+  - トラブルシューティング
+
+■ タスク4.3: 本番環境へのデプロイ
+内容:
+  - mainブランチにマージ
+  - Render.comへのデプロイ
+  - 動作確認
+
+実施手順:
+```bash
+git checkout main
+git merge develop
+git push origin main
+```
+
+■ タスク4.4: リリースノート作成
+ファイル: CHANGELOG.md
+内容:
+  - バージョン番号（v0.4.0）
+  - 新機能（CSV一括登録機能）
+  - 注意事項
+
+================================================================================
+6. データ構造・CSV仕様
+================================================================================
+
+【6.1 CSVファイル構造】
+
+■ 文字コード
+UTF-8（BOM付き推奨）
+
+■ 区切り文字
+カンマ（,）
+
+■ 必須カラム
+- category: カテゴリ（basic/facilities/location/trouble）
+- language_ja_question: 日本語の質問文
+- language_ja_answer: 日本語の回答文
+
+■ オプションカラム
+- intent_key: インテント識別キー（指定しない場合は自動生成）
+- priority: 優先度（1-5、デフォルト=3）
+- is_active: 有効/無効（true/false、デフォルト=true）
+- language_en_question: 英語の質問文
+- language_en_answer: 英語の回答文
+- language_zh-TW_question: 繁体中国語の質問文
+- language_zh-TW_answer: 繁体中国語の回答文
+- language_fr_question: フランス語の質問文
+- language_fr_answer: フランス語の回答文
+- language_ko_question: 韓国語の質問文
+- language_ko_answer: 韓国語の回答文
+
+【6.2 FAQRequestスキーマ】
+
+```python
+class FAQTranslationRequest(BaseModel):
+    language: str  # ja/en/zh-TW/fr/ko
+    question: str
+    answer: str
+
+class FAQRequest(BaseModel):
+    category: str  # basic/facilities/location/trouble
+    intent_key: Optional[str] = None
+    priority: int = 3
+    is_active: bool = True
+    translations: list[FAQTranslationRequest]
+```
+
+【6.3 レスポンススキーマ】
+
+```python
+class BulkUploadResult(BaseModel):
+    success_count: int
+    failure_count: int
+    total_count: int
+    skipped_count: int
+    processing_time_seconds: float
+    uploaded_at: str
+    uploaded_by: int
+    errors: list[dict]
+    warnings: list[dict]
+```
+
+================================================================================
+7. バリデーションルール★言語数制限チェック明確化
+================================================================================
+
+【7.1 ファイルレベル】
+┌────────────────────────────┬───────────────────────────┐
+│ 検証項目                    │ エラーメッセージ           │
+├────────────────────────────┼───────────────────────────┤
+│ プラン制限                  │ CSV一括登録はStandard     │
+│ (Free/Mini/Small)          │ プランまたはPremiumプラン │
+│                            │ でのみ利用可能です         │
+├────────────────────────────┼───────────────────────────┤
+│ ファイルサイズ（10MB超）    │ ファイルサイズは10MB以内  │
+│                            │ にしてください             │
+├────────────────────────────┼───────────────────────────┤
+│ CSVフォーマット不正          │ CSVファイルの形式が不正   │
+│                            │ です                       │
+├────────────────────────────┼───────────────────────────┤
+│ 必須カラム欠落               │ 必須カラムが不足していま  │
+│                            │ す: category, language_ja_│
+│                            │ question, language_ja_    │
+│                            │ answer                    │
+├────────────────────────────┼───────────────────────────┤
+│ 文字コード検出失敗           │ CSVファイルの文字コードを │
+│                            │ 検出できませんでした。UTF-8│
+│                            │ （BOM付き推奨）で保存して │
+│                            │ ください。                 │
+└────────────────────────────┴───────────────────────────┘
+
+【7.2 プラン制限】
+┌────────────────────────────┬───────────────────────────┐
+│ 検証項目                    │ エラーメッセージ           │
+├────────────────────────────┼───────────────────────────┤
+│ Standardプランで100件超     │ Standardプランでは100件   │
+│                            │ までしか登録できません。   │
+│                            │ 現在のFAQ数: XX件、CSV    │
+│                            │ の行数: YY件、合計: ZZ件。 │
+└────────────────────────────┴───────────────────────────┘
+
+【7.3 言語数制限】★明確化
+┌────────────────────────────┬───────────────────────────┐
+│ 検証項目                    │ エラーメッセージ           │
+├────────────────────────────┼───────────────────────────┤
+│ プラン上限超                │ プランの言語数制限に達して│
+│                            │ います。既存の言語: ja, en│
+│                            │ （2言語）、CSVに含まれる  │
+│                            │ 新規言語: zh-TW（1言語）、│
+│                            │ 合計: 3言語、プランの上限:│
+│                            │ 2言語。                   │
+└────────────────────────────┴───────────────────────────┘
+
+【言語数制限チェックのロジック】★新規追加
+
+1. 既存の言語数を取得
+   - SELECT DISTINCT language FROM faq_translations 
+     WHERE faq_id IN (SELECT id FROM faqs WHERE facility_id = ?)
+   - 例: ja, en → 2言語
+
+2. CSVに含まれる新規言語を抽出
+   - CSVのカラム名からlanguage_XX_questionを抽出
+   - 例: language_ja_question, language_en_question, language_zh-TW_question
+   - 既存言語と比較して新規言語を特定
+   - 例: zh-TW（1言語）
+
+3. 合計言語数をチェック
+   - 既存言語数（2） + 新規言語数（1） = 3言語
+   - プランの上限（Miniプラン: 2言語）を超える場合、エラー
+
+4. エラーメッセージ
+   - 「プランの言語数制限に達しています。既存の言語: ja, en（2言語）、
+      CSVに含まれる新規言語: zh-TW（1言語）、合計: 3言語、
+      プランの上限: 2言語。」
+
+【7.4 行レベル】
+┌────────────────────────────┬───────────────────────────┐
+│ 検証項目                    │ エラーメッセージ           │
+├────────────────────────────┼───────────────────────────┤
+│ category不正値              │ カテゴリは basic/         │
+│                            │ facilities/location/      │
+│                            │ trouble のいずれかを指定  │
+│                            │ してください               │
+├────────────────────────────┼───────────────────────────┤
+│ intent_key重複              │ FAQ with the same intent_ │
+│                            │ key already exists:       │
+│                            │ basic_wifi_password       │
+├────────────────────────────┼───────────────────────────┤
+│ 質問文空欄                  │ 質問文は必須です（行: 5） │
+├────────────────────────────┼───────────────────────────┤
+│ 回答文空欄                  │ 回答文は必須です（行: 5） │
+├────────────────────────────┼───────────────────────────┤
+│ 質問文文字数超過            │ 質問文は500文字以内にして │
+│ (500文字以上)              │ ください（行: 5）         │
+├────────────────────────────┼───────────────────────────┤
+│ 回答文文字数超過            │ 回答文は2000文字以内にして│
+│ (2000文字以上)             │ ください（行: 5）         │
+├────────────────────────────┼───────────────────────────┤
+│ priority不正値             │ 優先度は1-5の範囲で指定   │
+│                            │ してください               │
+└────────────────────────────┴───────────────────────────┘
+
+================================================================================
+8. エラーハンドリング★埋め込みベクトル生成失敗時の対応明確化
+================================================================================
+
+【8.1 エラー分類】
+
+■ ファイルレベルエラー（即座にエラー返却）
+  - プラン制限
+  - ファイルサイズ超過
+  - CSVフォーマット不正
+  - 必須カラム欠落
+  - 文字コード検出失敗
+
+■ プラン制限エラー（即座にエラー返却）
+  - FAQ登録数上限超過
+  - 言語数上限超過
+
+■ 行レベルエラー（トランザクション全体をロールバック）★修正
+  - intent_key重複
+  - 質問文・回答文の文字数超過
+  - バリデーションエラー
+  - 埋め込みベクトル生成失敗
+
+【8.2 エラーログ構造】
+
+```json
+{
+  "row": 5,
+  "intent_key": "basic_wifi_password",
+  "reason": "FAQ with the same intent_key already exists",
+  "details": "faq_id=456, intent_key=basic_wifi_password",
+  "severity": "error",
+  "timestamp": "2026-01-27T12:34:56Z"
+}
+```
+
+【8.3 リトライ戦略】
+
+■ 埋め込みベクトル生成失敗★修正
+  - 最大3回リトライ（指数バックオフ: 1秒、2秒、4秒）
+  - 失敗時: トランザクション全体をロールバック
+  - エラーメッセージ: "埋め込みベクトルの生成に失敗しました。
+    しばらく待ってから再度アップロードしてください。"
+  - ユーザーは再アップロードが必要
+
+■ データベース接続エラー
+  - 最大3回リトライ（指数バックオフ）
+  - 失敗時: 500 Internal Server Error
+
+【8.4 トランザクション管理】★修正版
+
+■ 基本方針
+  - 全体をトランザクション内で処理
+  - 行レベルエラーが発生した場合: トランザクション全体をロールバック
+  - ファイルレベルエラーが発生した場合: トランザクション開始前にエラー返却
+
+■ コミットタイミング
+  - すべての行の処理が成功した場合のみコミット
+  - 1件でもエラーが発生した場合はロールバック
+
+■ メリット
+  - データの一貫性が保証される
+  - ユーザーはエラーを修正してから再アップロードするだけ
+  - 実装がシンプル
+
+■ デメリット
+  - 1件でもエラーがあると全体が失敗する
+  - ユーザーは何度も修正・再アップロードが必要
+
+■ Phase 2以降での改善案
+  - 部分コミット機能の実装（オプション）
+  - エラーログの詳細化
+  - エラー修正支援機能
+
+【8.5 埋め込みベクトル生成失敗時の対応】★新規追加
+
+■ Phase 1の方針（推奨）
+  - FAQ登録を中断
+  - 埋め込みベクトル生成に失敗した時点でロールバック
+  - エラーメッセージ: "埋め込みベクトルの生成に失敗しました。
+    しばらく待ってから再度アップロードしてください。"
+  - ユーザーは再アップロードが必要
+
+■ メリット
+  - データの一貫性が保証される（すべてのFAQが検索可能）
+  - 実装がシンプル
+  - デバッグが容易
+
+■ デメリット
+  - OpenAI APIの一時的な障害でFAQ登録が失敗する
+  - ユーザーは再アップロードが必要
+
+■ Phase 2以降での改善案
+  - バッチ処理による自動再生成
+    - embedding=NULLのFAQを検出
+    - 夜間バッチで自動再生成
+    - 成功時にis_active=trueに変更
+  - ユーザーへの通知
+    - "XX件のFAQの埋め込みベクトル生成に失敗しました。
+       自動再生成を試みています。"
+
+================================================================================
+9. テスト計画★Docker環境での実行明記
+================================================================================
+
+【9.0 重要: すべてのテストはDocker環境で実行】★新規追加
+
+■ 大原則
+  - すべてのテストはDocker環境（docker-compose）で実行する
+  - ローカル環境で直接実行したテストは無効
+  - Docker環境での動作確認が完了してから、ステージング環境へのデプロイを検討する
+
+■ Docker環境の起動
+```bash
+# すべてのサービスを起動
+docker-compose up -d
+
+# ログ確認
+docker-compose logs -f
+
+# サービス状態確認
+docker-compose ps
+```
+
+■ テスト実行の基本パターン
+```bash
+# バックエンドのテスト実行
+docker-compose exec backend pytest [テストファイルパス] -v
+
+# フロントエンドのテスト実行
+docker-compose exec frontend npm run test
+
+# E2Eテスト実行
+docker-compose exec frontend npm run test:e2e
+```
+
+【9.1 ユニットテスト】
+
+■ CSV解析テスト
+ファイル: backend/tests/unit/test_csv_parser.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/unit/test_csv_parser.py -v
+```
+
+テストケース:
+  - 正常系: 必須カラムのみ
+  - 正常系: オプションカラム含む
+  - 異常系: 必須カラム欠落
+  - 異常系: 文字コード不正
+  - 異常系: カンマ区切り不正
+
+■ 文字コード検出テスト★新規追加
+ファイル: backend/tests/unit/test_encoding_detector.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/unit/test_encoding_detector.py -v
+```
+
+テストケース:
+  - BOMチェック: UTF-8 BOM
+  - BOMチェック: UTF-16 LE BOM
+  - BOMチェック: UTF-16 BE BOM
+  - chardet検出: UTF-8（BOMなし）
+  - chardet検出: CP932/Shift_JIS
+  - フォールバック: UTF-8
+  - フォールバック: CP932
+  - エラー: 検出不可
+
+■ バリデーションテスト
+ファイル: backend/tests/unit/test_validation.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/unit/test_validation.py -v
+```
+
+テストケース:
+  - category バリデーション
+  - intent_key バリデーション
+  - priority バリデーション
+  - is_active バリデーション
+  - 質問文・回答文の文字数チェック
+
+■ intent_key生成テスト
+ファイル: backend/tests/unit/test_intent_key_generator.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/unit/test_intent_key_generator.py -v
+```
+
+テストケース:
+  - 正規化ロジック
+  - 重複チェック
+  - 100文字制限
+
+■ プラン制限テスト
+ファイル: backend/tests/unit/test_plan_limits.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/unit/test_plan_limits.py -v
+```
+
+テストケース:
+  - Free/Mini/Small: 403 Forbidden
+  - Standard: 100件制限
+  - Premium: 無制限
+
+■ 言語数制限テスト★新規追加
+ファイル: backend/tests/unit/test_language_limits.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/unit/test_language_limits.py -v
+```
+
+テストケース:
+  - 既存言語のみ: 制限内
+  - 新規言語追加: 制限内
+  - 新規言語追加: 制限超過
+  - 既存言語 + 新規言語 ≤ 上限
+  - 超過時のスキップ
+
+【9.2 統合テスト】
+
+■ APIエンドポイントテスト
+ファイル: backend/tests/integration/test_bulk_upload_api.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/integration/test_bulk_upload_api.py -v
+```
+
+テストケース:
+  - 認証: JWT Bearer Token
+  - リクエスト: multipart/form-data
+  - レスポンス: JSON構造チェック
+  - エラーレスポンス: HTTPステータスコード
+
+■ データベーステスト
+ファイル: backend/tests/integration/test_database.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/integration/test_database.py -v
+```
+
+テストケース:
+  - FAQ作成
+  - FAQTranslation作成
+  - 埋め込みベクトル生成
+  - トランザクション整合性
+
+■ キャッシュ無効化テスト
+ファイル: backend/tests/integration/test_cache_invalidation.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/integration/test_cache_invalidation.py -v
+```
+
+テストケース:
+  - FAQ一覧キャッシュの無効化確認
+
+【9.3 E2Eテスト】
+
+■ シナリオ1: 正常系（追加モード）
+実行方法:
+```bash
+docker-compose exec frontend npm run test:e2e -- --spec tests/e2e/bulk-upload-success.spec.ts
+```
+
+手順:
+  1. ログイン（Standardプラン）
+  2. FAQ管理画面へ移動
+  3. 「CSV一括登録」ボタンクリック
+  4. CSVファイル選択（10件）
+  5. アップロード実行
+  6. 結果サマリー確認（成功10件）
+  7. FAQ一覧で登録確認
+
+■ シナリオ2: 異常系（プラン制限）
+実行方法:
+```bash
+docker-compose exec frontend npm run test:e2e -- --spec tests/e2e/bulk-upload-plan-limit.spec.ts
+```
+
+手順:
+  1. ログイン（Freeプラン）
+  2. FAQ管理画面へ移動
+  3. 「CSV一括登録」ボタンが非表示であることを確認
+
+■ シナリオ3: 異常系（件数超過）
+実行方法:
+```bash
+docker-compose exec frontend npm run test:e2e -- --spec tests/e2e/bulk-upload-count-limit.spec.ts
+```
+
+手順:
+  1. ログイン（Standardプラン）
+  2. FAQ管理画面へ移動
+  3. 「CSV一括登録」ボタンクリック
+  4. CSVファイル選択（150件）
+  5. アップロード実行
+  6. エラーメッセージ確認（400 Bad Request）
+
+■ シナリオ4: 異常系（言語数制限）★新規追加
+実行方法:
+```bash
+docker-compose exec frontend npm run test:e2e -- --spec tests/e2e/bulk-upload-language-limit.spec.ts
+```
+
+手順:
+  1. ログイン（Miniプラン、既にjaとenが登録済み）
+  2. FAQ管理画面へ移動
+  3. 「CSV一括登録」ボタンクリック
+  4. CSVファイル選択（zh-TWを含む10件）
+  5. アップロード実行
+  6. エラーメッセージ確認（400 Bad Request、言語数制限）
+
+■ シナリオ5: 異常系（埋め込みベクトル生成失敗）★新規追加
+実行方法:
+```bash
+docker-compose exec frontend npm run test:e2e -- --spec tests/e2e/bulk-upload-embedding-failure.spec.ts
+```
+
+手順:
+  1. OpenAI APIをモック（失敗レスポンス）
+  2. ログイン（Standardプラン）
+  3. FAQ管理画面へ移動
+  4. 「CSV一括登録」ボタンクリック
+  5. CSVファイル選択（10件）
+  6. アップロード実行
+  7. エラーメッセージ確認（500 Internal Server Error）
+
+【9.4 パフォーマンステスト】
+
+■ 大量データ処理
+ファイル: backend/tests/performance/test_bulk_upload_performance.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/performance/test_bulk_upload_performance.py -v
+```
+
+テストケース:
+  - 100件のFAQ登録（Standardプラン上限）
+  - 処理時間: 30秒以内目標
+  - メモリ使用量: 512MB以内
+
+■ 並行アップロード
+ファイル: backend/tests/performance/test_concurrent_upload.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/performance/test_concurrent_upload.py -v
+```
+
+テストケース:
+  - 複数ユーザーが同時にアップロード
+  - データベース整合性確認
+  - デッドロック発生確認
+
+【9.5 セキュリティテスト】
+
+■ 認証テスト
+ファイル: backend/tests/security/test_authentication.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/security/test_authentication.py -v
+```
+
+テストケース:
+  - JWT無しでアクセス → 401 Unauthorized
+  - 無効なJWT → 401 Unauthorized
+  - 期限切れJWT → 401 Unauthorized
+
+■ ファイルアップロード攻撃
+ファイル: backend/tests/security/test_file_upload_attack.py
+
+実行方法:
+```bash
+docker-compose exec backend pytest tests/security/test_file_upload_attack.py -v
+```
+
+テストケース:
+  - 10MB超のファイル → 400 Bad Request
+  - 悪意のあるファイル名 → サニタイズ確認
+  - CSVインジェクション → 無害化確認
+
+【9.6 テストデータ】
+
+■ CSVサンプルファイル
+ディレクトリ: backend/tests/data/
+
+ファイル一覧:
+  - sample_valid_minimal.csv（最小構成、3件）
+  - sample_valid_full.csv（完全版、10件、多言語）
+  - sample_valid_large.csv（大量データ、100件）
+  - sample_invalid_missing_columns.csv（必須カラム欠落）
+  - sample_invalid_duplicate_intent_key.csv（重複intent_key）
+  - sample_invalid_exceeds_limit.csv（150件、Standard超過）
+  - sample_invalid_language_limit.csv（言語数制限超過）★新規追加
+  - sample_utf8_bom.csv（UTF-8 BOM付き）★新規追加
+  - sample_cp932.csv（CP932/Shift_JIS）★新規追加
+
+================================================================================
+10. リスク・注意事項
+================================================================================
+
+【10.1 技術的リスク】
+
+■ リスク1: 大量データ処理時のタイムアウト
+発生条件:
+  - 100件以上のFAQ登録（Premium）
+  - 埋め込みベクトル生成に時間がかかる
+対策:
+  - 非同期処理の導入（Celery等、Phase 2以降）
+  - プログレスバーでユーザーに待機を促す
+  - タイムアウト時間を60秒に延長
+
+■ リスク2: 埋め込みベクトル生成の失敗★修正
+発生条件:
+  - OpenAI API の制限・障害
+  - ネットワーク不安定
+対策:
+  - リトライ戦略（最大3回、指数バックオフ）
+  - 失敗時はトランザクション全体をロールバック
+  - エラーメッセージでユーザーに再アップロードを促す
+  - Phase 2以降: 自動再生成機能の実装
+
+■ リスク3: CSV文字コードの問題★修正
+発生条件:
+  - Excel for Mac で保存したCSV（UTF-8またはShift_JIS）
+  - Windowsで保存したCSV（BOM付きUTF-8またはCP932）
+対策:
+  - BOMチェック（最優先）
+  - chardet で自動検出（信頼度0.8以上）
+  - フォールバック（UTF-8 → CP932）
+  - エラーメッセージで推奨文字コードを案内
+
+■ リスク4: メモリ不足
+発生条件:
+  - 大量データ（1000件以上）
+  - pandas でCSV全体をメモリに読み込み
+対策:
+  - チャンク処理（100件ずつ、Phase 2以降）
+  - ストリーミング処理の検討（Phase 3以降）
+
+■ リスク5: OpenAI APIレート制限★新規追加
+発生条件:
+  - 短時間に大量のembedding生成リクエスト
+  - OpenAI APIのRPM（Requests Per Minute）制限に到達
+対策:
+  - リトライ戦略（指数バックオフ）
+  - バッチ処理（Phase 2以降）
+  - レート制限情報の表示
+
+【10.2 運用リスク】
+
+■ リスク6: FAQ登録数上限の誤解
+発生条件:
+  - Standardプランで100件以上登録しようとする
+  - 既存FAQ数を考慮せずにアップロード
+対策:
+  - アップロード前に現在のFAQ数を表示
+  - 「登録可能残数: XX件」を明示
+  - 上限に近い場合は警告メッセージ
+
+■ リスク7: 誤った上書き
+発生条件:
+  - 上書きモードで誤ったintent_keyを指定（Phase 2以降）
+  - 既存FAQが意図せず更新される
+対策:
+  - 上書きモード選択時に確認ダイアログ
+  - 「XX件のFAQが更新されます」と明示
+  - Undo機能は提供しない（バックアップ推奨）
+
+■ リスク8: 重複FAQ登録の混乱
+発生条件:
+  - 追加モードで重複intent_keyをアップロード
+  - トランザクション全体がロールバック
+対策:
+  - 失敗理由を明確に表示
+  - 「重複するintent_keyが存在します: basic_wifi_password」
+  - エラーログで重複行を特定可能に
+
+【10.3 ビジネスリスク】
+
+■ リスク9: 有料サービスの価格設定
+発生条件:
+  - 開発者依頼時の価格が高すぎる/安すぎる
+対策:
+  - 市場調査（競合サービスの価格）
+  - ベータテストでのフィードバック収集
+  - 柔軟な価格改定
+
+■ リスク10: サポート工数の増加
+発生条件:
+  - CSV形式のトラブルが頻発
+  - ユーザーからの問い合わせ増加
+対策:
+  - 詳細なマニュアル作成
+  - FAQテンプレートの提供
+  - エラーメッセージの改善
+
+【10.4 注意事項】
+
+■ 注意1: プラン制限の整合性★修正
+現状:
+  - Phase 0でマイグレーション013を実行済み
+  - facilitiesテーブルのfaq_limitがplan_limits.pyと一致
+対応:
+  - Phase 0の完了確認
+  - ステージング環境での動作確認
+
+■ 注意2: Premiumプランのfaq_limit★修正
+現状:
+  - Phase 0でマイグレーション013を実行済み
+  - faq_limit=NULL（無制限）に修正済み
+対応:
+  - Phase 0の完了確認
+  - ステージング環境での動作確認
+
+■ 注意3: 既存のbulk_create_faqs()との統合★修正
+現状:
+  - bulk_create_faqs()メソッドを活用
+  - CSV解析後、FAQRequestのリストに変換
+  - 既存メソッドを呼び出し（重複実装を避ける）
+対応:
+  - Phase 0のタスク0.2で動作確認済み
+  - Phase 1のタスク1.4で統合実装
+
+■ 注意4: Docker環境での動作確認★修正
+現状:
+  - すべての修正・テストはDocker環境で実行
+  - ローカル環境での直接実行は無効
+対応:
+  - Phase 0以降、すべてのフェーズでDocker環境を使用
+  - テスト計画にDocker環境での実行を明記
+
+================================================================================
+11. 将来の拡張
+================================================================================
+
+【11.1 機能拡張案】
+
+■ Phase 2（6ヶ月後）
+  - Excel形式（.xlsx）のアップロード対応
+  - CSVテンプレートの自動生成（既存FAQをエクスポート）
+  - FAQのバックアップ・リストア機能
+  - 上書きモードの実装（intent_key指定で既存FAQ更新）
+  - 部分コミット機能（エラー行をスキップ、成功行のみコミット）
+  - エラーログのダウンロード機能
+  - 埋め込みベクトル自動再生成機能（バッチ処理）
+
+■ Phase 3（12ヶ月後）
+  - スケジュール登録（特定日時に自動アップロード）
+  - Webhook通知（登録完了時にSlack/Emailで通知）
+  - バッチ処理（夜間に大量データを処理）
+  - チャンク処理（100件ずつ処理）
+
+■ Phase 4（18ヶ月後）
+  - AI支援（CSVの内容をAIがチェック、改善提案）
+  - 多言語翻訳API連携（日本語のみで登録、他言語を自動翻訳）
+  - バージョン管理（FAQの変更履歴を追跡）
+
+【11.2 技術的改善案】
+
+■ パフォーマンス最適化
+  - 非同期処理（Celery + Redis）
+  - ストリーミング処理（大量データ）
+  - 並列処理（複数FAQを同時登録）
+
+■ UI/UX改善
+  - ドラッグ&ドロップの視覚フィードバック強化
+  - リアルタイムプレビュー（アップロード前にCSV内容を表示）
+  - プログレスバーの詳細化（「XX件中YY件処理中」）
+
+■ セキュリティ強化
+  - ファイルウイルススキャン
+  - レート制限（1ユーザーあたり1時間に5回まで）
+  - 監査ログの強化
+
+【11.3 ビジネス拡張案】
+
+■ 有料サービスの充実
+  - FAQ作成代行サービス
+  - 定期メンテナンスプラン
+  - SLA保証オプション
+
+■ API提供
+  - REST API で外部システムからFAQを登録
+  - Webhook で登録完了を通知
+  - GraphQL対応
+
+================================================================================
+補足資料
+================================================================================
+
+【A. 参考URL】
+- 要約定義書: yadopera-v03-summary.md
+- アーキテクチャ設計書: （要確認）
+- plan_limits.py: backend/app/core/plan_limits.py
+- faq_service.py: backend/app/services/faq_service.py
+- insert_operator_faqs.py: backend/scripts/insert_operator_faqs.py
+
+【B. 関連issue・PR】
+- （今後追加）
+
+【C. 開発環境】
+- Docker: 必須
+- Python: 3.11+
+- Node.js: 18+
+- PostgreSQL: 15 + pgvector
+- Redis: 7.2
+
+【D. デプロイ環境】
+- ステージング: Railway Hobby
+- 本番: Render.com
+
+【E. 連絡先】
+- 開発者: Air
+- ブログ: https://air-edison.com
+- Twitter: @kbqjp
+
+================================================================================
+変更履歴
+================================================================================
+
+| バージョン | 日付       | 変更内容                          |
+|-----------|-----------|----------------------------------|
+| v1.0      | 2026-01-27 | 初版作成                          |
+| v2.0      | 2026-01-27 | 評価レポートの推奨事項を全て反映   |
+|           |            | - Phase 0（準備作業）を追加       |
+|           |            | - 既存メソッドとの統合詳細を明確化 |
+|           |            | - 言語数制限チェックのロジックを明確化 |
+|           |            | - トランザクション管理の方針を明確化 |
+|           |            | - 埋め込みベクトル生成失敗時の対応を明確化 |
+|           |            | - プラン制限チェックのタイミングを変更 |
+|           |            | - 文字コード検出のロジックを明確化 |
+|           |            | - Docker環境でのテスト実行を明記   |
+
+================================================================================
+承認
+================================================================================
+
+作成者: Claude (AI Assistant)
+レビュー者: （要指定）
+承認者: （要指定）
+
+承認日: （要指定）
+
+================================================================================
+以上
+================================================================================

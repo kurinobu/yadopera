@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-6">
     <!-- ページヘッダー -->
-    <div class="flex items-center justify-between">
+    <div class="flex items-center justify-between flex-wrap gap-2">
       <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-white">
           FAQ管理
@@ -10,35 +10,58 @@
           FAQの追加・編集・削除と自動学習機能
         </p>
       </div>
-      <button
-        @click="showAddForm = true"
-        class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
-      >
-        + 新規FAQ追加
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          v-if="canUseCsvBulkUpload"
+          type="button"
+          class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:hover:bg-gray-600 dark:text-gray-200 rounded-lg transition-colors"
+          @click="onBulkUploadClick"
+        >
+          CSV一括登録
+        </button>
+        <router-link
+          v-if="canUseCsvBulkUpload"
+          to="/admin/csv-bulk-request"
+          class="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg transition-colors"
+        >
+          CSV一括登録代行（有料）をご希望の方はこちら
+        </router-link>
+        <button
+          @click="onAddFaqClick"
+          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
+        >
+          + 新規FAQ追加
+        </button>
+      </div>
     </div>
 
-    <!-- ローディング表示 -->
-    <Loading v-if="loading" />
+    <!-- CLS 改善: ローディング〜一覧の切り替えで高さを揃える -->
+    <div class="min-h-[50vh]">
+      <!-- ローディング表示 -->
+      <Loading v-if="loading" />
 
-    <!-- エラー表示 -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-      <p class="text-red-800 dark:text-red-200">{{ error }}</p>
-      <button
-        @click="fetchFaqs"
-        class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-      >
-        再試行
-      </button>
+      <!-- エラー表示 -->
+      <div v-else-if="error" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+        <p class="text-red-800 dark:text-red-200">{{ error }}</p>
+        <button
+          type="button"
+          :disabled="retryingFaqs"
+          class="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          @click="onFaqsRetryClick"
+        >
+          <span v-if="retryingFaqs">再試行中...</span>
+          <span v-else>再試行</span>
+        </button>
+      </div>
+
+      <!-- FAQ一覧 -->
+      <FaqList
+        v-else
+        :faqs="faqs"
+        @edit="handleEdit"
+        @delete="handleDelete"
+      />
     </div>
-
-    <!-- FAQ一覧 -->
-    <FaqList
-      v-else
-      :faqs="faqs"
-      @edit="handleEdit"
-      @delete="handleDelete"
-    />
 
     <!-- 未解決質問リスト -->
     <UnresolvedQuestionsList
@@ -67,17 +90,38 @@
       @ignore="handleFeedbackIgnore"
     />
 
-    <!-- FAQ追加・編集モーダル -->
+    <!-- FAQ追加・編集モーダル（下書きあり時は外側クリック・ESCで閉じず警告表示） -->
     <Modal
       v-model="showAddForm"
       :title="isEditMode ? 'FAQ編集' : 'FAQ追加'"
       size="lg"
+      :before-close="handleFaqModalBeforeClose"
       @close="handleCloseForm"
     >
+      <div v-if="showBackdropWarning" class="mb-4 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-200" role="alert">
+        入力内容を残すには「{{ isEditMode ? '更新' : '作成' }}」を、破棄するには「キャンセル」をクリックしてください。
+      </div>
       <FaqForm
+        ref="faqFormRef"
         :faq="editingFaq"
         @submit="handleSubmitFaq"
         @cancel="handleCloseForm"
+      />
+    </Modal>
+
+    <!-- CSV一括登録モーダル -->
+    <Modal
+      v-model="showBulkUploadModal"
+      title="CSV一括登録"
+      size="lg"
+      @close="showBulkUploadModal = false"
+    >
+      <FaqBulkUploadModal
+        v-if="showBulkUploadModal"
+        ref="bulkUploadModalRef"
+        :key="bulkUploadModalKey"
+        @close="showBulkUploadModal = false"
+        @success="onBulkUploadSuccess"
       />
     </Modal>
 
@@ -118,12 +162,14 @@ import { ref, computed, onMounted, nextTick, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import FaqList from '@/components/admin/FaqList.vue'
 import FaqForm from '@/components/admin/FaqForm.vue'
+import FaqBulkUploadModal from '@/components/admin/FaqBulkUploadModal.vue'
 import UnresolvedQuestionsList from '@/components/admin/UnresolvedQuestionsList.vue'
 import FaqSuggestionCard from '@/components/admin/FaqSuggestionCard.vue'
 import FeedbackLinkedFaqs from '@/components/admin/FeedbackLinkedFaqs.vue'
 import Modal from '@/components/common/Modal.vue'
 import Loading from '@/components/common/Loading.vue'
 import { faqApi } from '@/api/faq'
+import { facilityApi } from '@/api/facility'
 import { faqSuggestionApi } from '@/api/faqSuggestion'
 import { unresolvedQuestionsApi } from '@/api/unresolvedQuestions'
 import { feedbackApi } from '@/api/feedback'
@@ -135,6 +181,23 @@ const error = ref<string | null>(null)
 const faqs = ref<FAQ[]>([])
 const unresolvedQuestions = ref<UnresolvedQuestion[]>([])
 const loadingUnresolved = ref(false)
+const planType = ref<string | null>(null)
+const showBulkUploadModal = ref(false)
+// 修正案B: モーダルを開くたびに子を再マウントしてテンプレートブロックを確実に表示
+const bulkUploadModalKey = ref(0)
+const bulkUploadModalRef = ref<InstanceType<typeof FaqBulkUploadModal> | null>(null)
+
+async function openBulkUploadModal() {
+  bulkUploadModalKey.value++
+  showBulkUploadModal.value = true
+  await nextTick()
+  bulkUploadModalRef.value?.reset?.()
+}
+
+// CSV一括登録は Standard / Premium のみ表示
+const canUseCsvBulkUpload = computed(() =>
+  planType.value === 'Standard' || planType.value === 'Premium'
+)
 
 // モックデータ（Week 4でAPI連携に置き換え、一部は残す）
 /* const mockFaqs: FAQ[] = [
@@ -180,123 +243,63 @@ const loadingUnresolved = ref(false)
 // 低評価回答リスト
 const lowRatedAnswers = ref<LowRatedAnswer[]>([])
 
+// INP 改善: 再試行ボタンで即時フィードバック
+const retryingFaqs = ref(false)
+
 // データ取得
 const fetchFaqs = async () => {
-  console.log('🚀 fetchFaqs: 開始')
   try {
     loading.value = true
     error.value = null
-    console.log('📡 fetchFaqs: API呼び出し前')
     const response = await faqApi.getFaqs()
-    console.log('📡 fetchFaqs: API呼び出し成功', response)
     const data = response.faqs
     const isInitializing = response.is_initializing
-    const total = response.total
-    
-    console.log('✅ FAQ取得成功:', {
-      count: data.length,
-      total: total,
-      is_initializing: isInitializing,
-      categories: {
-        basic: data.filter(f => f.category === 'basic').length,
-        facilities: data.filter(f => f.category === 'facilities').length,
-        location: data.filter(f => f.category === 'location').length,
-        trouble: data.filter(f => f.category === 'trouble').length,
-      },
-      data: data
-    })
-    
+
     faqs.value = data
     
-    // バックグラウンド処理が進行中の場合、または期待値未満の場合はポーリングを開始
-    // 修正2: isInitializingがFalseでも、total < 20の場合はポーリングを開始（二重の安全策）
-    const expectedCount = 20  // 条件チェック前に定義
-    console.log('🔍 ポーリング条件チェック:', {
-      isInitializing,
-      total,
-      expectedCount,
-      condition1: isInitializing && total < expectedCount,
-      condition2: !isInitializing && total < expectedCount,
-      shouldPoll: (isInitializing && total < expectedCount) || (!isInitializing && total < expectedCount)
-    })
-    
-    if ((isInitializing && total < expectedCount) || (!isInitializing && total < expectedCount)) {
+    // バックグラウンド処理（施設作成直後の初期自動登録）が進行中の場合のみポーリングを開始
+    // is_initializing が True のときのみポーリング。20件未満の通常施設ではポーリングしない。
+    if (isInitializing) {
       const pollInterval = 2000 // 2秒ごとにポーリング
-      const maxPollTime = 90000 // 最大90秒（20件のFAQ作成 + 埋め込みベクトル生成を考慮）
+      const maxPollTime = 90000 // 最大90秒（初期投入 + 埋め込みベクトル生成を考慮）
       const startTime = Date.now()
-      
+
       const poll = async () => {
         try {
           const newResponse = await faqApi.getFaqs()
           const newData = newResponse.faqs
           const newTotal = newResponse.total
           const newIsInitializing = newResponse.is_initializing
-          
-          console.log('🔄 ポーリング結果:', {
-            count: newData.length,
-            total: newTotal,
-            is_initializing: newIsInitializing
-          })
-          
+
           // ポーリング中にFAQ数が増えた場合は、即座にUIを更新
           if (newTotal > faqs.value.length) {
-            console.log('📊 FAQ数が増加: UIを更新', {
-              previous: faqs.value.length,
-              current: newTotal
-            })
             faqs.value = newData
           }
-          
-          // バックグラウンド処理の完了を優先チェック（タイムアウトチェックより先）
-          if (!newIsInitializing && newTotal >= expectedCount) {
-            // 完了: 最新のデータを表示
-            console.log('✅ バックグラウンド処理完了: 最新のデータを表示', newTotal)
+
+          // バックグラウンド処理の完了: is_initializing が false になった時点で終了
+          if (!newIsInitializing) {
             faqs.value = newData
             loading.value = false
             return
           }
-          
-          // タイムアウトチェック（完了チェックの後）
+
+          // タイムアウトチェック
           if (Date.now() - startTime > maxPollTime) {
-            // タイムアウト: 最後に取得したデータを表示
-            console.log('⏱️ ポーリングタイムアウト: 最後に取得したデータを表示', {
-              total: newTotal,
-              count: newData.length,
-              is_initializing: newIsInitializing
-            })
             faqs.value = newData
             loading.value = false
             return
           }
-          
+
           // まだ進行中: 再度ポーリング
           setTimeout(poll, pollInterval)
         } catch (err: any) {
-          // エラー: 現在の件数を表示
-          console.error('❌ ポーリングエラー:', err)
-          console.error('❌ ポーリングエラー: エラー詳細', {
-            message: err.message,
-            stack: err.stack,
-            response: err.response
-          })
+          console.error('FAQポーリングエラー:', err)
           loading.value = false
         }
       }
-      
-      // 初回ポーリングを開始
-      console.log('🔄 バックグラウンド処理進行中または期待値未満: ポーリングを開始', {
-        isInitializing,
-        total,
-        expectedCount
-      })
+
       setTimeout(poll, pollInterval)
     } else {
-      // 通常の表示
-      console.log('⏭️ ポーリング不要: 通常の表示', {
-        isInitializing,
-        total,
-        expectedCount
-      })
       loading.value = false
     }
   } catch (err: any) {
@@ -308,7 +311,30 @@ const fetchFaqs = async () => {
     })
     error.value = err.response?.data?.detail || 'FAQ一覧の取得に失敗しました'
     loading.value = false
+  } finally {
+    retryingFaqs.value = false
   }
+}
+
+// INP 改善: クリックで即 disabled にし、重い処理は次のタスクに回す
+function onFaqsRetryClick() {
+  retryingFaqs.value = true
+  setTimeout(() => {
+    fetchFaqs()
+  }, 0)
+}
+
+// INP 改善: ボタンクリック後の処理を次のタスクに回す
+function onAddFaqClick() {
+  setTimeout(() => {
+    showAddForm.value = true
+  }, 0)
+}
+
+function onBulkUploadClick() {
+  setTimeout(() => {
+    openBulkUploadModal()
+  }, 0)
 }
 
 // 未解決質問リスト取得
@@ -369,7 +395,6 @@ const scrollToSection = async (targetId?: string) => {
       top: offsetPosition,
       behavior: 'smooth'
     })
-    console.log('[FaqManagement] Scrolled to section:', id, element)
   } else {
     console.warn('[FaqManagement] Element not found for id:', id)
     // 要素が見つからない場合、もう一度試す（最大3回）
@@ -384,7 +409,6 @@ const scrollToSection = async (targetId?: string) => {
           top: offsetPosition,
           behavior: 'smooth'
         })
-        console.log('[FaqManagement] Scrolled to section (retry):', id, retryElement)
         break
       }
     }
@@ -392,15 +416,28 @@ const scrollToSection = async (targetId?: string) => {
 }
 
 // コンポーネントマウント時にデータ取得
-onMounted(async () => {
-  console.log('🚀 FaqManagement: onMounted開始')
+async function loadFacilityPlan() {
   try {
+    const res = await facilityApi.getFacilitySettings()
+    planType.value = res.facility?.plan_type ?? null
+  } catch {
+    planType.value = null
+  }
+}
+
+function onBulkUploadSuccess() {
+  fetchFaqs()
+  showBulkUploadModal.value = false
+}
+
+onMounted(async () => {
+  try {
+    loadFacilityPlan()
     await fetchFaqs()
     await fetchUnresolvedQuestions()
     await fetchLowRatedAnswers()
     // ハッシュフラグメントに基づいてスクロール
     await scrollToSection()
-    console.log('✅ FaqManagement: onMounted完了')
   } catch (err: any) {
     console.error('❌ FaqManagement: onMountedエラー', err)
     console.error('❌ FaqManagement: onMountedエラー詳細', {
@@ -428,8 +465,20 @@ watch(() => window.location.hash, async (newHash, oldHash) => {
 const showAddForm = ref(false)
 const editingFaq = ref<FAQ | null>(null)
 const selectedSuggestion = ref<FaqSuggestion | null>(null)
+const faqFormRef = ref<InstanceType<typeof FaqForm> | null>(null)
+const showBackdropWarning = ref(false)
 
 const isEditMode = computed(() => !!editingFaq.value)
+
+/** FAQモーダルを閉じる前: 下書きありなら閉じず警告表示 */
+const handleFaqModalBeforeClose = async () => {
+  const dirty = faqFormRef.value?.isDirty ?? false
+  if (dirty) {
+    showBackdropWarning.value = true
+    return false
+  }
+  return true
+}
 
 // モックのFAQ提案（未解決質問から生成）
 /* const generateSuggestion = (question: UnresolvedQuestion): FaqSuggestion => {
@@ -473,11 +522,6 @@ const handleDelete = async (faq: FAQ) => {
     await new Promise(resolve => setTimeout(resolve, 100))
     // FAQ一覧を再取得
     await fetchFaqs()
-    // 成功メッセージ（オプション）
-    const questionText = faq.translations && faq.translations.length > 0
-      ? faq.translations[0].question
-      : `FAQ ID: ${faq.id}`
-    console.log(`FAQ「${questionText}」を削除しました`)
   } catch (err: any) {
     console.error('Failed to delete FAQ:', err)
     // エラーメッセージをユーザーフレンドリーに変換
@@ -564,6 +608,7 @@ const handleSubmitFaq = async (data: FAQCreate) => {
 }
 
 const handleCloseForm = () => {
+  showBackdropWarning.value = false
   showAddForm.value = false
   editingFaq.value = null
 }
@@ -588,14 +633,7 @@ const handleRejectSuggestion = async (_suggestion: FaqSuggestion) => {
 
 const handleFeedbackImprove = async (answer: LowRatedAnswer) => {
   try {
-    console.log('Generating FAQ suggestion for message_id:', answer.message_id)
-    console.log('Answer data:', answer)
-    // FAQ提案を生成（GPT-4o mini）
     const suggestion = await faqSuggestionApi.generateSuggestion(answer.message_id)
-    console.log('FAQ suggestion generated:', suggestion)
-    console.log('Suggested question:', suggestion.suggested_question)
-    console.log('Suggested answer:', suggestion.suggested_answer)
-    
     selectedSuggestion.value = suggestion
     
     // FAQ提案カードまで自動スクロール
@@ -632,8 +670,6 @@ const showIgnoreConfirm = ref(false)
 const pendingIgnoreAnswer = ref<LowRatedAnswer | null>(null)
 
 const handleFeedbackIgnore = (answer: LowRatedAnswer) => {
-  console.log('Feedback ignore clicked:', answer)
-  // 確認モーダルを表示
   pendingIgnoreAnswer.value = answer
   showIgnoreConfirm.value = true
 }
@@ -644,23 +680,14 @@ const confirmIgnore = async () => {
   }
   
   const answer = pendingIgnoreAnswer.value
-  console.log('Confirm ignore for message_id:', answer.message_id)
-  
-  // ローディング状態を設定
   ignoringMessageId.value = answer.message_id
-  console.log('Calling ignoreNegativeFeedback API for message_id:', answer.message_id)
-  
+
   try {
     await feedbackApi.ignoreNegativeFeedback(answer.message_id)
-    console.log('Ignore API call successful')
-    // 成功メッセージを表示
     alert('✅ 低評価回答を無視しました。画面から非表示になります。')
-    // モーダルを閉じる
     showIgnoreConfirm.value = false
     pendingIgnoreAnswer.value = null
-    // 低評価回答リストを再取得（画面に反映）
     await fetchLowRatedAnswers()
-    console.log('Low-rated answers list refreshed')
   } catch (err: any) {
     console.error('Failed to ignore negative feedback:', err)
     console.error('Error details:', err.response?.data || err.message)
@@ -668,9 +695,7 @@ const confirmIgnore = async () => {
     // エラーメッセージを確実に表示
     alert(`❌ エラー: ${errorMessage}\n\n詳細はブラウザのコンソールを確認してください。`)
   } finally {
-    // ローディング状態を解除
     ignoringMessageId.value = null
-    console.log('Ignore action completed')
   }
 }
 

@@ -3,22 +3,34 @@
 認証ビジネスロジック
 """
 
+from __future__ import annotations
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from app.models.user import User
 from app.models.facility import Facility
 from app.core.security import verify_password, hash_password
 from app.core.jwt import create_access_token
 from app.core.config import settings
-from app.schemas.auth import LoginRequest, LoginResponse, UserResponse, FacilityRegisterRequest
+from app.schemas.auth import (
+    LoginRequest, LoginResponse, UserResponse,
+    FacilityRegisterRequest, FacilityRegisterResponse,
+    VerifyEmailRequest, VerifyEmailResponse,
+    ResendVerificationRequest, ResendVerificationResponse,
+    PasswordResetResponse
+)
 from app.schemas.faq import FAQRequest
 from app.services.faq_service import FAQService
+from app.services.email_service import EmailService
+from app.services.notification_service import notify_admin_email_failure
+from app.services import stripe_service
 from app.data.faq_presets import FAQ_PRESETS
 from app.core.plan_limits import filter_faq_presets_by_plan
-from fastapi import HTTPException, status, BackgroundTasks
+from fastapi import HTTPException, status, BackgroundTasks, Request
 from typing import Optional
 import logging
+import uuid
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +65,7 @@ def get_plan_defaults(plan_type: str) -> dict:
     Returns:
         プラン別デフォルト値（monthly_question_limit, faq_limit, language_limit）
     
-    注意: language_limitはplan_limits.pyのPLAN_FAQ_LIMITSのlanguagesリストの長さと一致させる
+    注意: faq_limit/language_limit は plan_limits.py の PLAN_FAQ_LIMITS と一致させる（CSV一括登録 Phase 0）
     """
     defaults = {
         'Free': {
@@ -63,17 +75,17 @@ def get_plan_defaults(plan_type: str) -> dict:
         },
         'Mini': {
             'monthly_question_limit': None,  # 無制限
-            'faq_limit': 20,
+            'faq_limit': 30,
             'language_limit': 2  # ["ja", "en"]
         },
         'Small': {
             'monthly_question_limit': 200,
-            'faq_limit': 20,
+            'faq_limit': 50,
             'language_limit': 3  # ["ja", "en", "zh-TW"]
         },
         'Standard': {
             'monthly_question_limit': 500,
-            'faq_limit': 20,
+            'faq_limit': 100,
             'language_limit': 4  # ["ja", "en", "zh-TW", "fr"]
         },
         'Premium': {
@@ -162,12 +174,17 @@ class AuthService:
         if not user.is_active:
             return None
         
+        # メールアドレス確認済みか確認
+        if not user.email_verified:
+            return None
+        
         return user
     
     @staticmethod
     async def login(
         db: AsyncSession,
-        login_data: LoginRequest
+        login_data: LoginRequest,
+        request: Optional["Request"] = None
     ) -> LoginResponse:
         """
         ログイン処理
@@ -175,6 +192,7 @@ class AuthService:
         Args:
             db: データベースセッション
             login_data: ログインリクエストデータ
+            request: リクエストオブジェクト（IPアドレス、User-Agent取得用）
             
         Returns:
             ログインレスポンス
@@ -186,6 +204,29 @@ class AuthService:
         user = await AuthService.authenticate_user(db, login_data)
         
         if user is None:
+            # 🟠 メールアドレス未確認の場合の詳細エラー（日本語・英語併記）
+            result = await db.execute(
+                select(User).where(User.email == login_data.email)
+            )
+            existing_user = result.scalar_one_or_none()
+            # エラーログで施設紐づけするため request.state に保持
+            if request and existing_user and getattr(existing_user, "facility_id", None) is not None:
+                request.state.facility_id = existing_user.facility_id
+
+            if existing_user and not existing_user.email_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail=(
+                        "メールアドレスが確認されていません。"
+                        "登録時に送信された確認メールをご確認ください。"
+                        "メールが届いていない場合は、確認メール再送信をご利用ください。"
+                        "\n\n"
+                        "Email address not verified. "
+                        "Please check your email and verify your account. "
+                        "If you didn't receive the email, please use the resend function."
+                    ),
+                )
+            
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password",
@@ -193,15 +234,33 @@ class AuthService:
             )
         
         # 最終ログイン時刻更新
-        user.last_login_at = datetime.utcnow()
+        user.last_login_at = datetime.now(timezone.utc)
         await db.commit()
         await db.refresh(user)
+        
+        # 管理者ログインログ記録（非同期）
+        if request:
+            from app.models.admin_activity_log import AdminActivityLog
+            activity_log = AdminActivityLog(
+                user_id=user.id,
+                facility_id=user.facility_id,
+                action_type="login",
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent")
+            )
+            db.add(activity_log)
+            await db.commit()
         
         # JWTトークン生成
         # JWT仕様（RFC 7519）に準拠: subフィールドは文字列であるべき
         access_token = create_access_token(
             data={"sub": str(user.id), "email": user.email}
         )
+        
+        # 初回ログイン時やることリストモーダル表示要否（施設の onboarding_modal_shown_at が NULL なら True）
+        facility_result = await db.execute(select(Facility).where(Facility.id == user.facility_id))
+        facility = facility_result.scalar_one_or_none()
+        show_onboarding_modal = facility is not None and facility.onboarding_modal_shown_at is None
         
         # レスポンス作成
         return LoginResponse(
@@ -215,6 +274,8 @@ class AuthService:
                 role=user.role,
                 facility_id=user.facility_id,
                 is_active=user.is_active,
+                email_verified=user.email_verified,  # ★追加
+                show_onboarding_modal=show_onboarding_modal,
             )
         )
     
@@ -241,7 +302,7 @@ class AuthService:
     async def register_facility_sync(
         db: AsyncSession,
         request: FacilityRegisterRequest
-    ) -> LoginResponse:
+    ) -> tuple[User, Facility]:
         """
         施設登録処理（同期部分：施設・ユーザー作成のみ）
         
@@ -250,7 +311,7 @@ class AuthService:
             request: 施設登録リクエスト
         
         Returns:
-            ログインレスポンス（JWTトークン含む）
+            (User, Facility): 作成されたユーザーと施設
         
         Raises:
             HTTPException: 登録失敗時
@@ -261,10 +322,24 @@ class AuthService:
         )
         existing_user = result.scalar_one_or_none()
         if existing_user:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Email already registered"
-            )
+            # 🔴 修正: メール確認未完了のユーザーの場合、確認メール再送信を促す
+            if not existing_user.email_verified:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "このメールアドレスは既に登録されていますが、メール確認が完了していません。"
+                        "確認メールを再送信してください。"
+                        "\n\n"
+                        "This email address is already registered but not verified. "
+                        "Please resend the verification email."
+                    )
+                )
+            else:
+                # メール確認済みのユーザーの場合、通常のエラー
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
         
         # プラン情報を変換・設定
         plan_type = convert_subscription_plan_to_plan_type(request.subscription_plan)
@@ -279,45 +354,35 @@ class AuthService:
             plan_type=plan_type,
             monthly_question_limit=plan_defaults['monthly_question_limit'],
             faq_limit=plan_defaults['faq_limit'],
-            language_limit=plan_defaults['language_limit']
+            language_limit=plan_defaults['language_limit'],
+            show_email_on_guest_screen=True
         )
         db.add(facility)
-        await db.flush()  # facility_idを取得
+        await db.flush()
         
-        # ユーザー作成
+        # メール確認トークン生成
+        verification_token = str(uuid.uuid4())
+        verification_token_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+        
+        # ユーザー作成（is_active=False, メール確認トークン設定）
         user = User(
             facility_id=facility.id,
             email=request.email,
             password_hash=hash_password(request.password),
             role="owner",
             full_name=None,
-            is_active=True
+            is_active=False,  # メール確認まで無効
+            email_verified=False,  # メール未確認
+            verification_token=verification_token,
+            verification_token_expires=verification_token_expires
         )
         db.add(user)
-        await db.flush()  # user_idを取得
+        await db.flush()
         
         # コミット（施設・ユーザー作成を確定）
         await db.commit()
         
-        # JWTトークン生成
-        access_token = create_access_token(
-            data={"sub": str(user.id), "email": user.email}
-        )
-        
-        # レスポンス作成
-        return LoginResponse(
-            access_token=access_token,
-            token_type="bearer",
-            expires_in=settings.access_token_expire_minutes * 60,
-            user=UserResponse(
-                id=user.id,
-                email=user.email,
-                full_name=user.full_name,
-                role=user.role,
-                facility_id=user.facility_id,
-                is_active=user.is_active,
-            )
-        )
+        return user, facility
 
     @staticmethod
     async def register_facility_async_faqs(
@@ -337,7 +402,8 @@ class AuthService:
         from app.data.faq_presets import FAQ_PRESETS
         from app.schemas.faq import FAQRequest
         from app.core.cache import delete_cache_pattern
-        
+        from app.data.faq_presets_embeddings_loader import get_preset_embedding
+
         # 新しいデータベースセッションを作成
         async with AsyncSessionLocal() as db:
             try:
@@ -346,20 +412,33 @@ class AuthService:
                     FAQ_PRESETS,
                     subscription_plan
                 )
-                
-                # プリセットFAQをFAQRequestに変換
+
+                # プリセットFAQをFAQRequestに変換（事前計算embeddingがあれば付与）
                 faq_requests = []
                 for preset in filtered_presets:
+                    intent_key = preset["intent_key"]
+                    trans_list = []
+                    for t in preset["translations"]:
+                        lang = t["language"]
+                        emb = get_preset_embedding(intent_key, lang)
+                        if emb is None:
+                            logger.warning(
+                                "Preset embedding missing: intent_key=%s language=%s",
+                                intent_key,
+                                lang,
+                            )
+                        trans_item = {
+                            "language": lang,
+                            "question": t["question"],
+                            "answer": t["answer"],
+                        }
+                        if emb is not None:
+                            trans_item["embedding"] = emb
+                        trans_list.append(trans_item)
                     faq_request = FAQRequest(
                         category=preset["category"],
-                        intent_key=preset["intent_key"],
-                        translations=[
-                            {
-                                "language": t["language"],
-                                "question": t["question"],
-                                "answer": t["answer"]
-                            } for t in preset["translations"]
-                        ],
+                        intent_key=intent_key,
+                        translations=trans_list,
                         priority=preset["priority"],
                         is_active=True
                     )
@@ -416,13 +495,359 @@ class AuthService:
                 # エラーが発生してもロールバックは不要（既に施設・ユーザーは作成済み）
 
     @staticmethod
+    async def register_facility_async_stripe(facility_id: int, plan_type: str) -> None:
+        """
+        新規登録後、有料プランの場合に Stripe Customer および Subscription を作成し DB を更新する（Phase F #2）。
+        別トランザクションで実行。失敗時はログのみ残し施設はそのまま（後でプラン変更 API で補完可能）。
+        """
+        from app.database import AsyncSessionLocal
+
+        if plan_type == "Free":
+            return
+        if not stripe_service.is_stripe_configured():
+            logger.debug(
+                "Stripe not configured, skipping Stripe Customer/Subscription creation for facility_id=%s",
+                facility_id,
+            )
+            return
+        async with AsyncSessionLocal() as db:
+            try:
+                result = await db.execute(select(Facility).where(Facility.id == facility_id))
+                facility = result.scalar_one_or_none()
+                if not facility:
+                    logger.warning("Facility not found for Stripe creation: facility_id=%s", facility_id)
+                    return
+                # 既に Stripe 連携済みならスキップ（二重作成防止）
+                if facility.stripe_customer_id:
+                    logger.debug("Facility already has stripe_customer_id, skipping: facility_id=%s", facility_id)
+                    return
+                # Stripe Customer 作成
+                customer = stripe_service.create_customer(
+                    email=facility.email,
+                    name=facility.name,
+                    facility_id=facility.id,
+                )
+                facility.stripe_customer_id = customer.id
+                await db.flush()
+                # 有料プラン用 Price ID 取得
+                price_id = stripe_service.get_price_id_for_plan(plan_type)
+                if not price_id:
+                    logger.warning(
+                        "No Stripe Price ID for plan_type=%s, facility_id=%s; Customer created only",
+                        plan_type,
+                        facility_id,
+                    )
+                    await db.commit()
+                    return
+                # Subscription 作成
+                sub = stripe_service.create_subscription(
+                    customer_id=facility.stripe_customer_id,
+                    price_id=price_id,
+                    facility_id=facility.id,
+                )
+                facility.stripe_subscription_id = sub.id
+                facility.subscription_status = sub.get("status") or "active"
+                facility.plan_updated_at = datetime.now(timezone.utc)
+                await db.commit()
+                logger.info(
+                    "Stripe Customer and Subscription created for facility_id=%s, plan_type=%s",
+                    facility_id,
+                    plan_type,
+                )
+            except Exception as e:
+                logger.warning(
+                    "Stripe Customer/Subscription creation failed for facility_id=%s, plan_type=%s: %s. "
+                    "Facility remains without Stripe; use plan change API to retry.",
+                    facility_id,
+                    plan_type,
+                    str(e),
+                    exc_info=True,
+                )
+                # 施設は stripe_customer_id 等 NULL のまま。プラン変更 API で後から作成可能。
+
+    @staticmethod
+    async def verify_email(
+        db: AsyncSession,
+        request: VerifyEmailRequest
+    ) -> VerifyEmailResponse:
+        """
+        メールアドレス確認処理（🟠 セキュリティ強化）
+        
+        Args:
+            db: データベースセッション
+            request: メールアドレス確認リクエスト
+        
+        Returns:
+            メールアドレス確認レスポンス
+        
+        Raises:
+            HTTPException: 確認失敗時
+        """
+        # トークンでユーザー取得
+        result = await db.execute(
+            select(User).where(User.verification_token == request.token)
+        )
+        user = result.scalar_one_or_none()
+        
+        # 🟠 トークンが存在しない、または有効期限切れの場合は同じエラーメッセージ
+        # （セキュリティ: トークンの存在・非存在を推測させない）
+        if user is None:
+            # 🔴 修正: トークンがNULL（既に使用済み）の場合、エラーメッセージを改善
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "Invalid or expired verification token. "
+                    "This token may have already been used. "
+                    "If you have already verified your email, please try logging in. "
+                    "Otherwise, please request a new verification email."
+                )
+            )
+        
+        # トークンが存在するが、有効期限切れの場合
+        if user.verification_token_expires and \
+           user.verification_token_expires < datetime.now(timezone.utc):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired verification token. Please request a new one."
+            )
+        
+        # 既に確認済みの場合
+        if user.email_verified:
+            # 🔴 修正: エラーではなく、成功レスポンスを返す
+            return VerifyEmailResponse(
+                message="Email already verified. You can log in now.",
+                email=user.email
+            )
+        
+        # メールアドレス確認完了
+        user.email_verified = True
+        user.is_active = True  # アカウント有効化
+        user.verification_token = None  # トークンクリア
+        user.verification_token_expires = None  # 有効期限クリア
+        
+        await db.commit()
+        await db.refresh(user)
+        
+        logger.info(
+            f"Email verified successfully: user_id={user.id}, email={user.email}"
+        )
+        
+        return VerifyEmailResponse(
+            message="Email verified successfully. You can now log in.",
+            email=user.email
+        )
+    
+    @staticmethod
+    async def resend_verification_email(
+        db: AsyncSession,
+        request: ResendVerificationRequest
+    ) -> ResendVerificationResponse:
+        """
+        確認メール再送信処理
+        
+        Args:
+            db: データベースセッション
+            request: 確認メール再送信リクエスト
+        
+        Returns:
+            確認メール再送信レスポンス
+        
+        Raises:
+            HTTPException: 再送信失敗時
+        """
+        # メールアドレスでユーザー取得
+        result = await db.execute(
+            select(User).where(User.email == request.email)
+        )
+        user = result.scalar_one_or_none()
+        
+        if user is None:
+            # セキュリティ上、ユーザーが存在しない場合でも同じレスポンスを返す
+            return ResendVerificationResponse(
+                message="If the email address is registered, a verification email has been sent.",
+                email=request.email
+            )
+        
+        # 既に確認済みの場合
+        if user.email_verified:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already verified"
+            )
+        
+        # 新しいトークン生成
+        user.verification_token = str(uuid.uuid4())
+        user.verification_token_expires = datetime.now(timezone.utc) + timedelta(hours=24)
+        
+        await db.commit()
+        await db.refresh(user)
+        
+        # 施設情報取得
+        facility_result = await db.execute(
+            select(Facility).where(Facility.id == user.facility_id)
+        )
+        facility = facility_result.scalar_one_or_none()
+        
+        # メール確認URL生成
+        verification_url = (
+            f"{settings.frontend_url}/admin/verify-email"
+            f"?token={user.verification_token}"
+        )
+        
+        # メール送信
+        email_service = EmailService()
+        email_sent = False
+        error_message = None
+        
+        try:
+            email_sent = await email_service.send_verification_reminder_email(
+                to_email=user.email,
+                to_name=facility.name if facility else "User",
+                verification_url=verification_url
+            )
+        except Exception as e:
+            error_message = str(e)
+            logger.error(
+                f"Failed to resend verification email: user_id={user.id}, "
+                f"email={user.email}, error={error_message}"
+            )
+        
+        # 🟠 メール送信失敗時の管理者通知
+        if not email_sent:
+            try:
+                await notify_admin_email_failure(
+                    user_email=user.email,
+                    facility_name=facility.name if facility else "Unknown",
+                    error_message=error_message or "Unknown error"
+                )
+            except Exception as notify_error:
+                logger.error(
+                    f"Failed to notify admin: {str(notify_error)}",
+                    exc_info=True
+                )
+            
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to send verification email. Please try again later."
+            )
+        
+        logger.info(
+            f"Verification email resent: user_id={user.id}, email={user.email}"
+        )
+        
+        return ResendVerificationResponse(
+            message="Verification email resent successfully. Please check your inbox.",
+            email=user.email
+        )
+
+    @staticmethod
+    async def request_password_reset(db: AsyncSession, email: str) -> PasswordResetResponse:
+        """
+        パスワードリセット依頼処理。
+        ユーザーが存在しない場合も同じ成功メッセージを返す（情報漏れ防止）。
+        """
+        result = await db.execute(
+            select(User).where(User.email == email, User.is_active == True)
+        )
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            logger.info(f"Password reset requested for unknown email: {email}")
+            return PasswordResetResponse(
+                message="If an account exists for this email, you will receive a password reset link."
+            )
+
+        token = str(uuid.uuid4())
+        expires = datetime.now(timezone.utc) + timedelta(hours=1)
+        user.password_reset_token = token
+        user.password_reset_expires = expires
+        await db.commit()
+        await db.refresh(user)
+
+        reset_url = f"{settings.frontend_url}/admin/password-reset/confirm?token={token}"
+        to_name = user.full_name or user.email
+
+        try:
+            if settings.brevo_api_key:
+                email_service = EmailService()
+                await email_service.send_password_reset_email(
+                    to_email=user.email,
+                    to_name=to_name,
+                    reset_url=reset_url
+                )
+                logger.info(f"Password reset email sent: user_id={user.id}, email={user.email}")
+            else:
+                logger.warning(
+                    "BREVO_API_KEY not set; password reset email not sent. "
+                    f"user_id={user.id}, reset_url={reset_url}"
+                )
+        except Exception as e:
+            logger.error(
+                f"Failed to send password reset email: user_id={user.id}, "
+                f"email={user.email}, error={str(e)}",
+                exc_info=True
+            )
+
+        return PasswordResetResponse(
+            message="If an account exists for this email, you will receive a password reset link."
+        )
+
+    @staticmethod
+    async def confirm_password_reset(
+        db: AsyncSession,
+        token: str,
+        new_password: str,
+        confirm_password: str
+    ) -> PasswordResetResponse:
+        """
+        パスワードリセット確定処理。
+        トークン検証後、パスワードを更新しトークンを無効化する。
+        """
+        if new_password != confirm_password:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="New password and confirm password do not match"
+            )
+        if len(new_password) < 8:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password must be at least 8 characters long"
+            )
+
+        now = datetime.now(timezone.utc)
+        result = await db.execute(
+            select(User).where(
+                User.password_reset_token == token,
+                User.password_reset_expires > now
+            )
+        )
+        user = result.scalar_one_or_none()
+
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid or expired token"
+            )
+
+        user.password_hash = hash_password(new_password)
+        user.password_reset_token = None
+        user.password_reset_expires = None
+        await db.commit()
+
+        logger.info(f"Password reset completed: user_id={user.id}, email={user.email}")
+
+        return PasswordResetResponse(
+            message="Password has been reset successfully."
+        )
+
+    @staticmethod
     async def register_facility(
         db: AsyncSession,
         request: FacilityRegisterRequest,
         background_tasks: Optional[BackgroundTasks] = None
-    ) -> LoginResponse:
+    ) -> FacilityRegisterResponse:
         """
-        施設登録処理（FAQ自動投入は非同期で実行）
+        施設登録処理（メール確認メール送信）
         
         Args:
             db: データベースセッション
@@ -430,33 +855,135 @@ class AuthService:
             background_tasks: バックグラウンドタスク（オプション）
         
         Returns:
-            ログインレスポンス（JWTトークン含む）
+            施設登録レスポンス（メール確認待ち）
         
         Raises:
             HTTPException: 登録失敗時
         """
         # 施設・ユーザー作成（同期処理）
-        response = await AuthService.register_facility_sync(db, request)
+        user, facility = await AuthService.register_facility_sync(db, request)
+
+        # 有料プラン時は Stripe Customer / Subscription を別トランザクションで作成（Phase F #2）
+        if facility.plan_type != "Free":
+            if background_tasks:
+                background_tasks.add_task(
+                    AuthService.register_facility_async_stripe,
+                    facility.id,
+                    facility.plan_type,
+                )
+            else:
+                await AuthService.register_facility_async_stripe(facility.id, facility.plan_type)
+
+        # メール確認URL生成
+        verification_url = (
+            f"{settings.frontend_url}/admin/verify-email"
+            f"?token={user.verification_token}"
+        )
         
-        # FAQ自動投入をバックグラウンドで実行
+        # 🔴 メール送信（リトライ処理付き）
+        email_service = None
+        email_sent = False
+        error_message = None
+        
+        try:
+            # 🔴 環境変数チェック
+            if not settings.brevo_api_key:
+                raise ValueError(
+                    "BREVO_API_KEY is not set. Please configure Brevo API Key in your .env file. "
+                    "See: https://app.brevo.com/settings/keys/api"
+                )
+            
+            email_service = EmailService()
+            email_sent = await email_service.send_verification_email(
+                to_email=user.email,
+                to_name=facility.name,
+                verification_url=verification_url
+            )
+        except ValueError as e:
+            # 🔴 環境変数未設定エラー（明確なエラーメッセージ）
+            error_message = str(e)
+            logger.error(
+                f"Email service configuration error: user_id={user.id}, "
+                f"email={user.email}, error={error_message}"
+            )
+            # 管理者に通知（Brevo API Keyが設定されていない場合でも通知を試みる）
+            if settings.admin_notification_email:
+                try:
+                    await notify_admin_email_failure(
+                        user_email=user.email,
+                        facility_name=facility.name,
+                        error_message=error_message
+                    )
+                except Exception as notify_error:
+                    logger.error(
+                        f"Failed to send admin notification: {str(notify_error)}",
+                        exc_info=True
+                    )
+        except Exception as e:
+            error_message = str(e)
+            logger.error(
+                f"Failed to send verification email after retries: "
+                f"user_id={user.id}, email={user.email}, error={error_message}",
+                exc_info=True
+            )
+            # 管理者に通知
+            if settings.admin_notification_email:
+                try:
+                    await notify_admin_email_failure(
+                        user_email=user.email,
+                        facility_name=facility.name,
+                        error_message=error_message
+                    )
+                except Exception as notify_error:
+                    logger.error(
+                        f"Failed to send admin notification: {str(notify_error)}",
+                        exc_info=True
+                    )
+        
+        # 🔴 メール送信失敗時のログ強化
+        if not email_sent:
+            logger.error(
+                f"❌ Email verification was NOT sent: user_id={user.id}, "
+                f"email={user.email}, error={error_message or 'Unknown error'}"
+            )
+        
+        # 🔴 FAQ自動投入をバックグラウンドで実行（メール送信状況に関係なく実行）
         if background_tasks:
-            # FastAPIのBackgroundTasksは非同期関数を直接実行できる
             background_tasks.add_task(
                 AuthService.register_facility_async_faqs,
-                response.user.facility_id,
-                response.user.id,
+                facility.id,
+                user.id,
                 request.subscription_plan
             )
         else:
-            # バックグラウンドタスクが利用できない場合は同期的に実行（後方互換性）
             logger.warning(
                 "BackgroundTasks not available, running FAQ creation synchronously"
             )
             await AuthService.register_facility_async_faqs(
-                response.user.facility_id,
-                response.user.id,
+                facility.id,
+                user.id,
                 request.subscription_plan
             )
         
-        return response
+        # 🔴 修正: メール送信失敗時は警告メッセージを返す
+        if not email_sent:
+            return FacilityRegisterResponse(
+                message=(
+                    "登録は完了しましたが、確認メールの送信に失敗しました。"
+                    "確認メール再送信機能をご利用ください。"
+                    "\n\n"
+                    "Registration completed, but verification email sending failed. "
+                    "Please use the resend verification email function."
+                ),
+                email=user.email,
+                facility_name=facility.name
+            )
+        
+        return FacilityRegisterResponse(
+            message=(
+                "Registration successful. Please check your email to verify your account."
+            ),
+            email=user.email,
+            facility_name=facility.name
+        )
 

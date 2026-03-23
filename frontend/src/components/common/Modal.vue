@@ -43,7 +43,7 @@
                 </h3>
                 <button
                   v-if="closable"
-                  @click="handleClose"
+                  @click="handleCloseButtonClick"
                   class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-lg p-1"
                   aria-label="閉じる"
                 >
@@ -81,12 +81,16 @@
 <script setup lang="ts">
 import { computed, watch, onUnmounted } from 'vue'
 
+export type ModalCloseSource = 'backdrop' | 'escape' | 'button'
+
 interface Props {
   modelValue: boolean
   title?: string
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'full'
   closable?: boolean
   closeOnBackdrop?: boolean
+  /** 閉じる直前に呼ぶ。false を返すと閉じない。 */
+  beforeClose?: (source: ModalCloseSource) => boolean | Promise<boolean>
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -121,17 +125,29 @@ const handleClose = () => {
   emit('close')
 }
 
-const handleBackdropClick = () => {
-  if (props.closeOnBackdrop) {
-    handleClose()
-  }
+const runBeforeClose = async (source: ModalCloseSource): Promise<boolean> => {
+  if (!props.beforeClose) return true
+  const result = props.beforeClose(source)
+  return typeof result === 'boolean' ? result : await result
+}
+
+const handleBackdropClick = async () => {
+  const ok = await runBeforeClose('backdrop')
+  if (!ok) return
+  if (props.closeOnBackdrop) handleClose()
+}
+
+const handleCloseButtonClick = async () => {
+  const ok = await runBeforeClose('button')
+  if (ok) handleClose()
 }
 
 // ESCキーで閉じる
-const handleEscape = (event: KeyboardEvent) => {
-  if (event.key === 'Escape' && props.modelValue && props.closable) {
-    handleClose()
-  }
+const handleEscape = async (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || !props.modelValue || !props.closable) return
+  const ok = await runBeforeClose('escape')
+  if (!ok) return
+  handleClose()
 }
 
 // モーダル表示時にbodyのスクロールを無効化

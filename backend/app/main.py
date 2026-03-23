@@ -5,10 +5,14 @@ from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 from app.core.config import settings
 from app.api.v1.router import api_router
+from app.debug_env import router as debug_router
 from app.database import check_db_connection
 from app.services.operator_faq_service import OperatorFaqService
 from app.database import AsyncSessionLocal
+from app.models.error_log import ErrorLog
 import logging
+import asyncio
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +99,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     """
     HTTPExceptionエラーハンドラー
     アーキテクチャ設計書の標準エラーフォーマットに準拠
+    エラーログを自動記録
     """
     # エラーコードのマッピング
     error_code_map = {
@@ -107,6 +112,40 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     }
     
     error_code = error_code_map.get(exc.status_code, "INTERNAL_ERROR")
+    
+    # データベースにエラーログ記録（非同期、バックグラウンドで実行）
+    # エラーログ記録の失敗がメイン処理に影響しないよう、別タスクで実行
+    async def log_error_async():
+        try:
+            async with AsyncSessionLocal() as db:
+                # facility_idとuser_idを取得（可能な場合）
+                facility_id = None
+                user_id = None
+                if hasattr(request.state, "user") and request.state.user:
+                    user = request.state.user
+                    facility_id = user.facility_id if hasattr(user, "facility_id") else None
+                    user_id = user.id if hasattr(user, "id") else None
+                if facility_id is None and getattr(request.state, "facility_id", None) is not None:
+                    facility_id = request.state.facility_id
+
+                error_log = ErrorLog(
+                    error_level="error",
+                    error_code=error_code,
+                    error_message=str(exc.detail),
+                    request_path=str(request.url.path),
+                    request_method=request.method,
+                    facility_id=facility_id,
+                    user_id=user_id,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent")
+                )
+                db.add(error_log)
+                await db.commit()
+        except Exception as log_error:
+            logger.error(f"Failed to log error: {log_error}")
+    
+    # バックグラウンドでエラーログ記録（メイン処理をブロックしない）
+    asyncio.create_task(log_error_async())
     
     return JSONResponse(
         status_code=exc.status_code,
@@ -125,8 +164,43 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     """
     バリデーションエラーハンドラー
     アーキテクチャ設計書の標準エラーフォーマットに準拠
+    エラーログを自動記録
     """
     errors = exc.errors()
+    
+    # データベースにエラーログ記録（非同期、バックグラウンドで実行）
+    async def log_validation_error_async():
+        try:
+            async with AsyncSessionLocal() as db:
+                # facility_idとuser_idを取得（可能な場合）
+                facility_id = None
+                user_id = None
+                if hasattr(request.state, "user") and request.state.user:
+                    user = request.state.user
+                    facility_id = user.facility_id if hasattr(user, "facility_id") else None
+                    user_id = user.id if hasattr(user, "id") else None
+                if facility_id is None and getattr(request.state, "facility_id", None) is not None:
+                    facility_id = request.state.facility_id
+
+                error_log = ErrorLog(
+                    error_level="error",
+                    error_code="VALIDATION_ERROR",
+                    error_message="Validation failed",
+                    request_path=str(request.url.path),
+                    request_method=request.method,
+                    facility_id=facility_id,
+                    user_id=user_id,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent")
+                )
+                db.add(error_log)
+                await db.commit()
+        except Exception as log_error:
+            logger.error(f"Failed to log validation error: {log_error}")
+    
+    # バックグラウンドでエラーログ記録（メイン処理をブロックしない）
+    asyncio.create_task(log_validation_error_async())
+    
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
         content={
@@ -146,6 +220,7 @@ async def general_exception_handler(request: Request, exc: Exception):
     """
     予期しないエラーハンドラー
     アーキテクチャ設計書の標準エラーフォーマットに準拠
+    エラーログを自動記録（criticalレベル）
     """
     logger.critical(
         f"Unhandled exception: {exc}",
@@ -155,6 +230,41 @@ async def general_exception_handler(request: Request, exc: Exception):
         },
         exc_info=True
     )
+    
+    # エラーログ記録（error_level='critical'、非同期、バックグラウンドで実行）
+    async def log_critical_error_async():
+        try:
+            async with AsyncSessionLocal() as db:
+                # facility_idとuser_idを取得（可能な場合）
+                facility_id = None
+                user_id = None
+                if hasattr(request.state, "user") and request.state.user:
+                    user = request.state.user
+                    facility_id = user.facility_id if hasattr(user, "facility_id") else None
+                    user_id = user.id if hasattr(user, "id") else None
+                if facility_id is None and getattr(request.state, "facility_id", None) is not None:
+                    facility_id = request.state.facility_id
+
+                error_log = ErrorLog(
+                    error_level="critical",
+                    error_code="INTERNAL_ERROR",
+                    error_message=str(exc),
+                    stack_trace=traceback.format_exc(),
+                    request_path=str(request.url.path),
+                    request_method=request.method,
+                    facility_id=facility_id,
+                    user_id=user_id,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent")
+                )
+                db.add(error_log)
+                await db.commit()
+        except Exception as log_error:
+            logger.error(f"Failed to log critical error: {log_error}")
+    
+    # バックグラウンドでエラーログ記録（メイン処理をブロックしない）
+    asyncio.create_task(log_critical_error_async())
+    
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -169,4 +279,6 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # APIルーター登録
 app.include_router(api_router, prefix="/api/v1")
+# 実行環境同一性確定用（Phase 1 Step 1。原因確定後に削除すること）
+app.include_router(debug_router)
 

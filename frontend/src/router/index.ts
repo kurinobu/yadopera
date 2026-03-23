@@ -7,7 +7,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw, NavigationGuardNext, RouteLocationNormalized } from 'vue-router'
 import { guestRoutes } from './guest'
 import { adminRoutes } from './admin'
+import { developerRoutes } from './developer'
 import { useAuthStore } from '@/stores/auth'
+import { useDeveloperStore } from '@/stores/developer'
 
 const routes: RouteRecordRaw[] = [
   {
@@ -20,6 +22,7 @@ const routes: RouteRecordRaw[] = [
   },
   ...guestRoutes,
   ...adminRoutes,
+  ...developerRoutes,
   {
     path: '/500',
     name: 'Error500',
@@ -46,6 +49,73 @@ const router = createRouter({
 // 認証ガード
 router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
   const authStore = useAuthStore()
+  const developerStore = useDeveloperStore()
+  
+  // 🔴 デバッグ: ルーターガードの実行をログに記録
+  console.log('[Router Guard] Navigation:', {
+    to: {
+      name: to.name,
+      path: to.path,
+      fullPath: to.fullPath,
+      matched: to.matched.map(r => ({ path: r.path, meta: r.meta }))
+    },
+    from: {
+      name: _from.name,
+      path: _from.path
+    },
+    authState: {
+      token: authStore.token ? 'exists' : 'null',
+      user: authStore.user ? 'exists' : 'null',
+      isAuthenticated: authStore.isAuthenticated
+    }
+  })
+  
+  // 🔴 修正: EmailVerificationPending/EmailVerificationSuccessページへの遷移時は認証チェックをスキップ（最優先）
+  if (to.name === 'EmailVerificationPending' || to.name === 'EmailVerificationSuccess') {
+    console.log('[Router Guard] ✅ Skipping auth check for EmailVerificationPending/EmailVerificationSuccess')
+    return next()
+  }
+  
+  // 🔴 修正: RegisterページからEmailVerificationPendingへの遷移時は、initAuth()を実行しない
+  if (_from.name === 'Register' && to.name === 'EmailVerificationPending') {
+    return next()
+  }
+  
+  // 開発者ページの認証チェック
+  const requiresDeveloperAuth = to.matched.some(record => record.meta.requiresDeveloperAuth)
+  if (requiresDeveloperAuth) {
+    try {
+      // 開発者ストアを初期化
+      developerStore.initAuth()
+      
+      if (!developerStore.isAuthenticated) {
+        // 開発者認証が必要なページに未認証でアクセスした場合
+        console.info('Developer authentication required, redirecting to login')
+        return next({
+          name: 'DeveloperLogin',
+          query: { redirect: to.fullPath }
+        })
+      }
+      
+      // 開発者ログインページで既に認証済みの場合
+      if (to.name === 'DeveloperLogin' && developerStore.isAuthenticated) {
+        console.info('Developer already authenticated, redirecting to dashboard')
+        return next({ name: 'DeveloperDashboard' })
+      }
+      
+      // 開発者ページの場合は、通常の認証チェックをスキップ
+      return next()
+    } catch (error) {
+      // 開発者認証処理でエラーが発生した場合
+      console.error('Error in developer authentication guard:', error)
+      
+      // エラーが発生した場合はログインページにリダイレクト
+      return next({
+        name: 'DeveloperLogin',
+        query: { redirect: to.fullPath, error: 'auth_error' }
+      })
+    }
+  }
   
   // ゲスト側のルート（/f/:facilityId）にアクセスした際、localStorageに施設URLを保存
   // 常に最新の施設URLを保持する（PWAインストール時にも確実に保存される）
@@ -68,6 +138,11 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
       // エラーが発生した場合、ログアウト
       authStore.logout()
       
+      // 🔴 修正: EmailVerificationPending/EmailVerificationSuccessへの遷移時は、ログインページにリダイレクトしない
+      if (to.name === 'EmailVerificationPending' || to.name === 'EmailVerificationSuccess') {
+        return next()
+      }
+      
       // logout後、認証が必要なページへのアクセスなら即座にリダイレクト
       const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
       if (requiresAuth) {
@@ -80,10 +155,23 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
     }
   }
   
+  // 🔴 修正: requiresAuthチェックの前に、EmailVerificationPendingを再度チェック（二重チェック）
+  if (to.name === 'EmailVerificationPending' || to.name === 'EmailVerificationSuccess') {
+    console.log('[Router Guard] ✅ Double-check: Skipping requiresAuth check for EmailVerificationPending/EmailVerificationSuccess')
+    return next()
+  }
+  
   const requiresAuth = to.matched.some(record => record.meta.requiresAuth)
+  
+  console.log('[Router Guard] requiresAuth check:', {
+    requiresAuth,
+    isAuthenticated: authStore.isAuthenticated,
+    toName: to.name
+  })
 
   if (requiresAuth && !authStore.isAuthenticated) {
     // 認証が必要なページに未認証でアクセスした場合
+    console.log('[Router Guard] ❌ Redirecting to AdminLogin (requiresAuth=true, isAuthenticated=false)')
     return next({
       name: 'AdminLogin',
       query: { redirect: to.fullPath }
@@ -97,6 +185,49 @@ router.beforeEach(async (to: RouteLocationNormalized, _from: RouteLocationNormal
   
   // その他は通常通り遷移
   next()
+})
+
+// グローバルナビゲーションエラーハンドラー
+router.onError((error) => {
+  console.error('Vue Router navigation error:', error)
+  
+  // ルートが見つからないエラーの場合
+  if (error.message.includes('No match')) {
+    console.warn('Route not found, redirecting to appropriate fallback')
+    
+    // 開発者ページでエラーが発生した場合はダッシュボードにリダイレクト
+    if (window.location.pathname.startsWith('/developer')) {
+      router.push('/developer/dashboard').catch(fallbackError => {
+        console.error('Fallback navigation failed:', fallbackError)
+        // 最終的なフォールバック：ログインページ
+        window.location.href = '/developer/login'
+      })
+    } else {
+      // その他の場合は404ページ
+      router.push('/404').catch(fallbackError => {
+        console.error('404 navigation failed:', fallbackError)
+      })
+    }
+  }
+})
+
+// ナビゲーション後のエラーハンドラー
+router.afterEach((to, _from, failure) => {
+  if (failure) {
+    console.warn('Navigation cancelled or failed:', failure)
+    
+    // 開発者ページでナビゲーション失敗した場合の処理
+    if (to.path.startsWith('/developer') && failure.type === 4 /* NavigationFailureType.aborted */) {
+      console.info('Developer navigation aborted, attempting fallback')
+      
+      // ダッシュボードへのフォールバック
+      setTimeout(() => {
+        router.push('/developer/dashboard').catch(error => {
+          console.error('Fallback navigation error:', error)
+        })
+      }, 100)
+    }
+  }
 })
 
 export default router

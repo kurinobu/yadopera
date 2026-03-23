@@ -53,6 +53,20 @@
             :maxlength="255"
             :error="errors.email"
           />
+          <div class="flex items-center space-x-2">
+            <input
+              id="show_email_on_guest_screen"
+              v-model="formData.show_email_on_guest_screen"
+              type="checkbox"
+              class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+            />
+            <label for="show_email_on_guest_screen" class="text-sm text-gray-700 dark:text-gray-300">
+              ゲスト画面にメールアドレスを表示する
+            </label>
+          </div>
+          <p v-if="formData.show_email_on_guest_screen" class="text-xs text-amber-600 dark:text-amber-400">
+            このメールアドレスはゲスト画面に表示されます。ログイン用のメールアドレスとは別の、施設用・問い合わせ用のメールアドレスを設定してください。
+          </p>
           <Input
             v-model="formData.phone"
             type="tel"
@@ -61,6 +75,9 @@
             :maxlength="50"
             :error="errors.phone"
           />
+          <p class="text-xs text-gray-600 dark:text-gray-400">
+            この電話番号は入力して保存するとゲスト画面に表示されます。
+          </p>
           <Input
             v-model="formData.address"
             type="textarea"
@@ -189,6 +206,82 @@
         </div>
       </div>
 
+      <!-- クーポン（リードゲット）設定セクション -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          クーポン設定（リード獲得）
+        </h2>
+        <p class="text-sm text-gray-600 dark:text-gray-400 mb-4">
+          ゲストに「オトクなクーポン」を案内し、メールアドレスを取得できます。次回の公式サイト予約で割引としてご利用いただけます。
+        </p>
+        <div class="space-y-4">
+          <div class="flex items-center gap-3">
+            <input
+              id="coupon-enabled"
+              v-model="formData.coupon_enabled"
+              type="checkbox"
+              class="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label for="coupon-enabled" class="text-sm font-medium text-gray-700 dark:text-gray-300">
+              クーポンを有効にする
+            </label>
+          </div>
+          <template v-if="formData.coupon_enabled">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                割引率（%）
+              </label>
+              <input
+                v-model.number="formData.coupon_discount_percent"
+                type="number"
+                min="1"
+                max="100"
+                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[120px]"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">5〜20%程度を推奨</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                クーポン文言（任意）
+              </label>
+              <input
+                v-model="formData.coupon_description"
+                type="text"
+                maxlength="500"
+                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="例: 次回ご予約時にご提示ください"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                有効期限（発行日から何ヶ月）
+              </label>
+              <input
+                v-model.number="formData.coupon_validity_months"
+                type="number"
+                min="1"
+                max="24"
+                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-w-[120px]"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">例: 6 で6ヶ月</p>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                公式サイトURL（任意）
+              </label>
+              <input
+                v-model="formData.official_website_url"
+                type="url"
+                maxlength="500"
+                class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="https://example.com"
+              />
+              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">クーポン送付メールに「ご予約はこちら」のリンクとして表示されます</p>
+            </div>
+          </template>
+        </div>
+      </div>
+
       <!-- 対応言語セクション（表示のみ） -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
@@ -313,6 +406,7 @@
             placeholder="現在のパスワードを入力"
             :required="true"
             :error="passwordErrors.current_password"
+            :show-password-toggle="true"
           />
           <Input
             v-model="passwordForm.new_password"
@@ -322,6 +416,7 @@
             :required="true"
             :minlength="8"
             :error="passwordErrors.new_password"
+            :show-password-toggle="true"
           />
           <Input
             v-model="passwordForm.confirm_password"
@@ -331,6 +426,7 @@
             :required="true"
             :minlength="8"
             :error="passwordErrors.confirm_password"
+            :show-password-toggle="true"
           />
           <button
             type="button"
@@ -398,6 +494,8 @@ const isChangingPassword = ref(false)
 const error = ref<string | null>(null)
 const settings = ref<FacilitySettingsResponse | null>(null)
 const showWifiPassword = ref(false)
+/** ログインユーザーのメール（同一メール禁止チェック用） */
+const currentUserEmail = ref<string>('')
 
 // フォームデータ
 const formData = ref<{
@@ -413,6 +511,12 @@ const formData = ref<{
   local_info: string
   prohibited_items: string
   staff_absence_periods: StaffAbsencePeriod[]
+  coupon_enabled: boolean
+  coupon_discount_percent: number | null
+  coupon_description: string
+  coupon_validity_months: number | null
+  official_website_url: string
+  show_email_on_guest_screen: boolean
 }>({
   name: '',
   email: '',
@@ -425,7 +529,13 @@ const formData = ref<{
   house_rules: '',
   local_info: '',
   prohibited_items: '',
-  staff_absence_periods: []
+  staff_absence_periods: [],
+  coupon_enabled: false,
+  coupon_discount_percent: null,
+  coupon_description: '',
+  coupon_validity_months: 6,
+  official_website_url: '',
+  show_email_on_guest_screen: true
 })
 
 // パスワード変更フォーム
@@ -498,7 +608,20 @@ const fetchSettings = async () => {
             end_time: period.end_time,
             days_of_week: [...period.days_of_week]
           }))
-        : [{ start_time: '22:00', end_time: '08:00', days_of_week: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }]
+        : [{ start_time: '22:00', end_time: '08:00', days_of_week: ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] }],
+      coupon_enabled: response.facility.coupon_enabled ?? false,
+      coupon_discount_percent: response.facility.coupon_discount_percent ?? null,
+      coupon_description: response.facility.coupon_description ?? '',
+      coupon_validity_months: response.facility.coupon_validity_months ?? 6,
+      official_website_url: response.facility.official_website_url ?? '',
+      show_email_on_guest_screen: response.facility.show_email_on_guest_screen ?? true
+    }
+    // ログインユーザーのメールを取得（同一メール禁止チェック用）
+    try {
+      const user = await authApi.getCurrentUser()
+      currentUserEmail.value = user.email ?? ''
+    } catch {
+      currentUserEmail.value = ''
     }
   } catch (err: any) {
     error.value = '施設設定の取得に失敗しました'
@@ -540,13 +663,22 @@ const handleSave = async () => {
       errors.value.email = 'メールアドレスは必須です'
       return
     }
+    // ゲストに表示するが ON のとき、施設メールがログインメールと同一ならエラー
+    if (formData.value.show_email_on_guest_screen && currentUserEmail.value) {
+      const facilityEmail = formData.value.email.trim().toLowerCase()
+      const loginEmail = currentUserEmail.value.trim().toLowerCase()
+      if (facilityEmail === loginEmail) {
+        errors.value.email = '施設の連絡先メールは、ログインに使用しているメールアドレスとは別のものを設定してください。'
+        return
+      }
+    }
     
     // WiFiパスワードが空の場合は送信しない
     const updateData: FacilitySettingsUpdateRequest = { ...formData.value }
     if (!updateData.wifi_password || updateData.wifi_password.trim().length === 0) {
       delete updateData.wifi_password
     }
-    
+
     await facilityApi.updateFacilitySettings(updateData)
     
     // 成功メッセージ
@@ -623,7 +755,7 @@ const handleCancel = () => {
   router.push('/admin/dashboard')
 }
 
-// 初期化
+// 初期化（fetchSettings 内で getCurrentUser も呼ぶ）
 onMounted(() => {
   fetchSettings()
 })

@@ -2,10 +2,13 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# システム依存関係のインストール
+# システム依存関係のインストール（PDF 日本語: IPA / QR 中央テキスト: Noto）
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
+    fonts-dejavu \
+    fonts-ipafont \
+    fonts-noto-core \
     && rm -rf /var/lib/apt/lists/*
 
 # Python依存関係のコピーとインストール
@@ -18,7 +21,8 @@ COPY . .
 # ポート公開
 EXPOSE 8000
 
+# 実行環境同一性確定用（Phase 1 Step 1。原因確定後に削除すること）
+RUN echo "BUILD_MARKER_20260305_001" > /BUILD_MARKER
+
 # デフォルトコマンド（docker-compose.ymlで上書き可能）
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-

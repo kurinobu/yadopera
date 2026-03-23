@@ -12,7 +12,7 @@
       <Header @open-mobile-menu="isMobileMenuOpen = true" />
 
       <!-- ページコンテンツ -->
-      <main class="flex-1 overflow-y-auto p-6">
+      <main class="flex-1 overflow-y-auto p-6" data-admin-main>
         <slot />
       </main>
     </div>
@@ -26,22 +26,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref } from 'vue'
 import Sidebar from '@/components/admin/Sidebar.vue'
 import Header from '@/components/admin/Header.vue'
 import HelpButton from '@/components/help/HelpButton.vue'
 import HelpModal from '@/components/help/HelpModal.vue'
-import { useHelpStore } from '@/stores/help'
 
 const isMobileMenuOpen = ref(false)
-const helpStore = useHelpStore()
-
-onMounted(async () => {
-  // 初回FAQデータ読み込み
-  if (helpStore.faqs.length === 0) {
-    await helpStore.fetchFaqs()
-  }
-})
+// FAQ取得はヘルプモーダルを開いたときのみ（HelpModal.vue の watch で実施）。ダッシュボード表示時には取得しない。
 </script>
 
 <style scoped>

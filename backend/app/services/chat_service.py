@@ -4,23 +4,39 @@
 """
 
 import logging
+import time
 import uuid
 from typing import Optional, List
 from datetime import datetime, timezone
 from decimal import Decimal
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.exc import IntegrityError
 import pytz
 
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.facility import Facility
+from app.models.faq import FAQ
 from app.models.guest_feedback import GuestFeedback
-from app.schemas.chat import ChatRequest, ChatResponse, ChatHistoryResponse, MessageResponse, FeedbackResponse
+from app.schemas.chat import (
+    ChatRequest,
+    ChatResponse,
+    ChatHistoryResponse,
+    MessageResponse,
+    FeedbackResponse,
+    RAGEngineResponse,
+    EscalationInfo,
+)
 from app.ai.engine import RAGChatEngine
+from app.ai.embeddings import generate_embedding
+from app.ai.vector_search import search_similar_faqs
+from app.ai.fallback import get_faq_only_no_match_message
 from app.services.escalation_service import EscalationService
 from app.services.overnight_queue_service import OvernightQueueService
+from app.services.stripe_service import is_stripe_configured, report_usage_to_meter
+from app.core.plan_limits import get_plan_limits
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +85,23 @@ class ChatService:
         Returns:
             ChatResponse: チャットレスポンス
         """
+        # Step 2: request.language が施設のAI回答可能言語に含まれるか検証（計画書 Step 2）
+        facility_result = await self.db.execute(
+            select(Facility).where(Facility.id == request.facility_id)
+        )
+        facility = facility_result.scalar_one_or_none()
+        if not facility:
+            raise ValueError("Facility not found")
+        plan_type = facility.plan_type or "Free"
+        plan_limits = get_plan_limits(plan_type.lower())
+        available_languages = plan_limits.get("languages", ["ja"])
+        if plan_type == "Premium" or available_languages is None:
+            available_languages = ["ja", "en", "zh-TW", "zh-CN", "fr", "ko", "es"]
+        if request.language not in available_languages:
+            raise ValueError(
+                f"選択可能な言語は {', '.join(available_languages)} のみです。"
+            )
+
         # セッション管理: 会話の取得または新規作成
         conversation = await self._get_or_create_conversation(
             facility_id=request.facility_id,
@@ -87,7 +120,64 @@ class ChatService:
         )
         self.db.add(user_message)
         await self.db.flush()
-        
+
+        # プラン超過時・FAQ限定モード: 超過かつ overage_behavior==faq_only のときは RAG を呼ばず FAQ 検索のみ、Stripe 報告なし
+        use_faq_only = await self._should_use_faq_only_path(facility)
+        if use_faq_only:
+            rag_response = await self._build_faq_only_response(
+                request.message, request.facility_id, request.language
+            )
+            ai_message = Message(
+                conversation_id=conversation.id,
+                role=MessageRole.ASSISTANT.value,
+                content=rag_response.response,
+                ai_confidence=rag_response.ai_confidence,
+                matched_faq_ids=rag_response.matched_faq_ids,
+                response_time_ms=rag_response.response_time_ms
+            )
+            self.db.add(ai_message)
+            await self.db.flush()
+            if rag_response.matched_faq_ids:
+                from app.models.faq_view_log import FAQViewLog
+                for faq_id in rag_response.matched_faq_ids:
+                    faq_view_log = FAQViewLog(
+                        faq_id=faq_id,
+                        facility_id=conversation.facility_id,
+                        conversation_id=conversation.id,
+                        message_id=ai_message.id,
+                        guest_language=conversation.guest_language
+                    )
+                    self.db.add(faq_view_log)
+            conversation.last_activity_at = datetime.now(timezone.utc)
+            conversation.total_messages += 2
+            await self.db.commit()
+            await self.db.refresh(ai_message)
+            message_response = MessageResponse(
+                id=ai_message.id,
+                role=ai_message.role,
+                content=ai_message.content,
+                ai_confidence=ai_message.ai_confidence,
+                matched_faq_ids=ai_message.matched_faq_ids,
+                response_time_ms=ai_message.response_time_ms,
+                created_at=ai_message.created_at
+            )
+            logger.info(
+                "Chat message processed (FAQ-only overage path): conversation_id=%s, message_id=%s",
+                conversation.id, ai_message.id,
+                extra={"conversation_id": conversation.id, "message_id": ai_message.id, "facility_id": request.facility_id}
+            )
+            return ChatResponse(
+                message=message_response,
+                session_id=conversation.session_id,
+                ai_confidence=rag_response.ai_confidence,
+                is_escalated=False,
+                escalation_id=None,
+                escalation=rag_response.escalation
+            )
+
+        # Phase E: 従量課金メーターへ使用量を報告（Mini: 全件、Small/Standard/Premium: 超過分のみ）
+        await self._report_usage_to_stripe_if_needed(facility)
+
         # RAG統合型AI対話エンジンでメッセージ処理
         rag_response = await self.rag_engine.process_message(
             message=request.message,
@@ -107,6 +197,20 @@ class ChatService:
         )
         self.db.add(ai_message)
         await self.db.flush()
+        
+        # FAQ閲覧ログ記録（非同期）
+        if rag_response.matched_faq_ids:
+            from app.models.faq_view_log import FAQViewLog
+            for faq_id in rag_response.matched_faq_ids:
+                faq_view_log = FAQViewLog(
+                    faq_id=faq_id,
+                    facility_id=conversation.facility_id,
+                    conversation_id=conversation.id,
+                    message_id=ai_message.id,
+                    guest_language=conversation.guest_language
+                )
+                self.db.add(faq_view_log)
+            await self.db.commit()
         
         # エスカレーション処理
         escalation_id = None
@@ -209,7 +313,165 @@ class ChatService:
         )
         
         return new_chat_response
-    
+
+    async def _report_usage_to_stripe_if_needed(self, facility: Facility) -> None:
+        """
+        Phase E: 従量課金メーターへ使用量を報告する。
+        Mini は全質問で 1 件報告。Small/Standard/Premium は請求期間内の質問数がプラン上限を超えた分のみ報告。
+        Stripe 未設定・Free プラン・stripe_customer_id なしの場合は何もしない。
+        """
+        if not facility or not getattr(facility, "stripe_customer_id", None) or not facility.stripe_customer_id:
+            return
+        if not is_stripe_configured():
+            return
+        plan_type = facility.plan_type or "Free"
+        if plan_type == "Free":
+            return
+        try:
+            if plan_type == "Mini":
+                report_usage_to_meter(facility.stripe_customer_id, value=1)
+                return
+            if plan_type not in ("Small", "Standard", "Premium"):
+                return
+            # 請求期間内の質問数（今回のメッセージを含む）を集計
+            from app.utils.billing_period import calculate_billing_period
+            jst = pytz.timezone("Asia/Tokyo")
+            now_jst = datetime.now(jst)
+            plan_started_at = facility.plan_started_at
+            if not plan_started_at:
+                return
+            if plan_started_at.tzinfo is None:
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
+            else:
+                plan_started_at = plan_started_at.astimezone(jst)
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
+            count_result = await self.db.execute(
+                select(func.count(Message.id))
+                .join(Conversation, Message.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility.id,
+                    Message.role == MessageRole.USER.value,
+                    Message.created_at >= billing_start_utc,
+                    Message.created_at <= billing_end_utc,
+                )
+            )
+            current_count = count_result.scalar() or 0
+            plan_limit = facility.monthly_question_limit
+            plan_limits = {"Small": 200, "Standard": 500, "Premium": 1000}
+            expected = plan_limits.get(plan_type, 200)
+            if plan_limit is None or plan_limit != expected:
+                plan_limit = expected
+            if current_count > plan_limit:
+                report_usage_to_meter(facility.stripe_customer_id, value=1)
+        except Exception as e:
+            logger.warning(
+                "Phase E: Stripe usage report skipped for facility_id=%s: %s",
+                facility.id,
+                e,
+                exc_info=False,
+            )
+
+    async def _should_use_faq_only_path(self, facility: Facility) -> bool:
+        """
+        プラン超過時・FAQ限定モードかどうか判定する。
+        請求期間内の質問数がプラン上限を超えており、かつ overage_behavior==faq_only のとき True。
+        Mini は上限なしのため常に False。
+        """
+        plan_type = facility.plan_type or "Free"
+        if plan_type == "Mini":
+            return False
+        plan_limits = {"Free": 30, "Small": 200, "Standard": 500, "Premium": 1000}
+        plan_limit = facility.monthly_question_limit
+        expected = plan_limits.get(plan_type, 30)
+        if plan_limit is None or plan_limit != expected:
+            plan_limit = expected
+        if getattr(facility, "overage_behavior", "continue_billing") != "faq_only":
+            return False
+        try:
+            from app.utils.billing_period import calculate_billing_period
+            jst = pytz.timezone("Asia/Tokyo")
+            now_jst = datetime.now(jst)
+            plan_started_at = facility.plan_started_at
+            if not plan_started_at:
+                return False
+            if plan_started_at.tzinfo is None:
+                plan_started_at = pytz.UTC.localize(plan_started_at).astimezone(jst)
+            else:
+                plan_started_at = plan_started_at.astimezone(jst)
+            billing_start_jst, billing_end_jst = calculate_billing_period(plan_started_at, now_jst)
+            billing_start_utc = billing_start_jst.astimezone(pytz.UTC)
+            billing_end_utc = billing_end_jst.astimezone(pytz.UTC)
+            count_result = await self.db.execute(
+                select(func.count(Message.id))
+                .join(Conversation, Message.conversation_id == Conversation.id)
+                .where(
+                    Conversation.facility_id == facility.id,
+                    Message.role == MessageRole.USER.value,
+                    Message.created_at >= billing_start_utc,
+                    Message.created_at <= billing_end_utc,
+                )
+            )
+            current_count = count_result.scalar() or 0
+            return current_count > plan_limit
+        except Exception as e:
+            logger.warning("_should_use_faq_only_path failed for facility_id=%s: %s", facility.id, e)
+            return False
+
+    async def _build_faq_only_response(
+        self, message: str, facility_id: int, language: str
+    ) -> RAGEngineResponse:
+        """
+        プラン超過・FAQ限定モード用: 埋め込み＋FAQ検索のみで応答を組み立てる。OpenAI は呼ばない。
+        """
+        start_time = time.time()
+        question_embedding = await generate_embedding(message)
+        if not question_embedding:
+            question_embedding = []
+        similar_faqs = await search_similar_faqs(
+            facility_id=facility_id,
+            embedding=question_embedding,
+            top_k=1,
+            threshold=0.7,
+            db=self.db
+        )
+        response_text: str
+        matched_faq_ids: List[int] = []
+        if similar_faqs:
+            best_faq = similar_faqs[0]
+            faq_with_trans_result = await self.db.execute(
+                select(FAQ)
+                .where(FAQ.id == best_faq.id)
+                .options(selectinload(FAQ.translations))
+            )
+            faq_with_trans = faq_with_trans_result.scalar_one_or_none()
+            if faq_with_trans and getattr(faq_with_trans, "translations", None):
+                translation = None
+                for t in faq_with_trans.translations:
+                    if t.language == language:
+                        translation = t
+                        break
+                if not translation:
+                    translation = faq_with_trans.translations[0]
+                if translation:
+                    response_text = translation.answer
+                    matched_faq_ids = [best_faq.id]
+                else:
+                    response_text = get_faq_only_no_match_message(language)
+            else:
+                response_text = get_faq_only_no_match_message(language)
+        else:
+            response_text = get_faq_only_no_match_message(language)
+        response_time_ms = int((time.time() - start_time) * 1000)
+        return RAGEngineResponse(
+            response=response_text,
+            ai_confidence=Decimal("0.7"),
+            matched_faq_ids=matched_faq_ids,
+            response_time_ms=response_time_ms,
+            escalation=EscalationInfo(needed=False, mode=None, trigger_type=None, reason=None, notified=None),
+        )
+
     async def _get_or_create_conversation(
         self,
         facility_id: int,

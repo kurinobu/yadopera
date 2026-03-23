@@ -25,6 +25,11 @@ class UserResponse(BaseModel):
     role: str
     facility_id: int
     is_active: bool
+    email_verified: bool  # ★追加
+    show_onboarding_modal: bool = Field(
+        default=False,
+        description="初回ログイン時やることリストモーダルを表示するか（施設の onboarding_modal_shown_at が NULL のとき True）"
+    )
 
     class Config:
         from_attributes = True
@@ -45,6 +50,13 @@ class LogoutResponse(BaseModel):
     ログアウトレスポンス
     """
     message: str = Field(default="Logged out successfully", description="ログアウトメッセージ")
+
+
+class OnboardingSeenResponse(BaseModel):
+    """
+    初回やることリスト表示済み記録のレスポンス
+    """
+    ok: bool = Field(default=True, description="記録成功")
 
 
 class PasswordChangeRequest(BaseModel):
@@ -71,3 +83,65 @@ class FacilityRegisterRequest(BaseModel):
     password: str = Field(..., min_length=8, description="パスワード（最小8文字）")
     facility_name: str = Field(..., min_length=1, max_length=255, description="施設名")
     subscription_plan: str = Field(default="small", description="料金プラン（free/mini/small/standard/premium）")
+
+
+class FacilityRegisterResponse(BaseModel):
+    """
+    施設登録レスポンス（メール確認待ち）
+    """
+    message: str = Field(..., description="登録完了メッセージ")
+    email: str = Field(..., description="登録メールアドレス")
+    facility_name: str = Field(..., description="施設名")
+
+
+class VerifyEmailRequest(BaseModel):
+    """
+    メールアドレス確認リクエスト
+    """
+    token: str = Field(..., min_length=1, description="確認トークン")
+
+
+class VerifyEmailResponse(BaseModel):
+    """
+    メールアドレス確認レスポンス
+    """
+    message: str = Field(..., description="確認完了メッセージ")
+    email: str = Field(..., description="確認済みメールアドレス")
+
+
+class ResendVerificationRequest(BaseModel):
+    """
+    確認メール再送信リクエスト
+    """
+    email: EmailStr = Field(..., description="メールアドレス")
+
+
+class ResendVerificationResponse(BaseModel):
+    """
+    確認メール再送信レスポンス
+    """
+    message: str = Field(..., description="再送信完了メッセージ")
+    email: str = Field(..., description="送信先メールアドレス")
+
+
+class PasswordResetRequest(BaseModel):
+    """
+    パスワードリセット依頼リクエスト
+    """
+    email: EmailStr = Field(..., description="登録済みメールアドレス")
+
+
+class PasswordResetConfirmRequest(BaseModel):
+    """
+    パスワードリセット確定リクエスト
+    """
+    token: str = Field(..., min_length=1, description="リセットトークン（メール内リンクのtoken）")
+    new_password: str = Field(..., min_length=8, description="新しいパスワード（最小8文字）")
+    confirm_password: str = Field(..., min_length=8, description="新しいパスワード（確認）")
+
+
+class PasswordResetResponse(BaseModel):
+    """
+    パスワードリセット依頼・確定の共通レスポンス
+    """
+    message: str = Field(..., description="完了メッセージ")

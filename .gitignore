@@ -113,5 +113,10 @@ workbox-*.js
 .env.backup*
 *_backup_*
 *backup_*
+backups/
+*.bak_*
+
+# Local test data (do not commit)
+backend/scripts/test_csv_bulk_upload.csv
 
 

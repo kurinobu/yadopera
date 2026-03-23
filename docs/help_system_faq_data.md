@@ -1,8 +1,13 @@
-# 宿泊事業者向けFAQ初期データ（30項目）
+# 宿泊事業者向けFAQデータ（49項目）
 
 **プロジェクト**: YadOPERA Phase 2 統合ヘルプシステム  
 **作成日**: 2025-12-26  
+**最終更新日**: 2026年3月20日  
 **言語**: 日本語・英語
+
+**現行の定義**: 全49項目・11カテゴリ。データの正は `backend/scripts/insert_operator_faqs.py` の `OPERATOR_FAQ_DATA`。DB反映は `update_operator_faqs.py`。実施計画・ステップ実施記録・デプロイ時手順は `docs/施設管理者向けヘルプチャットFAQ_マニュアル水準化_調査と計画.md` を参照。
+
+**カテゴリ（11）**: setup, qrcode, faq_management, ai_logic, logs, troubleshooting, billing, security, overnight_queue, guest, practice。フロントの表示ラベル（日本語）は `CategoryFilter.vue` および `FaqItem.vue` の `labels` で定義。
 
 ---
 
@@ -36,13 +41,13 @@
 
 #### 日本語 (ja)
 - **質問**: 施設情報はどこで登録しますか？
-- **回答**: ログイン後、「設定」→「施設設定」から施設名、住所、チェックイン/アウト時間、WiFi情報、部屋数などを登録できます。これらの情報はゲストへの自動応答に使用されます。
+- **回答**: ログイン後、「設定」→「施設設定」から施設名、住所、チェックイン/アウト時間、WiFi情報、部屋数などを登録できます。これらの情報はゲストへの自動応答に使用されます。ゲストに表示するかは「ゲスト画面にメールアドレスを表示する」スイッチで変更できます。
 - **キーワード**: 施設情報,施設設定,基本情報,WiFi設定,施設登録
 - **関連URL**: /admin/facility
 
 #### 英語 (en)
 - **Question**: Where do I register facility information?
-- **Answer**: After login, go to "Settings" → "Facility Settings" to register facility name, address, check-in/out times, WiFi info, room count, etc. This information is used for automatic guest responses.
+- **Answer**: After login, go to "Settings" → "Facility Settings" to register facility name, address, check-in/out times, WiFi info, room count, etc. This information is used for automatic guest responses. You can turn the "Show email on guest screen" switch on or off to show or hide the facility email to guests.
 - **Keywords**: facility information,facility settings,basic info,WiFi settings,facility registration
 - **Related URL**: /admin/facility
 
@@ -56,15 +61,35 @@
 
 #### 日本語 (ja)
 - **質問**: 初回ログイン後にまずやるべきことは？
-- **回答**: 以下の順番で設定を行ってください：1. 施設情報登録（WiFiパスワード、チェックイン時間など）、2. FAQ初期テンプレート確認・編集、3. QRコード生成・印刷、4. テスト質問で動作確認。全て完了するまで約30分程度です。
+- **回答**: 以下の順番で設定を行ってください：1. 施設情報登録（WiFiパスワード、チェックアウト時間など）、2. FAQ初期テンプレート確認・編集、3. QRコード生成・印刷、4. テスト質問で動作確認。全て完了するまで約30分程度です。詳細はご利用マニュアルをご参照ください。
 - **キーワード**: 初回ログイン,初期設定,はじめに,スタート,セットアップ
-- **関連URL**: /admin/dashboard
+- **関連URL**: /admin/manual#faq-csv-bulk
 
 #### 英語 (en)
 - **Question**: What should I do after first login?
-- **Answer**: Follow these steps: 1. Register facility info (WiFi password, check-in time, etc.), 2. Review/edit initial FAQ templates, 3. Generate/print QR codes, 4. Test with sample questions. Takes about 30 minutes total.
+- **Answer**: Follow these steps: 1. Register facility info (WiFi password, check-out time, etc.), 2. Review/edit initial FAQ templates, 3. Generate/print QR codes, 4. Test with sample questions. Takes about 30 minutes total. See the user manual for details.
 - **Keywords**: first login,initial setup,getting started,start,setup
-- **Related URL**: /admin/dashboard
+- **Related URL**: /admin/manual#faq-csv-bulk
+
+---
+
+### FAQ 3.5: setup_facility_contact_email
+
+**intent_key**: `setup_facility_contact_email`  
+**display_order**: 88  
+**category**: `setup`
+
+#### 日本語 (ja)
+- **質問**: ゲスト画面にメールアドレスを表示できますか？
+- **回答**: 施設設定の基本情報で「ゲスト画面にメールアドレスを表示する」をONにすると表示されます。OFFにするとゲストには表示されません。表示する場合は、ログイン用とは別の施設用メールアドレスを設定してください。同じメールアドレスでは保存できません。
+- **キーワード**: 施設設定,メールアドレス,ログイン,連絡先,ゲスト表示,専用メール
+- **関連URL**: /admin/facility/settings
+
+#### 英語 (en)
+- **Question**: Can I show the facility email on the guest screen?
+- **Answer**: In Facility Settings → Basic info, turn ON "Show email on guest screen" to display it. Turn OFF to hide it from guests. If you show it, set a facility or inquiry email different from your login email. You cannot save the same email as your login.
+- **Keywords**: facility settings,email,login,contact,guest display,dedicated email
+- **Related URL**: /admin/facility/settings
 
 ---
 
@@ -76,15 +101,15 @@
 
 #### 日本語 (ja)
 - **質問**: スタッフアカウントを追加できますか？
-- **回答**: はい。「設定」→「スタッフ管理」から、スタッフのメールアドレスと権限レベル（オーナー/マネージャー/スタッフ）を設定してアカウントを追加できます。スタッフには招待メールが送信されます。
+- **回答**: 現在は追加できません。将来は「設定」→「スタッフ管理」から、スタッフのメールアドレスと権限レベル（オーナー/マネージャー/スタッフ）を設定してアカウントを追加できる予定です。スタッフには招待メールが送信されます。
 - **キーワード**: スタッフ追加,複数ユーザー,アカウント追加,権限設定,チーム管理
-- **関連URL**: /admin/staff
+- **関連URL**: なし
 
 #### 英語 (en)
 - **Question**: Can I add staff accounts?
-- **Answer**: Yes. From "Settings" → "Staff Management", you can add staff accounts by setting their email and permission level (Owner/Manager/Staff). Staff will receive an invitation email.
+- **Answer**: Currently not available. In the future, you will be able to add staff accounts from "Settings" → "Staff Management" by setting their email and permission level (Owner/Manager/Staff). Staff will receive an invitation email.
 - **Keywords**: add staff,multiple users,add account,permissions,team management
-- **Related URL**: /admin/staff
+- **Related URL**: なし
 
 ---
 
@@ -96,15 +121,15 @@
 
 #### 日本語 (ja)
 - **質問**: パスワードを忘れた場合は？
-- **回答**: ログイン画面の「パスワードを忘れた場合」リンクをクリックし、登録メールアドレスを入力してください。パスワードリセット用のリンクが送信されます。リンクの有効期限は1時間です。
+- **回答**: 現在、パスワードリセット機能は実装されていません。パスワードを忘れた場合は、管理画面右下の「サポート」ボタンから、施設管理者専用問い合わせフォームにアクセスしてお問い合わせください。
 - **キーワード**: パスワード忘れ,パスワードリセット,ログインできない,パスワード再設定
-- **関連URL**: /admin/login
+- **関連URL**: なし
 
 #### 英語 (en)
 - **Question**: What if I forget my password?
-- **Answer**: Click "Forgot password?" on the login screen, enter your registered email address, and you will receive a password reset link. The link expires in 1 hour.
+- **Answer**: Password reset functionality is currently not implemented. If you forget your password, please contact us via the support form accessible from the "Support" button at the bottom-right of the admin panel.
 - **Keywords**: forgot password,password reset,cannot login,reset password
-- **Related URL**: /admin/login
+- **Related URL**: なし
 
 ---
 
@@ -158,13 +183,13 @@
 
 #### 日本語 (ja)
 - **質問**: QRコードの印刷サイズの推奨は？
-- **回答**: A4用紙1枚に1つのQRコードが推奨です。最小サイズは5cm×5cm、推奨サイズは10cm×10cm以上です。小さすぎるとスマホで読み取りにくくなります。光沢紙よりマット紙の方が読み取りやすいです。PDF/PNG形式でダウンロードできます。
+- **回答**: A4用紙1枚に1つのQRコードが推奨です。最小サイズは5cm×5cm、推奨サイズは10cm×10cm以上です。小さすぎるとスマホで読み取りにくくなります。光沢紙よりマット紙の方が読み取りやすいです。PDF/PNG/SVG形式でダウンロードできます。
 - **キーワード**: QRコード印刷,印刷サイズ,推奨サイズ,最小サイズ,QRサイズ
 - **関連URL**: /admin/qr-code
 
 #### 英語 (en)
 - **Question**: What is the recommended QR code print size?
-- **Answer**: One QR code per A4 sheet is recommended. Minimum size is 5cm×5cm, recommended size is 10cm×10cm or larger. Too small makes it hard to scan with smartphones. Matte paper is better than glossy. Available in PDF/PNG format.
+- **Answer**: One QR code per A4 sheet is recommended. Minimum size is 5cm×5cm, recommended size is 10cm×10cm or larger. Too small makes it hard to scan with smartphones. Matte paper is better than glossy. Available in PDF/PNG/SVG format.
 - **Keywords**: QR code printing,print size,recommended size,minimum size,QR size
 - **Related URL**: /admin/qr-code
 
@@ -180,17 +205,17 @@
 - **質問**: QRコードを再発行したい場合は？
 - **回答**: 「QRコード管理」から既存のQRコードを削除し、新しいQRコードを生成してください。古いQRコードは自動的に無効化されます。セキュリティ上、定期的な再発行（3-6ヶ月ごと）を推奨します。
 - **キーワード**: QRコード再発行,QRコード更新,QRコード削除,QR再生成
-- **関連URL**: /admin/qr-code
+- **関連URL**: なし
 
 #### 英語 (en)
 - **Question**: How do I regenerate a QR code?
 - **Answer**: From "QR Code Management", delete the existing QR code and generate a new one. The old QR code will be automatically invalidated. For security, periodic regeneration (every 3-6 months) is recommended.
 - **Keywords**: regenerate QR code,update QR code,delete QR code,QR regeneration
-- **Related URL**: /admin/qr-code
+- **Related URL**: なし
 
 ---
 
-## Category: faq_management（FAQ管理） - 5項目
+## Category: faq_management（FAQ管理） - 6項目
 
 ### FAQ 10: faq_template_usage
 
@@ -200,7 +225,7 @@
 
 #### 日本語 (ja)
 - **質問**: FAQテンプレートの使い方は？
-- **回答**: システムが20-30件の初期テンプレートを提供しています。「FAQ管理」から各テンプレートを確認し、施設に合わせて編集してください。不要なFAQは非アクティブ化できます。WiFiパスワードやチェックイン時間など、施設固有の情報を必ず更新してください。
+- **回答**: システムが30件の初期テンプレートを提供しています。「FAQ管理」から各テンプレートを確認し、施設に合わせて編集してください。不要なFAQは非アクティブ化できます。WiFiパスワードやチェックイン時間など、施設固有の情報を必ず更新してください。
 - **キーワード**: FAQテンプレート,初期FAQ,テンプレート編集,FAQ雛形
 - **関連URL**: /admin/faqs
 
@@ -240,13 +265,13 @@
 
 #### 日本語 (ja)
 - **質問**: FAQの優先度とは何ですか？
-- **回答**: 優先度（1-5）は、AI検索時のランキングに影響します。優先度5が最高で、よくある質問には高い優先度を設定してください。例：WiFiパスワード（5）、チェックイン時間（5）、周辺観光（3）。ログ分析で質問頻度を確認し、優先度を調整しましょう。
+- **回答**: 優先度（1-5）は、AI検索時のランキングに影響します。優先度5が最高で、よくある質問には高い優先度を設定してください。例：WiFiパスワード（5）、チェックアウト時間（5）、周辺観光（3）。ログ分析で質問頻度を確認し、優先度を調整しましょう。
 - **キーワード**: FAQ優先度,優先順位,ランキング,FAQ重要度
 - **関連URL**: /admin/faqs
 
 #### 英語 (en)
 - **Question**: What is FAQ priority?
-- **Answer**: Priority (1-5) affects ranking in AI search. Priority 5 is highest. Set high priority for frequently asked questions. Examples: WiFi password (5), Check-in time (5), Local tourism (3). Check log analysis for question frequency and adjust priority accordingly.
+- **Answer**: Priority (1-5) affects ranking in AI search. Priority 5 is highest. Set high priority for frequently asked questions. Examples: WiFi password (5), Check-out time (5), Local tourism (3). Check log analysis for question frequency and adjust priority accordingly.
 - **Keywords**: FAQ priority,ranking,priority level,FAQ importance
 - **Related URL**: /admin/faqs
 
@@ -280,21 +305,55 @@
 
 #### 日本語 (ja)
 - **質問**: FAQを一括登録できますか？
-- **回答**: 現在は個別登録のみですが、Phase 2でCSV一括インポート機能を追加予定です。大量のFAQがある場合は、サポートチーム（support@yadopera.com）にご相談ください。一時的に代行登録のサポートも可能です。
+- **回答**: Standard・Premiumプランでは「FAQ管理」からCSV一括登録（追加モード）が利用できます。現在は個別登録のみのプランでは、大量のFAQがある場合はサポートへご相談ください。
 - **キーワード**: FAQ一括登録,CSV登録,大量登録,インポート,バルク登録
-- **関連URL**: /admin/faqs
+- **関連URL**: なし
 
 #### 英語 (en)
 - **Question**: Can I bulk import FAQs?
-- **Answer**: Currently only individual registration is supported, but CSV bulk import will be added in Phase 2. For large FAQ volumes, please contact our support team (support@yadopera.com). Temporary registration assistance is available.
+- **Answer**: Standard and Premium plans can use CSV bulk registration (add mode) from "FAQ Management". For plans with individual registration only, please contact support for large FAQ volumes.
 - **Keywords**: bulk import FAQ,CSV import,mass registration,import,bulk registration
-- **Related URL**: /admin/faqs
+- **Related URL**: なし
+
+---
+
+### FAQ 15: faq_csv_columns
+
+**intent_key**: `faq_csv_columns`  
+**display_order**: 78  
+**category**: `faq_management`
+
+#### 日本語 (ja)
+- **質問**: CSVの言語列名やis_activeの意味が分かりません
+- **回答**: CSVの「列名」は、CSVの1行目（ヘッダー）に入れる文字です。次のどちらかをそのままコピペしてください（カンマ区切り）。
+  標準4言語（テンプレートと同じ）:
+  category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer
+
+  韓国語も追加する場合:
+  category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer,language_ko_question,language_ko_answer
+
+  ポイント: 1) 繁体中国語は zh-TW の「-」が必須です。2) is_active は true（ゲスト向けに使う）/ false（ゲストに出さない）です。3) zh-CN や es などはCSV一括では取り込まれません（必要なら管理画面で個別登録）。
+- **キーワード**: CSV,言語列,zh-TW,is_active,intent_key,列名,一括登録,繁体中国語,韓国語
+- **関連URL**: /admin/manual
+
+#### 英語 (en)
+- **Question**: What do CSV language column names and is_active mean?
+- **Answer**: CSV column names are the texts in the 1st row (header). Copy/paste one of the following (comma-separated).
+  Standard 4 languages (same as the template):
+  category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer
+
+  Add Korean:
+  category,intent_key,priority,is_active,language_ja_question,language_ja_answer,language_en_question,language_en_answer,language_fr_question,language_fr_answer,language_zh-TW_question,language_zh-TW_answer,language_ko_question,language_ko_answer
+
+  Notes: 1) Traditional Chinese must be zh-TW (hyphen required). 2) is_active: true = usable for guests, false = not shown. 3) Columns like zh-CN or es are not imported via bulk upload (add those FAQs individually in the admin UI).
+- **Keywords**: CSV,language columns,zh-TW,is_active,intent_key,column names,bulk import,Traditional Chinese,Korean
+- **Related URL**: /admin/manual
 
 ---
 
 ## Category: ai_logic（AI仕組み） - 4項目
 
-### FAQ 15: ai_how_it_works
+### FAQ 16: ai_how_it_works
 
 **intent_key**: `ai_how_it_works`  
 **display_order**: 100  
@@ -314,7 +373,7 @@
 
 ---
 
-### FAQ 16: ai_accuracy
+### FAQ 17: ai_accuracy
 
 **intent_key**: `ai_accuracy`  
 **display_order**: 95  
@@ -334,7 +393,7 @@
 
 ---
 
-### FAQ 17: ai_languages
+### FAQ 18: ai_languages
 
 **intent_key**: `ai_languages`  
 **display_order**: 90  
@@ -342,19 +401,19 @@
 
 #### 日本語 (ja)
 - **質問**: 対応言語は何語ですか？
-- **回答**: 現在は日本語、英語、中国語（簡体字・繁体字）、韓国語の5言語に対応しています。ゲストが選択した言語で自動的に回答します。FAQは各言語で登録が必要です。翻訳支援機能も今後追加予定です。
+- **回答**: 現在は日本語、英語、繁体中国語、簡体中国語、フランス語、韓国語、スペイン語の7言語に対応しています。ゲスト画面の言語選択で選べます。ドイツ語・ベトナム語は選択肢からは削除しています。FAQは各言語で登録が必要です。
 - **キーワード**: 対応言語,多言語,言語設定,何語,サポート言語
-- **関連URL**: /admin/facility
+- **関連URL**: /admin/manual
 
 #### 英語 (en)
 - **Question**: What languages are supported?
-- **Answer**: Currently supports 5 languages: Japanese, English, Chinese (Simplified/Traditional), and Korean. Responses are automatically provided in the guest's selected language. FAQs must be registered in each language. Translation assistance feature coming soon.
+- **Answer**: Currently we support 7 languages: Japanese, English, Traditional Chinese, Simplified Chinese, French, Korean, and Spanish. Guests can choose their language on the language selection screen. German and Vietnamese are no longer offered in the guest language options. FAQs must be registered in each language.
 - **Keywords**: supported languages,multilingual,language settings,what languages,supported languages
-- **Related URL**: /admin/facility
+- **Related URL**: /admin/manual
 
 ---
 
-### FAQ 18: ai_limitations
+### FAQ 19: ai_limitations
 
 **intent_key**: `ai_limitations`  
 **display_order**: 85  
@@ -376,7 +435,7 @@
 
 ## Category: logs（ログ分析） - 3項目
 
-### FAQ 19: logs_view_questions
+### FAQ 20: logs_view_questions
 
 **intent_key**: `logs_view_questions`  
 **display_order**: 100  
@@ -396,7 +455,7 @@
 
 ---
 
-### FAQ 20: logs_unanswered
+### FAQ 21: logs_unanswered
 
 **intent_key**: `logs_unanswered`  
 **display_order**: 95  
@@ -416,7 +475,7 @@
 
 ---
 
-### FAQ 21: logs_analytics
+### FAQ 22: logs_analytics
 
 **intent_key**: `logs_analytics`  
 **display_order**: 90  
@@ -424,21 +483,21 @@
 
 #### 日本語 (ja)
 - **質問**: よくある質問のランキングは？
-- **回答**: 「ダッシュボード」で質問カテゴリ別の統計と、よく聞かれる質問TOP10を確認できます。週次・月次で傾向を分析できます。ランキング上位の質問はFAQ優先度を高めに設定しましょう。
+- **回答**: 「ダッシュボード」で質問カテゴリ別の統計を確認できます。よく聞かれる質問のランキング機能は将来的に追加予定です。週次・月次で傾向を分析できるようになる予定です。ランキング上位の質問はFAQ優先度を高めに設定しましょう。
 - **キーワード**: ランキング,統計,よくある質問,分析,TOP10
-- **関連URL**: /admin/dashboard
+- **関連URL**: なし
 
 #### 英語 (en)
 - **Question**: Where is the FAQ ranking?
-- **Answer**: On the "Dashboard", you can view statistics by question category and TOP 10 frequently asked questions. Analyze trends weekly/monthly. Set higher FAQ priority for top-ranking questions.
+- **Answer**: On the "Dashboard", you can view statistics by question category. The frequently asked questions ranking feature will be added in the future. Weekly/monthly trend analysis is planned. Set higher FAQ priority for top-ranking questions.
 - **Keywords**: ranking,statistics,frequently asked,analysis,TOP10
-- **Related URL**: /admin/dashboard
+- **Related URL**: なし
 
 ---
 
 ## Category: troubleshooting（トラブルシューティング） - 5項目
 
-### FAQ 22: trouble_ai_slow
+### FAQ 23: trouble_ai_slow
 
 **intent_key**: `trouble_ai_slow`  
 **display_order**: 100  
@@ -446,19 +505,19 @@
 
 #### 日本語 (ja)
 - **質問**: AIの応答が遅い場合は？
-- **回答**: 通常3-5秒以内に応答します。10秒以上かかる場合は、ネットワーク状況を確認するか、ブラウザをリフレッシュしてください。問題が続く場合はサポート（support@yadopera.com）にお問い合わせください。
+- **回答**: 通常3-5秒以内に応答します。10秒以上かかる場合は、ネットワーク状況を確認するか、ブラウザをリフレッシュしてください。問題が続く場合は、管理画面右下の「サポート」ボタンから施設管理者専用問い合わせフォームにアクセスしてお問い合わせください。
 - **キーワード**: AI遅い,応答遅延,遅延,速度,レスポンス遅い
-- **関連URL**: /admin/dashboard
+- **関連URL**: なし
 
 #### 英語 (en)
 - **Question**: What if AI response is slow?
-- **Answer**: Normal response time is 3-5 seconds. If it takes over 10 seconds, check network conditions or refresh the browser. If the problem persists, contact support (support@yadopera.com).
+- **Answer**: Normal response time is 3-5 seconds. If it takes over 10 seconds, check network conditions or refresh the browser. If the problem persists, please contact us via the support form accessible from the "Support" button at the bottom-right of the admin panel.
 - **Keywords**: AI slow,response delay,delay,speed,slow response
-- **Related URL**: /admin/dashboard
+- **Related URL**: なし
 
 ---
 
-### FAQ 23: trouble_qr_not_working
+### FAQ 24: trouble_qr_not_working
 
 **intent_key**: `trouble_qr_not_working`  
 **display_order**: 95  
@@ -478,7 +537,7 @@
 
 ---
 
-### FAQ 24: trouble_faq_not_updated
+### FAQ 25: trouble_faq_not_updated
 
 **intent_key**: `trouble_faq_not_updated`  
 **display_order**: 90  
@@ -486,12 +545,34 @@
 
 #### 日本語 (ja)
 - **質問**: FAQを更新したのに反映されない？
-- **回答**: FAQ更新後、システムプロンプトの再構築に最大5分かかります。5分待ってもダメな場合は、ブラウザキャッシュをクリアしてください（Ctrl+Shift+R または Cmd+Shift+R）。それでも解決しない場合はサポートにご連絡ください。
+- **回答**: FAQ更新後、システムプロンプトの再構築に最大5分かかります。5分待ってもダメな場合は、ブラウザキャッシュをクリアしてください（Ctrl+Shift+R または Cmd+Shift+R）。それでも解決しない場合は、管理画面右下の「サポート」ボタンから施設管理者専用問い合わせフォームにアクセスしてお問い合わせください。
 - **キーワード**: FAQ反映されない,更新されない,変更されない,反映遅い
 - **関連URL**: /admin/faqs
 
 #### 英語 (en)
 - **Question**: FAQ update not reflected?
-- **Answer**: After FAQ update, system prompt reconstruction takes up to 5 minutes. If still not working after 5 minutes, clear browser cache (Ctrl+Shift+R or Cmd+Shift+R). If still unresolved, contact support.
+- **Answer**: After FAQ update, system prompt reconstruction takes up to 5 minutes. If still not working after 5 minutes, clear browser cache (Ctrl+Shift+R or Cmd+Shift+R). If still unresolved, please contact us via the support form accessible from the "Support" button at the bottom-right of the admin panel.
 - **Keywords**: FAQ not reflected,not updated,not changed,slow reflection
-- **Related URL**: /
+- **Related URL**: /admin/faqs
+
+---
+
+## Category: billing（料金・プラン・請求）
+
+### FAQ: plan_billing_overage_behavior
+
+**intent_key**: `plan_billing_overage_behavior`  
+**display_order**: 84  
+**category**: `billing`
+
+#### 日本語 (ja)
+- **質問**: 質問数が上限を超過したらAIを止められますか？ / 超過したら停止できますか？
+- **回答**: はい、止められます。「プラン・請求」ページの「プラン超過時の挙動」で**「AI停止・FAQのみ対応」**を選んで「設定を保存」すると、月間質問数がプラン上限を超えたあとは、AIは自動で使われず、登録したFAQの検索結果だけでゲストに応答します。超過分の課金はありません。もう一方の「通常継続（従量課金）」を選ぶと、超過後もAI応答を続け、超過分は1質問あたり¥30で請求されます。Free・Small・Standard・Premiumでこの設定が表示されます（Miniは質問数上限がないため表示されません）。詳細はご利用マニュアル「7.3 プラン超過時の挙動の設定」をご覧ください。
+- **キーワード**: 質問数上限,超過,停止,AI停止,FAQのみ,プラン超過時の挙動,従量課金
+- **関連URL**: /admin/billing
+
+#### 英語 (en)
+- **Question**: Can I stop AI when the question limit is exceeded? / Can it stop after exceeding the limit?
+- **Answer**: Yes. On the "Plan & Billing" page, under "Plan overage behavior", select **"AI stop & FAQ only"** and click "Save settings". After your monthly question count exceeds the plan limit, AI will not be used and only registered FAQ search results will be shown to guests. No charge for overage. If you choose "Normal continuation (usage-based billing)" instead, AI continues and overage is billed at ¥30 per question. This setting is shown for Free, Small, Standard, and Premium (Mini has no question limit, so the setting is not shown). See the user manual section "7.3 Plan overage behavior settings" for details.
+- **Keywords**: question limit,overage,stop,AI stop,FAQ only,plan overage behavior,usage billing
+- **Related URL**: /admin/billing

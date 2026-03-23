@@ -248,6 +248,19 @@ const isValid = computed(() => {
   )
 })
 
+/** 下書きありか（いずれか入力済み）。外側クリック閉じ防止で参照する */
+const isDirty = computed(() => {
+  const d = formData.value
+  const hasTranslationContent = d.translations.some(
+    t => (t.question && t.question.trim() !== '') || (t.answer && t.answer.trim() !== '')
+  )
+  const hasCategory = d.category !== ''
+  const hasIntentKey = typeof d.intent_key === 'string' && d.intent_key.trim() !== ''
+  return hasTranslationContent || hasCategory || hasIntentKey
+})
+
+defineExpose({ isDirty })
+
 const validateTranslationQuestion = (index: number) => {
   const translation = formData.value.translations[index]
   if (!translation) return

@@ -20,18 +20,19 @@
       </div>
     </div>
 
-    <div class="divide-y divide-gray-200 dark:divide-gray-700">
+    <!-- CLS 改善: 一覧エリアに最小高さを指定 -->
+    <div class="divide-y divide-gray-200 dark:divide-gray-700 min-h-[320px]">
       <template v-for="category in categories" :key="category">
         <div
-          v-if="getFaqsByCategory(category).length > 0"
+          v-if="faqsByCategory[category].length > 0"
           class="p-6"
         >
           <h4 class="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">
-            {{ getCategoryLabel(category) }} ({{ getFaqsByCategory(category).length }}件)
+            {{ getCategoryLabel(category) }} ({{ faqsByCategory[category].length }}件)
           </h4>
           <div class="space-y-4">
             <div
-              v-for="faq in getFaqsByCategory(category)"
+              v-for="faq in faqsByCategory[category]"
               :key="faq.id"
               class="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700"
             >
@@ -113,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed } from 'vue'
 import type { FAQ, FAQCategory } from '@/types/faq'
 
 interface Props {
@@ -131,20 +132,6 @@ const selectedCategory = ref<FAQCategory | ''>('')
 
 const categories: FAQCategory[] = ['basic', 'facilities', 'location', 'trouble']
 
-// デバッグログ: props.faqsの変更を監視
-watch(() => props.faqs, (newFaqs) => {
-  console.log('📋 FaqList: props.faqs received:', {
-    count: newFaqs.length,
-    categories: {
-      basic: newFaqs.filter(f => f.category === 'basic').length,
-      facilities: newFaqs.filter(f => f.category === 'facilities').length,
-      location: newFaqs.filter(f => f.category === 'location').length,
-      trouble: newFaqs.filter(f => f.category === 'trouble').length,
-    },
-    faqs: newFaqs.map(f => ({ id: f.id, category: f.category, intent_key: f.intent_key }))
-  })
-}, { immediate: true })
-
 const filteredFaqs = computed(() => {
   if (!selectedCategory.value) {
     return props.faqs
@@ -152,11 +139,19 @@ const filteredFaqs = computed(() => {
   return props.faqs.filter(faq => faq.category === selectedCategory.value)
 })
 
-const getFaqsByCategory = (category: FAQCategory): FAQ[] => {
-  const result = props.faqs.filter(faq => faq.category === category)
-  console.log(`🔍 getFaqsByCategory(${category}):`, result.length, '件')
-  return result
-}
+// INP 改善: カテゴリ別一覧を算出プロパティで1回だけ計算（getFaqsByCategory の重複呼び出しを削減）
+const faqsByCategory = computed<Record<FAQCategory, FAQ[]>>(() => {
+  const m: Record<FAQCategory, FAQ[]> = {
+    basic: [],
+    facilities: [],
+    location: [],
+    trouble: []
+  }
+  props.faqs.forEach(faq => {
+    m[faq.category].push(faq)
+  })
+  return m
+})
 
 const getCategoryLabel = (category: FAQCategory): string => {
   const labels: Record<FAQCategory, string> = {

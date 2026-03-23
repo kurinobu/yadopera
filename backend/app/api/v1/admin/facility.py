@@ -13,8 +13,9 @@ from app.schemas.facility import (
     FacilitySettingsResponse,
     FacilitySettingsUpdateRequest,
     FacilityResponse,
-    StaffAbsencePeriod
+    StaffAbsencePeriod,
 )
+from app.core.plan_limits import OVERAGE_BEHAVIOR_CHOICES
 from app.core.security import hash_password
 from datetime import time as time_type
 import json
@@ -75,9 +76,17 @@ async def get_facility_settings(
             prohibited_items=getattr(facility, "prohibited_items", None),
             languages=facility.languages or [],
             timezone=facility.timezone or "Asia/Tokyo",
-            subscription_plan=facility.subscription_plan or "small",
+            subscription_plan=(facility.subscription_plan or "small").lower(),
+            plan_type=facility.plan_type or "Free",
             monthly_question_limit=facility.monthly_question_limit or 200,
             is_active=facility.is_active,
+            coupon_enabled=getattr(facility, "coupon_enabled", False),
+            coupon_discount_percent=getattr(facility, "coupon_discount_percent", None),
+            coupon_description=getattr(facility, "coupon_description", None),
+            coupon_validity_months=getattr(facility, "coupon_validity_months", None),
+            official_website_url=getattr(facility, "official_website_url", None),
+            show_email_on_guest_screen=getattr(facility, "show_email_on_guest_screen", True),
+            overage_behavior=getattr(facility, "overage_behavior", "continue_billing"),
             created_at=facility.created_at,
             updated_at=facility.updated_at
         )
@@ -143,11 +152,24 @@ async def update_facility_settings(
         # 施設情報を更新
         update_data = request.dict(exclude_unset=True)
         
+        # 更新後の show_email_on_guest_screen を判定（同一メール禁止は ON のときのみ）
+        show_after = update_data.get("show_email_on_guest_screen")
+        if show_after is None:
+            show_after = getattr(facility, "show_email_on_guest_screen", True)
+        
+        # 同一メール禁止: ゲストに表示するが ON のとき、施設メールがログインメールと同一なら 400
+        if "email" in update_data and update_data["email"] is not None:
+            new_email = update_data["email"].strip()
+            if show_after and new_email.lower() == (current_user.email or "").strip().lower():
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="施設の連絡先メールアドレスは、ログインに使用しているメールアドレスとは別のものを設定してください。"
+                )
+            facility.email = update_data["email"]
+        
         # 基本情報の更新
         if "name" in update_data and update_data["name"] is not None:
             facility.name = update_data["name"]
-        if "email" in update_data and update_data["email"] is not None:
-            facility.email = update_data["email"]
         if "phone" in update_data:
             facility.phone = update_data["phone"]
         if "address" in update_data:
@@ -188,6 +210,30 @@ async def update_facility_settings(
             facility.local_info = update_data["local_info"]
         if "prohibited_items" in update_data:
             facility.prohibited_items = update_data["prohibited_items"]
+
+        # クーポン（リードゲット）設定の更新
+        if "coupon_enabled" in update_data and update_data["coupon_enabled"] is not None:
+            facility.coupon_enabled = update_data["coupon_enabled"]
+        if "coupon_discount_percent" in update_data:
+            facility.coupon_discount_percent = update_data["coupon_discount_percent"]
+        if "coupon_description" in update_data:
+            facility.coupon_description = update_data["coupon_description"]
+        if "coupon_validity_months" in update_data:
+            facility.coupon_validity_months = update_data["coupon_validity_months"]
+        if "official_website_url" in update_data:
+            facility.official_website_url = update_data["official_website_url"]
+        if "show_email_on_guest_screen" in update_data and update_data["show_email_on_guest_screen"] is not None:
+            facility.show_email_on_guest_screen = update_data["show_email_on_guest_screen"]
+        
+        # プラン超過時の挙動（管理者選択制）
+        if "overage_behavior" in update_data and update_data["overage_behavior"] is not None:
+            ob = update_data["overage_behavior"]
+            if ob not in OVERAGE_BEHAVIOR_CHOICES:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="overage_behavior must be one of: continue_billing, faq_only",
+                )
+            facility.overage_behavior = ob
         
         # スタッフ不在時間帯の更新
         if "staff_absence_periods" in update_data and update_data["staff_absence_periods"] is not None:
@@ -254,9 +300,17 @@ async def update_facility_settings(
             local_info=facility.local_info,
             languages=facility.languages or [],
             timezone=facility.timezone or "Asia/Tokyo",
-            subscription_plan=facility.subscription_plan or "small",
+            subscription_plan=(facility.subscription_plan or "small").lower(),
+            plan_type=facility.plan_type or "Free",
             monthly_question_limit=facility.monthly_question_limit or 200,
             is_active=facility.is_active,
+            coupon_enabled=getattr(facility, "coupon_enabled", False),
+            coupon_discount_percent=getattr(facility, "coupon_discount_percent", None),
+            coupon_description=getattr(facility, "coupon_description", None),
+            coupon_validity_months=getattr(facility, "coupon_validity_months", None),
+            official_website_url=getattr(facility, "official_website_url", None),
+            show_email_on_guest_screen=getattr(facility, "show_email_on_guest_screen", True),
+            overage_behavior=getattr(facility, "overage_behavior", "continue_billing"),
             created_at=facility.created_at,
             updated_at=facility.updated_at
         )

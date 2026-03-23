@@ -46,20 +46,14 @@
           </div>
 
           <!-- パスワード -->
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              パスワード / Password
-            </label>
-            <input
-              id="password"
-              v-model="form.password"
-              type="password"
-              required
-              minlength="8"
-              class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              placeholder="8文字以上"
-            />
-          </div>
+          <Input
+            v-model="form.password"
+            type="password"
+            label="パスワード / Password"
+            placeholder="8文字以上"
+            :required="true"
+            :show-password-toggle="true"
+          />
 
           <!-- 料金プラン -->
           <div>
@@ -80,8 +74,10 @@
           </div>
 
           <!-- エラーメッセージ -->
-          <div v-if="errorMessage" class="text-red-600 dark:text-red-400 text-sm">
-            {{ errorMessage }}
+          <div v-if="errorMessage" class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md p-3">
+            <p class="text-red-600 dark:text-red-400 text-sm">
+              {{ errorMessage }}
+            </p>
           </div>
 
           <!-- 登録ボタン -->
@@ -116,7 +112,7 @@
         <!-- フッター -->
         <div class="mt-6 text-center">
           <p class="text-xs text-gray-500 dark:text-gray-400">
-            © 2024 YadOPERA. All rights reserved.
+            © 2026 YadOPERA. All rights reserved.
           </p>
         </div>
       </div>
@@ -126,9 +122,13 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useAuth } from '@/composables/useAuth'
+import { useRouter } from 'vue-router'
+import { authApi } from '@/api/auth'
+import { useAuthStore } from '@/stores/auth'
+import Input from '@/components/common/Input.vue'
 
-const { register } = useAuth()
+const router = useRouter()
+const authStore = useAuthStore()
 
 const form = reactive({
   email: '',
@@ -145,14 +145,79 @@ const handleRegister = async () => {
     isLoading.value = true
     errorMessage.value = ''
 
-    await register({
+    // 🔴 デバッグ: 登録開始をログに記録
+    console.log('[Register] Starting registration:', {
+      email: form.email,
+      facility_name: form.facility_name
+    })
+
+    // 🔴 修正: 新規登録前に既存のトークンをクリア（既存のセッションの残りを削除）
+    authStore.logout()
+    console.log('[Register] ✅ Logged out before registration')
+
+    const response = await authApi.register({
       email: form.email,
       password: form.password,
       facility_name: form.facility_name,
       subscription_plan: form.subscription_plan
     })
+    
+    console.log('[Register] ✅ Registration successful:', {
+      message: response.message,
+      email: response.email,
+      facility_name: response.facility_name
+    })
+
+    // 🔴 修正: メール送信失敗のメッセージを検出
+    if (response.message?.includes('確認メールの送信に失敗しました') || 
+        response.message?.includes('verification email sending failed')) {
+      // メール送信失敗時もEmailVerificationPendingに遷移（再送信可能にする）
+      console.log('[Register] 🚀 Navigating to EmailVerificationPending (email send failed)')
+      await router.push({
+        name: 'EmailVerificationPending',
+        query: {
+          email: form.email,
+          facility_name: form.facility_name,
+          email_send_failed: 'true'  // フラグを追加
+        }
+      })
+      console.log('[Register] ✅ Navigation completed (email send failed)')
+      return
+    }
+
+    // ★成功時は確認メール送信完了画面へ遷移
+    console.log('[Register] 🚀 Navigating to EmailVerificationPending (success)')
+    await router.push({
+      name: 'EmailVerificationPending',
+      query: {
+        email: form.email,
+        facility_name: form.facility_name
+      }
+    })
+    console.log('[Register] ✅ Navigation completed (success)')
   } catch (error: any) {
-    errorMessage.value = error.message || '登録に失敗しました。入力内容を確認してください。'
+    console.error('[Register] ❌ Registration error:', error)
+    
+    // 🔴 修正: メール確認未完了のエラーの場合、確認メール再送信ページに遷移
+    if (error.response?.status === 400 && 
+        error.response?.data?.detail?.includes('メール確認が完了していません')) {
+      console.log('[Register] 🚀 Navigating to EmailVerificationPending (email not verified)')
+      await router.push({
+        name: 'EmailVerificationPending',
+        query: {
+          email: form.email,
+          facility_name: form.facility_name
+        }
+      })
+      console.log('[Register] ✅ Navigation completed (email not verified)')
+      return
+    }
+    
+    if (error.response?.data?.detail) {
+      errorMessage.value = error.response.data.detail
+    } else {
+      errorMessage.value = '登録に失敗しました。入力内容を確認してください。'
+    }
   } finally {
     isLoading.value = false
   }

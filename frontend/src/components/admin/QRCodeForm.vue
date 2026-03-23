@@ -337,12 +337,11 @@ const handleDownload = async (format: 'pdf' | 'png' | 'svg') => {
       qrCodeUrl = previewQRCode.value.qr_code_url
       filename = `qrcode-${previewQRCode.value.location}-${previewQRCode.value.id}.${format}`
     } else {
-      // 異なる形式の場合は再生成
-      const newQRCode = await qrcodeApi.generateQRCode({
+      // 異なる形式の場合は再生成（データベースに保存しない）
+      const newQRCode = await qrcodeApi.generateQRCodePreview({
         location: previewQRCode.value.location,
         custom_location_name: previewQRCode.value.custom_location_name,
-        format: format,
-        include_session_token: false
+        format: format
       })
       qrCodeUrl = newQRCode.qr_code_url
       filename = `qrcode-${newQRCode.location}-${newQRCode.id}.${format}`

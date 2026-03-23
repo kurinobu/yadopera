@@ -41,7 +41,9 @@ async def get_dashboard(
         # ダッシュボードサービスでデータ取得
         dashboard_service = DashboardService(db)
         dashboard_data = await dashboard_service.get_dashboard_data(facility_id)
-        
+        # 案1: プラン表示を常に最新にするため、エンドポイントで monthly_usage を必ず DB から再取得して上書き
+        dashboard_data.monthly_usage = await dashboard_service.get_monthly_usage(facility_id)
+
         # 管理画面向けAPIは常に最新を返すためキャッシュ禁止
         response.headers["Cache-Control"] = "no-store"
         response.headers["Pragma"] = "no-cache"

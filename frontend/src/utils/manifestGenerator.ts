@@ -3,7 +3,10 @@
  * 
  * PWAインストール時に現在の施設URLをstart_urlに設定することで、
  * PWA起動時に直接施設URLにアクセスし、localStorageへの依存を排除する
+ * アイコンURLには ?v=版番号 を付与し、iOS等のキャッシュを無効化する（icon-version.json）
  */
+
+import iconVersion from './icon-version.json'
 
 export interface DynamicManifest {
   name: string
@@ -38,12 +41,12 @@ export function generateManifest(facilityId: string | null): DynamicManifest {
     display: 'standalone',
     icons: [
       {
-        src: '/pwa-192x192.png',
+        src: `/pwa-192x192.png?v=${iconVersion.version}`,
         sizes: '192x192',
         type: 'image/png'
       },
       {
-        src: '/pwa-512x512.png',
+        src: `/pwa-512x512.png?v=${iconVersion.version}`,
         sizes: '512x512',
         type: 'image/png'
       }

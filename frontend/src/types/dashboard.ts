@@ -105,6 +105,8 @@ export interface DashboardData {
   ai_automation?: AiAutomation
   escalations_summary?: EscalationsSummary
   unresolved_escalations?: UnresolvedEscalation[]
+  /** クーポン発行数（メールアドレス取得数） */
+  coupon_lead_count?: number
 }
 
 

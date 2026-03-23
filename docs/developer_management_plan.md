@@ -1,10 +1,33 @@
 # YadOPERA 開発者管理ページ実装計画書
 ## フェーズ2: 開発者管理ページ実装
 
-作成日: 2024年12月28日
-対象フェーズ: フェーズ2
-所要時間: 10-14時間（約2日間）
+作成日: 2024年12月28日  
+最終更新日: 2026年1月20日（非同期処理対応、JWT認証への変更）  
+対象フェーズ: フェーズ2  
+所要時間: 10-14時間（約2日間、MVPアプローチ）  
 優先度: 実装順序7番目
+
+---
+
+## 重要: 計画書の修正点（2026-01-20更新）
+
+### 修正内容
+
+1. **認証システムの変更**
+   - ❌ 旧: `session_tokens`テーブルを使用（セッション統合トークン用のため不適切）
+   - ✅ 新: JWT認証を使用（既存パターンに統一）
+
+2. **非同期処理への対応**
+   - ❌ 旧: 同期処理（`SessionLocal`, `db.query()`, `db.commit()`）
+   - ✅ 新: 非同期処理（`AsyncSession`, `select()`, `await db.commit()`）
+
+3. **MVPアプローチの明確化**
+   - 最小限の機能から実装し、段階的に拡張
+   - Phase 3以降で実装する機能を明確化
+
+### 参照文書
+
+- `docs/20260120_開発者管理ページ実装準備_分析レポート.md` - 詳細な分析結果
 
 ---
 
@@ -266,15 +289,18 @@ CREATE INDEX idx_faq_view_logs_facility ON public.faq_view_logs(facility_id);
 CREATE INDEX idx_faq_view_logs_viewed ON public.faq_view_logs(viewed_at DESC);
 ```
 
-#### 1.2 usersテーブル拡張
+#### 1.2 usersテーブル拡張（Phase 3以降）
 
-**role フィールドの制約変更**
+**注意**: MVPアプローチでは、環境変数`DEVELOPER_PASSWORD`のみで認証するため、`users`テーブルの拡張は不要。
+
+**Phase 3以降で個別アカウント機能を実装する場合:**
 ```sql
+-- role フィールドの制約変更
 -- 既存: role character varying(50) DEFAULT 'staff'
 -- 'developer' 値を許可（既存の VARCHAR(50) で対応可能、制約追加不要）
 
 -- 開発者ユーザー作成用の準備
--- フェーズ3で CHECK 制約を追加する場合:
+-- Phase 3で CHECK 制約を追加する場合:
 -- ALTER TABLE public.users ADD CONSTRAINT check_user_role 
 -- CHECK (role IN ('staff', 'admin', 'developer'));
 ```
@@ -316,10 +342,12 @@ alembic downgrade -1
 **エンドポイント:**
 - `POST /api/v1/developer/auth/login`
   - リクエスト: `{ "password": "開発者パスワード" }`
-  - レスポンス: `{ "token": "session_token", "expires_at": "timestamp" }`
+  - レスポンス: `{ "access_token": "jwt_token", "token_type": "bearer", "expires_in": 86400 }`
   - 環境変数 `DEVELOPER_PASSWORD` と照合
-  - セッショントークン生成（`session_tokens`テーブル活用）
-  - `admin_activity_logs` に 'developer_login' 記録
+  - JWTトークン生成（既存のJWT認証パターンに統一）
+  - `admin_activity_logs` に 'developer_login' 記録（Phase 3以降）
+  
+**注意**: `session_tokens`テーブルはセッション統合トークン用（ゲスト側機能）のため、開発者認証には使用しない。既存のJWT認証パターンに統一する。
 
 **環境変数設定:**
 ```bash
@@ -331,26 +359,91 @@ DEVELOPER_SESSION_EXPIRE_HOURS=24
 **認証ミドルウェア:**
 **ファイル:** `./backend/app/core/developer_auth.py`
 ```python
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
-from sqlalchemy.orm import Session
+from app.core.jwt import decode_token
+from app.core.config import settings
+import os
 
 security = HTTPBearer()
 
 async def require_developer_auth(
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    db: Session = Depends(get_db)
+    request: Request = None
 ):
-    """開発者認証チェック"""
+    """
+    開発者認証チェック（JWT認証）
+    
+    MVPアプローチ: 環境変数DEVELOPER_PASSWORDのみで認証
+    将来拡張: Phase 3でusers.role='developer'のユーザーを作成
+    """
     token = credentials.credentials
     
-    # session_tokensテーブルからトークン検証
-    # users.role = 'developer' チェック
-    # 有効期限チェック
+    # JWTトークンデコード
+    payload = decode_token(token)
+    if payload is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid developer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     
-    # エラー時: HTTPException(status_code=401, detail="Invalid developer token")
-    return user  # 認証成功時、ユーザー情報返却
+    # 開発者トークンかどうかを確認（JWTのsubフィールドに'developer'を含む）
+    # または、専用のクレームを追加
+    if payload.get("type") != "developer":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid developer token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # 有効期限チェック（JWTのexpフィールドで自動チェック）
+    
+    return payload  # 認証成功時、ペイロード返却
+```
+
+**ログイン実装例:**
+```python
+from app.core.jwt import create_access_token
+from app.core.security import verify_password
+import os
+
+@router.post("/login")
+async def developer_login(
+    login_data: DeveloperLoginRequest,
+    request: Request
+):
+    """
+    開発者ログイン
+    環境変数DEVELOPER_PASSWORDと照合
+    """
+    developer_password = os.getenv("DEVELOPER_PASSWORD")
+    if not developer_password:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Developer password not configured"
+        )
+    
+    # パスワード照合
+    if login_data.password != developer_password:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect password"
+        )
+    
+    # JWTトークン生成（type='developer'を含む）
+    access_token = create_access_token(
+        data={"sub": "developer", "type": "developer"},
+        expires_delta=timedelta(hours=int(os.getenv("DEVELOPER_SESSION_EXPIRE_HOURS", "24")))
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": int(os.getenv("DEVELOPER_SESSION_EXPIRE_HOURS", "24")) * 3600
+    }
 ```
 
 #### 2.2 統計取得API
@@ -376,28 +469,43 @@ async def require_developer_auth(
 }
 ```
 
-**SQLクエリ例:**
+**SQLクエリ例（非同期処理）:**
 ```python
-# 施設数
-total_facilities = db.query(Facility).count()
-active_facilities = db.query(Facility).filter(Facility.is_active == True).count()
-
-# エラー数（過去24時間）
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 from datetime import datetime, timedelta
-yesterday = datetime.now() - timedelta(hours=24)
-errors_24h = db.query(
-    ErrorLog.error_level, 
-    func.count(ErrorLog.id)
-).filter(
-    ErrorLog.created_at >= yesterday
-).group_by(ErrorLog.error_level).all()
 
-# チャット数（過去7日）
-week_ago = datetime.now() - timedelta(days=7)
-chats_7d = db.query(Message).filter(
-    Message.created_at >= week_ago,
-    Message.role == 'user'  # ユーザーメッセージのみカウント
-).count()
+# 施設数（非同期）
+facilities_result = await db.execute(select(func.count(Facility.id)))
+total_facilities = facilities_result.scalar()
+
+active_facilities_result = await db.execute(
+    select(func.count(Facility.id)).where(Facility.is_active == True)
+)
+active_facilities = active_facilities_result.scalar()
+
+# エラー数（過去24時間、非同期）
+yesterday = datetime.utcnow() - timedelta(hours=24)
+errors_result = await db.execute(
+    select(
+        ErrorLog.error_level,
+        func.count(ErrorLog.id).label('count')
+    )
+    .where(ErrorLog.created_at >= yesterday)
+    .group_by(ErrorLog.error_level)
+)
+errors_24h = {row.error_level: row.count for row in errors_result.all()}
+
+# チャット数（過去7日、非同期）
+week_ago = datetime.utcnow() - timedelta(days=7)
+chats_result = await db.execute(
+    select(func.count(Message.id))
+    .where(
+        Message.created_at >= week_ago,
+        Message.role == 'user'  # ユーザーメッセージのみカウント
+    )
+)
+chats_7d = chats_result.scalar()
 ```
 
 ##### GET /api/v1/developer/stats/facilities
@@ -418,30 +526,48 @@ chats_7d = db.query(Message).filter(
 }
 ```
 
-**SQLクエリ例:**
+**SQLクエリ例（非同期処理）:**
 ```python
-# サブクエリでFAQ数を取得
-faq_count_subq = db.query(
-    FAQ.facility_id,
-    func.count(FAQ.id).label('faq_count')
-).group_by(FAQ.facility_id).subquery()
+from sqlalchemy import select, func
+from sqlalchemy.ext.asyncio import AsyncSession
 
-# サブクエリでチャット数を取得（過去7日）
-week_ago = datetime.now() - timedelta(days=7)
-chat_count_subq = db.query(
-    Conversation.facility_id,
-    func.count(Message.id).label('chat_count')
-).join(Message).filter(
-    Message.created_at >= week_ago,
-    Message.role == 'user'
-).group_by(Conversation.facility_id).subquery()
+# サブクエリでFAQ数を取得（非同期）
+faq_count_subq = (
+    select(
+        FAQ.facility_id,
+        func.count(FAQ.id).label('faq_count')
+    )
+    .group_by(FAQ.facility_id)
+    .subquery()
+)
 
-# メインクエリ
-facilities = db.query(
-    Facility,
-    faq_count_subq.c.faq_count,
-    chat_count_subq.c.chat_count
-).outerjoin(faq_count_subq).outerjoin(chat_count_subq).all()
+# サブクエリでチャット数を取得（過去7日、非同期）
+week_ago = datetime.utcnow() - timedelta(days=7)
+chat_count_subq = (
+    select(
+        Conversation.facility_id,
+        func.count(Message.id).label('chat_count')
+    )
+    .join(Message)
+    .where(
+        Message.created_at >= week_ago,
+        Message.role == 'user'
+    )
+    .group_by(Conversation.facility_id)
+    .subquery()
+)
+
+# メインクエリ（非同期）
+facilities_result = await db.execute(
+    select(
+        Facility,
+        faq_count_subq.c.faq_count,
+        chat_count_subq.c.chat_count
+    )
+    .outerjoin(faq_count_subq, Facility.id == faq_count_subq.c.facility_id)
+    .outerjoin(chat_count_subq, Facility.id == chat_count_subq.c.facility_id)
+)
+facilities = facilities_result.all()
 ```
 
 ##### GET /api/v1/developer/stats/facility/{facility_id}
@@ -482,31 +608,48 @@ facilities = db.query(
 }
 ```
 
-**SQLクエリ例（FAQ閲覧ランキング）:**
+**SQLクエリ例（FAQ閲覧ランキング、非同期処理）:**
 ```python
-top_viewed_faqs = db.query(
-    FAQ.id,
-    FAQ.question,
-    func.count(FAQViewLog.id).label('view_count')
-).join(FAQViewLog).filter(
-    FAQ.facility_id == facility_id
-).group_by(FAQ.id, FAQ.question).order_by(
-    desc('view_count')
-).limit(10).all()
+from sqlalchemy import select, func, desc
+
+top_viewed_faqs_result = await db.execute(
+    select(
+        FAQ.id,
+        FAQTranslation.question,  # FAQTranslationから取得（多言語対応）
+        func.count(FAQViewLog.id).label('view_count')
+    )
+    .join(FAQViewLog, FAQ.id == FAQViewLog.faq_id)
+    .join(FAQTranslation, FAQ.id == FAQTranslation.faq_id)
+    .where(
+        FAQ.facility_id == facility_id,
+        FAQTranslation.language == 'ja'  # 日本語を優先、またはリクエストの言語に合わせる
+    )
+    .group_by(FAQ.id, FAQTranslation.question)
+    .order_by(desc('view_count'))
+    .limit(10)
+)
+top_viewed_faqs = top_viewed_faqs_result.all()
 ```
 
-**SQLクエリ例（日別チャット数）:**
+**SQLクエリ例（日別チャット数、非同期処理）:**
 ```python
 from sqlalchemy import func, cast, Date
 
-daily_chats = db.query(
-    cast(Message.created_at, Date).label('date'),
-    func.count(Message.id).label('count')
-).join(Conversation).filter(
-    Conversation.facility_id == facility_id,
-    Message.role == 'user',
-    Message.created_at >= datetime.now() - timedelta(days=30)
-).group_by('date').order_by('date').all()
+daily_chats_result = await db.execute(
+    select(
+        cast(Message.created_at, Date).label('date'),
+        func.count(Message.id).label('count')
+    )
+    .join(Conversation, Message.conversation_id == Conversation.id)
+    .where(
+        Conversation.facility_id == facility_id,
+        Message.role == 'user',
+        Message.created_at >= datetime.utcnow() - timedelta(days=30)
+    )
+    .group_by(cast(Message.created_at, Date))
+    .order_by(cast(Message.created_at, Date))
+)
+daily_chats = daily_chats_result.all()
 ```
 
 #### 2.3 エラーログAPI
@@ -547,21 +690,33 @@ daily_chats = db.query(
 }
 ```
 
-**SQLクエリ例:**
+**SQLクエリ例（非同期処理）:**
 ```python
-query = db.query(ErrorLog).order_by(ErrorLog.created_at.desc())
+from sqlalchemy import select, func
 
+# ベースクエリ構築
+query = select(ErrorLog).order_by(ErrorLog.created_at.desc())
+
+# フィルタリング条件を追加
 if level:
-    query = query.filter(ErrorLog.error_level == level)
+    query = query.where(ErrorLog.error_level == level)
 if facility_id:
-    query = query.filter(ErrorLog.facility_id == facility_id)
+    query = query.where(ErrorLog.facility_id == facility_id)
 if start_date:
-    query = query.filter(ErrorLog.created_at >= start_date)
+    query = query.where(ErrorLog.created_at >= start_date)
 if end_date:
-    query = query.filter(ErrorLog.created_at <= end_date)
+    query = query.where(ErrorLog.created_at <= end_date)
 
-total = query.count()
-errors = query.offset((page - 1) * per_page).limit(per_page).all()
+# 総件数取得（非同期）
+count_query = select(func.count()).select_from(query.subquery())
+total_result = await db.execute(count_query)
+total = total_result.scalar()
+
+# ページネーション適用（非同期）
+errors_result = await db.execute(
+    query.offset((page - 1) * per_page).limit(per_page)
+)
+errors = errors_result.scalars().all()
 ```
 
 ##### GET /api/v1/developer/errors/{error_id}
@@ -647,30 +802,40 @@ errors = query.offset((page - 1) * per_page).limit(per_page).all()
 }
 ```
 
-**実装例:**
+**実装例（非同期処理）:**
 ```python
 import time
-from app.database import engine
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
+from app.database import AsyncSessionLocal
 from app.redis_client import redis_client
 
 @router.get("/system")
-async def system_health(current_user = Depends(require_developer_auth)):
+async def system_health(
+    current_user = Depends(require_developer_auth),
+    db: AsyncSession = Depends(get_db)
+):
     health_status = {}
     
-    # データベースチェック
+    # データベースチェック（非同期）
     try:
         start = time.time()
-        with engine.connect() as conn:
-            conn.execute("SELECT 1")
+        result = await db.execute(text("SELECT 1"))
+        await result.fetchone()  # 結果を取得
         db_time = (time.time() - start) * 1000
         health_status["database"] = {"status": "ok", "response_time_ms": round(db_time, 2)}
     except Exception as e:
         health_status["database"] = {"status": "error", "error": str(e)}
     
-    # Redisチェック
+    # Redisチェック（非同期対応が必要な場合）
     try:
         start = time.time()
-        redis_client.ping()
+        # Redisクライアントが非同期対応している場合
+        if hasattr(redis_client, 'ping'):
+            await redis_client.ping() if asyncio.iscoroutinefunction(redis_client.ping) else redis_client.ping()
+        else:
+            # 同期クライアントの場合
+            redis_client.ping()
         redis_time = (time.time() - start) * 1000
         health_status["redis"] = {"status": "ok", "response_time_ms": round(redis_time, 2)}
     except Exception as e:
@@ -683,10 +848,12 @@ async def system_health(current_user = Depends(require_developer_auth)):
 
 **ファイル:** `./backend/app/main.py` 拡張
 
-**既存のエラーハンドラーにログ記録を追加:**
+**既存のエラーハンドラーにログ記録を追加（非同期処理）:**
 ```python
 from app.models.error_log import ErrorLog
-from app.database import SessionLocal
+from app.database import AsyncSessionLocal
+from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request: Request, exc: HTTPException):
@@ -694,49 +861,82 @@ async def http_exception_handler(request: Request, exc: HTTPException):
     error_code_map = {...}
     error_code = error_code_map.get(exc.status_code, "INTERNAL_ERROR")
     
-    # データベースにエラーログ記録
-    try:
-        db = SessionLocal()
-        error_log = ErrorLog(
-            error_level="error",
-            error_code=error_code,
-            error_message=exc.detail,
-            request_path=str(request.url.path),
-            request_method=request.method,
-            ip_address=request.client.host,
-            user_agent=request.headers.get("user-agent")
-        )
-        db.add(error_log)
-        db.commit()
-        db.close()
-    except Exception as log_error:
-        logger.error(f"Failed to log error: {log_error}")
+    # データベースにエラーログ記録（非同期、バックグラウンドで実行）
+    # エラーログ記録の失敗がメイン処理に影響しないよう、別タスクで実行
+    async def log_error_async():
+        try:
+            async with AsyncSessionLocal() as db:
+                # facility_idとuser_idを取得（可能な場合）
+                facility_id = None
+                user_id = None
+                
+                # リクエストからユーザー情報を取得（可能な場合）
+                # 認証済みリクエストの場合は、stateから取得
+                if hasattr(request.state, "user"):
+                    user = request.state.user
+                    facility_id = user.facility_id if hasattr(user, "facility_id") else None
+                    user_id = user.id if hasattr(user, "id") else None
+                
+                error_log = ErrorLog(
+                    error_level="error",
+                    error_code=error_code,
+                    error_message=str(exc.detail),
+                    request_path=str(request.url.path),
+                    request_method=request.method,
+                    facility_id=facility_id,
+                    user_id=user_id,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent")
+                )
+                db.add(error_log)
+                await db.commit()
+        except Exception as log_error:
+            logger.error(f"Failed to log error: {log_error}")
+    
+    # バックグラウンドでエラーログ記録（メイン処理をブロックしない）
+    asyncio.create_task(log_error_async())
     
     return JSONResponse(...)
 ```
 
-**criticalレベルのエラーも同様に記録:**
+**criticalレベルのエラーも同様に記録（非同期処理）:**
 ```python
+import traceback
+
 @app.exception_handler(Exception)
 async def general_exception_handler(request: Request, exc: Exception):
-    # エラーログ記録（error_level='critical'）
-    try:
-        db = SessionLocal()
-        error_log = ErrorLog(
-            error_level="critical",
-            error_code="INTERNAL_ERROR",
-            error_message=str(exc),
-            stack_trace=traceback.format_exc(),
-            request_path=str(request.url.path),
-            request_method=request.method,
-            ip_address=request.client.host,
-            user_agent=request.headers.get("user-agent")
-        )
-        db.add(error_log)
-        db.commit()
-        db.close()
-    except Exception as log_error:
-        logger.error(f"Failed to log critical error: {log_error}")
+    # エラーログ記録（error_level='critical'、非同期、バックグラウンドで実行）
+    async def log_critical_error_async():
+        try:
+            async with AsyncSessionLocal() as db:
+                # facility_idとuser_idを取得（可能な場合）
+                facility_id = None
+                user_id = None
+                
+                if hasattr(request.state, "user"):
+                    user = request.state.user
+                    facility_id = user.facility_id if hasattr(user, "facility_id") else None
+                    user_id = user.id if hasattr(user, "id") else None
+                
+                error_log = ErrorLog(
+                    error_level="critical",
+                    error_code="INTERNAL_ERROR",
+                    error_message=str(exc),
+                    stack_trace=traceback.format_exc(),
+                    request_path=str(request.url.path),
+                    request_method=request.method,
+                    facility_id=facility_id,
+                    user_id=user_id,
+                    ip_address=request.client.host if request.client else None,
+                    user_agent=request.headers.get("user-agent")
+                )
+                db.add(error_log)
+                await db.commit()
+        except Exception as log_error:
+            logger.error(f"Failed to log critical error: {log_error}")
+    
+    # バックグラウンドでエラーログ記録（メイン処理をブロックしない）
+    asyncio.create_task(log_critical_error_async())
     
     return JSONResponse(...)
 ```
@@ -773,19 +973,25 @@ class ErrorLog(Base):
 
 **ファイル:** `./backend/app/models/admin_activity_log.py`
 ```python
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import INET
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from app.database import Base
+
 class AdminActivityLog(Base):
     __tablename__ = "admin_activity_logs"
     
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    facility_id = Column(Integer, ForeignKey("facilities.id", ondelete="CASCADE"), nullable=False)
-    action_type = Column(String(50), nullable=False)
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True)  # MVPではnullable
+    facility_id = Column(Integer, ForeignKey("facilities.id", ondelete="CASCADE"), nullable=True, index=True)  # MVPではnullable
+    action_type = Column(String(50), nullable=False, index=True)
     target_resource_type = Column(String(50))
     target_resource_id = Column(Integer)
     description = Column(Text)
     ip_address = Column(INET)
     user_agent = Column(Text)
-    created_at = Column(DateTime, default=datetime.now)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     
     user = relationship("User")
     facility = relationship("Facility")
@@ -793,16 +999,21 @@ class AdminActivityLog(Base):
 
 **ファイル:** `./backend/app/models/faq_view_log.py`
 ```python
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+from app.database import Base
+
 class FAQViewLog(Base):
     __tablename__ = "faq_view_logs"
     
-    id = Column(Integer, primary_key=True)
-    faq_id = Column(Integer, ForeignKey("faqs.id", ondelete="CASCADE"), nullable=False)
-    facility_id = Column(Integer, ForeignKey("facilities.id", ondelete="CASCADE"), nullable=False)
+    id = Column(Integer, primary_key=True, index=True)
+    faq_id = Column(Integer, ForeignKey("faqs.id", ondelete="CASCADE"), nullable=False, index=True)
+    facility_id = Column(Integer, ForeignKey("facilities.id", ondelete="CASCADE"), nullable=False, index=True)
     conversation_id = Column(Integer, ForeignKey("conversations.id", ondelete="SET NULL"))
     message_id = Column(Integer, ForeignKey("messages.id", ondelete="SET NULL"))
     guest_language = Column(String(10))
-    viewed_at = Column(DateTime, default=datetime.now)
+    viewed_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     
     faq = relationship("FAQ")
     facility = relationship("Facility")
@@ -1274,7 +1485,7 @@ const handleLogin = async (e: React.FormEvent) => {
 
 **実装箇所:** FAQがチャットで返却される際
 
-**追加コード例:**
+**追加コード例（非同期処理）:**
 ```python
 from app.models.faq_view_log import FAQViewLog
 
@@ -1282,9 +1493,14 @@ async def process_chat_message(...):
     # 既存のチャット処理
     chat_response = await self.rag_engine.process_message(...)
     
-    # マッチしたFAQのログ記録
-    if chat_response.matched_faq_ids:
-        for faq_id in chat_response.matched_faq_ids:
+    # AI応答メッセージを保存（既存処理）
+    ai_message = Message(...)
+    self.db.add(ai_message)
+    await self.db.flush()  # IDを取得
+    
+    # マッチしたFAQのログ記録（非同期）
+    if rag_response.matched_faq_ids:
+        for faq_id in rag_response.matched_faq_ids:
             faq_view_log = FAQViewLog(
                 faq_id=faq_id,
                 facility_id=conversation.facility_id,
@@ -1292,8 +1508,8 @@ async def process_chat_message(...):
                 message_id=ai_message.id,
                 guest_language=conversation.guest_language
             )
-            db.add(faq_view_log)
-        db.commit()
+            self.db.add(faq_view_log)
+        await self.db.commit()  # 非同期コミット
 ```
 
 #### 4.2 管理者ログインログ記録
@@ -1302,29 +1518,30 @@ async def process_chat_message(...):
 
 **実装箇所:** ログイン成功時
 
-**追加コード例:**
+**追加コード例（非同期処理）:**
 ```python
 from app.models.admin_activity_log import AdminActivityLog
+from sqlalchemy.ext.asyncio import AsyncSession
 
 @router.post("/login")
 async def login(
     credentials: LoginRequest,
     request: Request,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
-    # 既存の認証処理
-    user = authenticate_user(db, credentials.email, credentials.password)
+    # 既存の認証処理（非同期）
+    user = await authenticate_user(db, credentials.email, credentials.password)
     
-    # アクティビティログ記録
+    # アクティビティログ記録（非同期）
     activity_log = AdminActivityLog(
         user_id=user.id,
         facility_id=user.facility_id,
         action_type="login",
-        ip_address=request.client.host,
+        ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
     db.add(activity_log)
-    db.commit()
+    await db.commit()  # 非同期コミット
     
     return {...}
 ```
@@ -1335,45 +1552,49 @@ async def login(
 
 **実装箇所:** FAQ作成/更新/削除API
 
-**追加コード例:**
+**追加コード例（非同期処理）:**
 ```python
+from sqlalchemy.ext.asyncio import AsyncSession
+
 @router.post("/")
 async def create_faq(
     faq_data: FAQCreate,
     request: Request,
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
-    # FAQ作成処理
+    # FAQ作成処理（非同期）
     new_faq = FAQ(**faq_data.dict(), created_by=current_user.id)
     db.add(new_faq)
-    db.flush()  # IDを取得
+    await db.flush()  # IDを取得（非同期）
     
-    # アクティビティログ記録
+    # アクティビティログ記録（非同期）
     activity_log = AdminActivityLog(
         user_id=current_user.id,
         facility_id=current_user.facility_id,
         action_type="faq_create",
         target_resource_type="faq",
         target_resource_id=new_faq.id,
-        description=f"FAQ作成: {faq_data.question[:50]}...",
-        ip_address=request.client.host,
+        description=f"FAQ作成: {faq_data.translations[0].question[:50] if faq_data.translations else 'N/A'}...",
+        ip_address=request.client.host if request.client else None,
         user_agent=request.headers.get("user-agent")
     )
     db.add(activity_log)
-    db.commit()
+    await db.commit()  # 非同期コミット
     
     return new_faq
 
 @router.put("/{faq_id}")
 async def update_faq(...):
-    # 更新処理
+    # 更新処理（非同期）
     # action_type="faq_update" でログ記録
+    # await db.commit() を使用
 
 @router.delete("/{faq_id}")
 async def delete_faq(...):
-    # 削除処理
+    # 削除処理（非同期）
     # action_type="faq_delete" でログ記録
+    # await db.commit() を使用
 ```
 
 ---
@@ -1400,32 +1621,42 @@ DEVELOPER_SESSION_EXPIRE_HOURS=24
 
 **対象ファイル:** `./backend/app/core/developer_auth.py`
 
-**実装:**
+**実装（非同期処理、Phase 3以降で実装）:**
 ```python
 from app.models.admin_activity_log import AdminActivityLog
+from sqlalchemy.ext.asyncio import AsyncSession
+import asyncio
 
 async def require_developer_auth(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     request: Request = None,
-    db: Session = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
-    # 既存の認証処理
-    user = verify_developer_token(credentials.credentials, db)
+    # 既存の認証処理（JWT検証）
+    payload = await verify_developer_token(credentials.credentials)
     
-    # 開発者アクセスログ記録
-    activity_log = AdminActivityLog(
-        user_id=user.id,
-        facility_id=user.facility_id,  # 開発者の場合はNULL許可
-        action_type="developer_access",
-        target_resource_type="page",
-        description=f"開発者ページアクセス: {request.url.path}",
-        ip_address=request.client.host,
-        user_agent=request.headers.get("user-agent")
-    )
-    db.add(activity_log)
-    db.commit()
+    # 開発者アクセスログ記録（非同期、バックグラウンドで実行）
+    # 注意: MVPアプローチではログ記録は省略可能（Phase 3以降で実装）
+    async def log_access_async():
+        try:
+            activity_log = AdminActivityLog(
+                user_id=None,  # MVPではユーザーIDなし
+                facility_id=None,  # 開発者の場合はNULL
+                action_type="developer_access",
+                target_resource_type="page",
+                description=f"開発者ページアクセス: {request.url.path}",
+                ip_address=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent")
+            )
+            db.add(activity_log)
+            await db.commit()
+        except Exception as log_error:
+            logger.error(f"Failed to log developer access: {log_error}")
     
-    return user
+    # バックグラウンドでログ記録（メイン処理をブロックしない）
+    asyncio.create_task(log_access_async())
+    
+    return payload
 ```
 
 #### 5.3 セッショントークン有効期限管理

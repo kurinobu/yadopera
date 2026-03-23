@@ -2,7 +2,7 @@
 FAQ管理APIエンドポイント
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, status, Query, Request, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 from datetime import datetime, timezone, timedelta
@@ -10,8 +10,16 @@ from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.facility import Facility
-from app.schemas.faq import FAQRequest, FAQUpdateRequest, FAQResponse, FAQListResponse, BulkFAQCreateResponse
+from app.schemas.faq import (
+    FAQRequest,
+    FAQUpdateRequest,
+    FAQResponse,
+    FAQListResponse,
+    BulkFAQCreateResponse,
+    BulkUploadResult,
+)
 from app.services.faq_service import FAQService
+from app.services.csv_parser import CSVParseError
 from app.core.plan_limits import get_initial_faq_count
 
 router = APIRouter(prefix="/admin/faqs", tags=["admin", "faqs"])
@@ -51,6 +59,8 @@ async def get_faqs(
         )
         
         # 施設情報を取得して、バックグラウンド処理が進行中かどうかを判定
+        # is_initializing は「施設作成直後の初期自動登録（バックグラウンド処理）中」のみ True とする。
+        # 単に FAQ が 20 件未満の施設では False とし、不要なポーリングを防ぐ。
         facility = await db.get(Facility, facility_id)
         is_initializing = False
         
@@ -59,12 +69,9 @@ async def get_faqs(
             expected_count = get_initial_faq_count(facility.subscription_plan)
             actual_count = len(faqs)
             
-            # 施設作成から60秒以内で、期待値と一致しない場合は進行中とみなす
-            # ステージング環境での処理時間を考慮して60秒に拡張
-            if time_since_creation < timedelta(seconds=60) and actual_count < expected_count:
-                is_initializing = True
-            # 期待値未満の場合は常に進行中とみなす（より確実）
-            elif actual_count < expected_count:
+            # 施設作成から N 秒以内 かつ 期待値未満の場合のみ進行中とみなす
+            # ステージング環境での処理時間を考慮して 120 秒に設定
+            if time_since_creation < timedelta(seconds=120) and actual_count < expected_count:
                 is_initializing = True
         
         # totalはインテント単位でカウント（言語に関係なく、FAQ.idをカウント）
@@ -83,6 +90,7 @@ async def get_faqs(
 @router.post("", response_model=FAQResponse, status_code=status.HTTP_201_CREATED)
 async def create_faq(
     request: FAQRequest,
+    http_request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -118,6 +126,22 @@ async def create_faq(
             user_id=current_user.id
         )
         
+        # アクティビティログ記録（非同期）
+        from app.models.admin_activity_log import AdminActivityLog
+        question_preview = request.translations[0].question[:50] if request.translations else 'N/A'
+        activity_log = AdminActivityLog(
+            user_id=current_user.id,
+            facility_id=facility_id,
+            action_type="faq_create",
+            target_resource_type="faq",
+            target_resource_id=faq.id,
+            description=f"FAQ作成: {question_preview}...",
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent")
+        )
+        db.add(activity_log)
+        await db.commit()
+        
         return faq
     
     except ValueError as e:
@@ -140,6 +164,7 @@ async def create_faq(
 async def update_faq(
     faq_id: int,
     request: FAQUpdateRequest,
+    http_request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -177,6 +202,22 @@ async def update_faq(
             user_id=current_user.id
         )
         
+        # アクティビティログ記録（非同期）
+        from app.models.admin_activity_log import AdminActivityLog
+        question_preview = request.translations[0].question[:50] if request.translations and len(request.translations) > 0 else 'N/A'
+        activity_log = AdminActivityLog(
+            user_id=current_user.id,
+            facility_id=facility_id,
+            action_type="faq_update",
+            target_resource_type="faq",
+            target_resource_id=faq_id,
+            description=f"FAQ更新: {question_preview}...",
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent")
+        )
+        db.add(activity_log)
+        await db.commit()
+        
         return faq
     
     except ValueError as e:
@@ -198,6 +239,7 @@ async def update_faq(
 @router.delete("/{faq_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_faq(
     faq_id: int,
+    http_request: Request,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
@@ -224,6 +266,21 @@ async def delete_faq(
             facility_id=facility_id
         )
         
+        # アクティビティログ記録（非同期）
+        from app.models.admin_activity_log import AdminActivityLog
+        activity_log = AdminActivityLog(
+            user_id=current_user.id,
+            facility_id=facility_id,
+            action_type="faq_delete",
+            target_resource_type="faq",
+            target_resource_id=faq_id,
+            description=f"FAQ削除: FAQ ID {faq_id}",
+            ip_address=http_request.client.host if http_request.client else None,
+            user_agent=http_request.headers.get("user-agent")
+        )
+        db.add(activity_log)
+        await db.commit()
+        
         return None
     
     except ValueError as e:
@@ -239,6 +296,64 @@ async def delete_faq(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error deleting FAQ: {str(e)}"
+        )
+
+
+MAX_CSV_SIZE_BYTES = 10 * 1024 * 1024  # 10MB
+
+
+@router.post("/bulk-upload", response_model=BulkUploadResult, status_code=status.HTTP_201_CREATED)
+async def bulk_upload_faqs(
+    file: UploadFile = File(..., description="CSVファイル"),
+    mode: str = Form("add", description="登録モード（add: 追加のみ）"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    CSVファイルからFAQを一括登録。Standard/Premiumプランのみ利用可能。
+    """
+    facility_id = current_user.facility_id
+    if not facility_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User is not associated with any facility",
+        )
+    facility = await db.get(Facility, facility_id)
+    if not facility:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Facility not found",
+        )
+    if facility.plan_type not in ("Standard", "Premium"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="CSV一括登録はStandardプランまたはPremiumプランでのみ利用可能です",
+        )
+    content = await file.read()
+    if len(content) > MAX_CSV_SIZE_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="ファイルサイズは10MB以内にしてください",
+        )
+    faq_service = FAQService(db)
+    try:
+        result = await faq_service.bulk_create_faqs_from_csv(
+            facility_id=facility_id,
+            file_bytes=content,
+            user_id=current_user.id,
+            mode=mode,
+        )
+        return BulkUploadResult(**result)
+    except CSVParseError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).exception("bulk_upload_faqs error")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="内部サーバーエラーが発生しました。しばらく待ってから再度お試しください。",
         )
 
 

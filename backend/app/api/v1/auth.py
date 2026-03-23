@@ -2,15 +2,27 @@
 認証APIエンドポイント
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 from app.database import get_db
+from app.models.facility import Facility
 from app.api.deps import get_current_user
-from app.schemas.auth import LoginRequest, LoginResponse, LogoutResponse, UserResponse, PasswordChangeRequest, PasswordChangeResponse, FacilityRegisterRequest
+from app.core.rate_limit import check_resend_rate_limit, check_password_reset_rate_limit
+from app.schemas.auth import (
+    LoginRequest, LoginResponse, LogoutResponse, UserResponse,
+    OnboardingSeenResponse,
+    PasswordChangeRequest, PasswordChangeResponse,
+    FacilityRegisterRequest, FacilityRegisterResponse,
+    VerifyEmailRequest, VerifyEmailResponse,
+    ResendVerificationRequest, ResendVerificationResponse,
+    PasswordResetRequest, PasswordResetConfirmRequest, PasswordResetResponse
+)
 from app.services.auth_service import AuthService
 from app.models.user import User
 from app.core.security import hash_password, verify_password
+from datetime import datetime, timezone
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -18,6 +30,7 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 @router.post("/login", response_model=LoginResponse)
 async def login(
     login_data: LoginRequest,
+    request: Request,
     db: AsyncSession = Depends(get_db)
 ):
     """
@@ -28,10 +41,10 @@ async def login(
     
     成功時はJWTアクセストークンを返却
     """
-    return await AuthService.login(db, login_data)
+    return await AuthService.login(db, login_data, request)
 
 
-@router.post("/register", response_model=LoginResponse)
+@router.post("/register", response_model=FacilityRegisterResponse)
 async def register_facility(
     request: FacilityRegisterRequest,
     background_tasks: BackgroundTasks,
@@ -45,8 +58,10 @@ async def register_facility(
     - **facility_name**: 施設名
     - **subscription_plan**: 料金プラン（デフォルト: small）
     
-    成功時は施設・ユーザー作成、JWTアクセストークンを返却
-    FAQ自動投入はバックグラウンドで実行されます
+    ★変更点:
+    - 登録後、メール確認が必要になりました
+    - 確認メールを送信し、メール内のリンクをクリックするとアカウントが有効化されます
+    - FAQ自動投入はバックグラウンドで実行されます
     """
     try:
         return await AuthService.register_facility(db, request, background_tasks)
@@ -81,21 +96,48 @@ async def register_facility(
 
 @router.get("/me", response_model=UserResponse)
 async def get_current_user_info(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
 ):
     """
     現在のユーザー情報取得
     
     JWTトークンから現在のユーザー情報を返却
     """
+    # 初回ログイン時やることリストモーダル表示要否（施設の onboarding_modal_shown_at が NULL なら True）
+    facility_result = await db.execute(select(Facility).where(Facility.id == current_user.facility_id))
+    facility = facility_result.scalar_one_or_none()
+    show_onboarding_modal = facility is not None and facility.onboarding_modal_shown_at is None
+
     return UserResponse(
         id=current_user.id,
         email=current_user.email,
         full_name=current_user.full_name,
         role=current_user.role,
         facility_id=current_user.facility_id,
-        is_active=current_user.is_active
+        is_active=current_user.is_active,
+        email_verified=current_user.email_verified,
+        show_onboarding_modal=show_onboarding_modal,
     )
+
+
+@router.post("/onboarding-seen", response_model=OnboardingSeenResponse)
+async def mark_onboarding_seen(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    初回ログイン時やることリストモーダルを表示済みとして記録する
+    
+    認証必須。現在ユーザーの施設の onboarding_modal_shown_at を現在時刻で更新する。
+    以降 GET /me およびログイン応答で show_onboarding_modal は false になる。
+    """
+    facility_result = await db.execute(select(Facility).where(Facility.id == current_user.facility_id))
+    facility = facility_result.scalar_one_or_none()
+    if facility is not None:
+        facility.onboarding_modal_shown_at = datetime.now(timezone.utc)
+        await db.commit()
+    return OnboardingSeenResponse(ok=True)
 
 
 @router.post("/logout", response_model=LogoutResponse)
@@ -170,4 +212,78 @@ async def change_password(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error changing password: {str(e)}"
         )
+
+
+@router.post("/verify-email", response_model=VerifyEmailResponse)
+async def verify_email(
+    request: VerifyEmailRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    メールアドレス確認
+    
+    - **token**: 確認トークン（メールに記載されたURL内のトークン）
+    
+    確認成功時はアカウントが有効化され、ログイン可能になります
+    """
+    return await AuthService.verify_email(db, request)
+
+
+@router.post("/resend-verification", response_model=ResendVerificationResponse)
+async def resend_verification_email(
+    request: ResendVerificationRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    確認メール再送信
+    
+    - **email**: メールアドレス
+    
+    確認メールを再送信します（有効期限は新たに24時間）
+    
+    ★レート制限: 60秒に1回まで
+    """
+    # 🔴 レート制限チェック
+    check_resend_rate_limit(request.email, cooldown_seconds=60)
+
+    return await AuthService.resend_verification_email(db, request)
+
+
+@router.post("/password-reset", response_model=PasswordResetResponse)
+async def request_password_reset(
+    request: PasswordResetRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    パスワードリセット依頼
+
+    - **email**: 登録済みメールアドレス
+
+    該当ユーザーにリセット用メールを送信します（ユーザー不在時も同じ成功メッセージを返します）。
+    レート制限: 同一メールアドレスで60秒に1回まで。
+    """
+    check_password_reset_rate_limit(request.email, cooldown_seconds=60)
+    return await AuthService.request_password_reset(db, request.email)
+
+
+@router.post("/password-reset/confirm", response_model=PasswordResetResponse)
+async def confirm_password_reset(
+    request: PasswordResetConfirmRequest,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    パスワードリセット確定
+
+    - **token**: リセットトークン（メール内リンクの token パラメータ）
+    - **new_password**: 新しいパスワード（最小8文字）
+    - **confirm_password**: 新しいパスワード（確認）
+
+    トークンが有効な場合、パスワードを更新します。
+    """
+    return await AuthService.confirm_password_reset(
+        db,
+        request.token,
+        request.new_password,
+        request.confirm_password
+    )
 

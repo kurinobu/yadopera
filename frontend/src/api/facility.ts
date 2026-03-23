@@ -35,6 +35,14 @@ export const facilityApi = {
   async updateFacilitySettings(data: FacilitySettingsUpdateRequest): Promise<FacilitySettingsResponse> {
     const response = await apiClient.put<FacilitySettingsResponse>('/admin/facility/settings', data)
     return response.data
+  },
+
+  /**
+   * リードエントリー（クーポン取得）送信
+   */
+  async submitLeadEntry(slug: string, data: { guest_name?: string; email: string }): Promise<{ success: boolean; message: string }> {
+    const response = await apiClient.post<{ success: boolean; message: string }>(`/facility/${slug}/lead`, data)
+    return response.data
   }
 }
 

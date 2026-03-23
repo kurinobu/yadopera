@@ -11,6 +11,13 @@ from app.schemas.auth import (
 from app.schemas.facility import (
     FacilityResponse,
     FacilityPublicResponse,
+    CouponPublic,
+)
+from app.schemas.lead import (
+    LeadEntryRequest,
+    LeadEntryResponse,
+    LeadListItem,
+    LeadListResponse,
 )
 from app.schemas.chat import (
     ChatRequest,
@@ -49,6 +56,12 @@ __all__ = [
     # Facility
     "FacilityResponse",
     "FacilityPublicResponse",
+    "CouponPublic",
+    # Lead (coupon / lead-get)
+    "LeadEntryRequest",
+    "LeadEntryResponse",
+    "LeadListItem",
+    "LeadListResponse",
     # Chat
     "ChatRequest",
     "ChatResponse",

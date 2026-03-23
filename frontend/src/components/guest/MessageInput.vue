@@ -4,14 +4,14 @@
       for="message-input"
       class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
     >
-      メッセージを入力 / Enter your message
+      {{ copy.messageInput.label }}
     </label>
     <div class="flex space-x-2">
       <input
         id="message-input"
         v-model="message"
         type="text"
-        :placeholder="placeholder"
+        :placeholder="copy.messageInput.placeholder"
         :maxlength="maxLength"
         :disabled="disabled"
         class="flex-1 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:opacity-50 disabled:cursor-not-allowed"
@@ -45,21 +45,24 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { getGuestCopy } from '@/utils/guestCopy'
 import { MIN_MESSAGE_LENGTH, MAX_MESSAGE_LENGTH } from '@/utils/constants'
 
 interface Props {
-  placeholder?: string
+  lang?: string
   disabled?: boolean
   showCharCount?: boolean
   maxLength?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  placeholder: '質問を入力してください...',
+  lang: 'en',
   disabled: false,
   showCharCount: true,
   maxLength: MAX_MESSAGE_LENGTH
 })
+
+const copy = computed(() => getGuestCopy(props.lang))
 
 const emit = defineEmits<{
   submit: [message: string]
