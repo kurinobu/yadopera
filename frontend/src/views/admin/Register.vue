@@ -126,6 +126,7 @@ import { useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
 import { useAuthStore } from '@/stores/auth'
 import Input from '@/components/common/Input.vue'
+import { getApiErrorMessage } from '@/utils/errorHandler'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -195,12 +196,14 @@ const handleRegister = async () => {
       }
     })
     console.log('[Register] ✅ Navigation completed (success)')
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[Register] ❌ Registration error:', error)
-    
-    // 🔴 修正: メール確認未完了のエラーの場合、確認メール再送信ページに遷移
-    if (error.response?.status === 400 && 
-        error.response?.data?.detail?.includes('メール確認が完了していません')) {
+
+    const apiMsg = getApiErrorMessage(error)
+    if (
+      apiMsg?.includes('メール確認が完了していません') ||
+      apiMsg?.includes('already registered but not verified')
+    ) {
       console.log('[Register] 🚀 Navigating to EmailVerificationPending (email not verified)')
       await router.push({
         name: 'EmailVerificationPending',
@@ -212,12 +215,9 @@ const handleRegister = async () => {
       console.log('[Register] ✅ Navigation completed (email not verified)')
       return
     }
-    
-    if (error.response?.data?.detail) {
-      errorMessage.value = error.response.data.detail
-    } else {
-      errorMessage.value = '登録に失敗しました。入力内容を確認してください。'
-    }
+
+    errorMessage.value =
+      apiMsg ?? '登録に失敗しました。入力内容を確認してください。'
   } finally {
     isLoading.value = false
   }

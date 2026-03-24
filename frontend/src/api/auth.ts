@@ -16,7 +16,9 @@ export const authApi = {
    * ログイン
    */
   async login(data: LoginRequest): Promise<LoginResponse> {
-    const response = await apiClient.post<LoginResponse>('/auth/login', data)
+    const response = await apiClient.post<LoginResponse>('/auth/login', data, {
+      timeout: 60000
+    })
     return response.data
   },
 
@@ -24,7 +26,10 @@ export const authApi = {
    * 施設登録
    */
   async register(data: RegisterRequest): Promise<FacilityRegisterResponse> {
-    const response = await apiClient.post<FacilityRegisterResponse>('/auth/register', data)
+    // 登録はDB確定＋Brevo送信などで数秒〜十数秒かかる。既定10秒だと本番でタイムアウトしやすい
+    const response = await apiClient.post<FacilityRegisterResponse>('/auth/register', data, {
+      timeout: 120000
+    })
     return response.data
   },
 
@@ -32,7 +37,9 @@ export const authApi = {
    * メールアドレス確認
    */
   async verifyEmail(data: VerifyEmailRequest): Promise<VerifyEmailResponse> {
-    const response = await apiClient.post<VerifyEmailResponse>('/auth/verify-email', data)
+    const response = await apiClient.post<VerifyEmailResponse>('/auth/verify-email', data, {
+      timeout: 60000
+    })
     return response.data
   },
 
@@ -40,7 +47,11 @@ export const authApi = {
    * 確認メール再送信
    */
   async resendVerification(data: ResendVerificationRequest): Promise<ResendVerificationResponse> {
-    const response = await apiClient.post<ResendVerificationResponse>('/auth/resend-verification', data)
+    const response = await apiClient.post<ResendVerificationResponse>(
+      '/auth/resend-verification',
+      data,
+      { timeout: 60000 }
+    )
     return response.data
   },
 

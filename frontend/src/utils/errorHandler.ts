@@ -12,6 +12,36 @@ export interface AppError {
 }
 
 /**
+ * apiClient のレスポンスインターセプターが AxiosError を { code, message } に変換するため、
+ * コンポーネントの catch では error.response が無いことが多い。
+ * 生の Axios エラーと変換後の両方からユーザー向け文言を取り出す。
+ */
+export function getApiErrorMessage(error: unknown): string | null {
+  if (error === null || typeof error !== 'object') {
+    return null
+  }
+  const e = error as Record<string, unknown>
+  const m = e.message
+  if (typeof m === 'string' && m.trim() !== '') {
+    return m
+  }
+  const resp = e.response as Record<string, unknown> | undefined
+  const data = resp?.data as Record<string, unknown> | undefined
+  if (data) {
+    const detail = data.detail
+    if (detail != null && detail !== '') {
+      return typeof detail === 'string' ? detail : JSON.stringify(detail)
+    }
+    const errBody = data.error as Record<string, unknown> | undefined
+    const em = errBody?.message
+    if (typeof em === 'string' && em.trim() !== '') {
+      return em
+    }
+  }
+  return null
+}
+
+/**
  * APIエラーを処理
  */
 export function handleApiError(error: unknown): AppError {

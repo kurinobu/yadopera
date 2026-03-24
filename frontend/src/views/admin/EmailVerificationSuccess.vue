@@ -125,6 +125,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { authApi } from '@/api/auth'
+import { getApiErrorMessage } from '@/utils/errorHandler'
 
 const route = useRoute()
 const router = useRouter()
@@ -155,10 +156,9 @@ onMounted(async () => {
     const response = await authApi.verifyEmail({ token })
     verifiedEmail.value = response.email
     isSuccess.value = true
-  } catch (error: any) {
-    if (error.response?.data?.detail) {
-      const detail = error.response.data.detail
-      // 🔴 修正: トークンが既に使用済みの場合、適切なメッセージを表示
+  } catch (error: unknown) {
+    const detail = getApiErrorMessage(error)
+    if (detail) {
       if (detail.includes('already been used') || detail.includes('already verified')) {
         errorMessage.value = 'このリンクは既に使用されています。既にメールアドレスの確認が完了している可能性があります。ログインページからログインを試してください。'
       } else {

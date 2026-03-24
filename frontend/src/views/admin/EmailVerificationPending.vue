@@ -105,6 +105,7 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { authApi } from '@/api/auth'
+import { getApiErrorMessage } from '@/utils/errorHandler'
 
 const route = useRoute()
 
@@ -137,27 +138,17 @@ const resendEmail = async () => {
         cooldownTimer = null
       }
     }, 1000)
-  } catch (error: any) {
-    // 🟡 HTTPステータスコード別のエラー処理（強化）
-    if (error.response) {
-      // サーバーからのエラーレスポンス
-      const status = error.response.status
-      const detail = error.response.data?.detail
-      
-      if (status === 429) {
-        // レート制限
-        resendError.value = 'しばらく時間をおいてから再度お試しください。（60秒）'
-      } else if (detail) {
-        resendError.value = detail
-      } else {
-        resendError.value = '再送信に失敗しました。'
-      }
-    } else if (error.request) {
-      // ネットワークエラー（リクエストは送信されたがレスポンスなし）
-      resendError.value = 'ネットワークエラーが発生しました。インターネット接続を確認してください。'
+  } catch (error: unknown) {
+    const code = (error as { code?: string }).code
+    if (code === 'RATE_LIMIT') {
+      resendError.value = 'しばらく時間をおいてから再度お試しください。（60秒）'
     } else {
-      // その他のエラー
-      resendError.value = '予期しないエラーが発生しました。'
+      const msg = getApiErrorMessage(error)
+      resendError.value =
+        msg ??
+        (code === 'NETWORK_ERROR'
+          ? 'ネットワークエラーが発生しました。インターネット接続を確認してください。'
+          : '再送信に失敗しました。')
     }
   } finally {
     isResending.value = false
