@@ -14,6 +14,10 @@ from app.schemas.chat import (
 from app.services.chat_service import ChatService
 from app.services.escalation_service import EscalationService
 from app.models.conversation import Conversation
+from app.models.message import Message, MessageRole
+from app.services.escalation_absence_routing import queue_escalation_if_staff_absence
+from app.services.escalation_notification_service import send_staff_escalation_notification
+from app.services.overnight_queue_service import OvernightQueueService
 from typing import Optional
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -195,7 +199,31 @@ async def escalate_to_staff(
             notification_channels=["email"],
             db=db
         )
-        
+
+        msg_result = await db.execute(
+            select(Message)
+            .where(
+                Message.conversation_id == conversation.id,
+                Message.role == MessageRole.USER.value,
+            )
+            .order_by(Message.created_at.desc())
+            .limit(1)
+        )
+        last_user = msg_result.scalar_one_or_none()
+        guest_message = (last_user.content or "") if last_user else ""
+
+        queued_for_overnight = await queue_escalation_if_staff_absence(
+            db,
+            facility_id=request.facility_id,
+            escalation_id=escalation.id,
+            conversation_id=conversation.id,
+            guest_message=guest_message,
+            guest_language_for_auto_reply=conversation.guest_language or "en",
+            overnight_queue_service=OvernightQueueService(),
+        )
+        if not queued_for_overnight:
+            await send_staff_escalation_notification(db, escalation.id)
+
         return EscalationResponse(
             success=True,
             escalation_id=escalation.id,

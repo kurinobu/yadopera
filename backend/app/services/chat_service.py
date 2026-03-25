@@ -36,6 +36,7 @@ from app.ai.vector_search import search_similar_faqs
 from app.ai.fallback import get_faq_only_no_match_message
 from app.services.escalation_service import EscalationService
 from app.services.escalation_notification_service import send_staff_escalation_notification
+from app.services.escalation_absence_routing import queue_escalation_if_staff_absence
 from app.services.overnight_queue_service import OvernightQueueService
 from app.services.stripe_service import is_stripe_configured, report_usage_to_meter
 from app.core.plan_limits import get_plan_limits
@@ -228,55 +229,15 @@ class ChatService:
                 db=self.db
             )
             escalation_id = escalation.id
-            queued_for_overnight = False
-
-            # 夜間対応キュー処理（スタッフ不在時間帯の場合）
-            facility = await self.db.get(Facility, request.facility_id)
-            if facility:
-                timezone_str = facility.timezone or 'Asia/Tokyo'
-                utc_now = datetime.now(timezone.utc)
-                facility_tz = pytz.timezone(timezone_str)
-                local_now = utc_now.astimezone(facility_tz)
-                
-                # スタッフ不在時間帯を取得
-                staff_absence_periods = []
-                if facility.staff_absence_periods:
-                    try:
-                        import json
-                        if isinstance(facility.staff_absence_periods, str):
-                            staff_absence_periods = json.loads(facility.staff_absence_periods)
-                        else:
-                            staff_absence_periods = facility.staff_absence_periods
-                    except (json.JSONDecodeError, TypeError, ValueError):
-                        # パースエラーの場合は空リスト
-                        staff_absence_periods = []
-                
-                # 現在の曜日を取得
-                current_weekday = local_now.strftime("%a").lower()  # 'mon', 'tue', etc.
-                
-                # スタッフ不在時間帯の判定
-                from app.utils.staff_absence import is_in_staff_absence_period
-                if is_in_staff_absence_period(
-                    current_time=local_now,
-                    current_weekday=current_weekday,
-                    staff_absence_periods=staff_absence_periods
-                ):
-                    # 夜間対応キューに追加（この場合は即時メールは送らず、スケジュール側で送る）
-                    await self.overnight_queue_service.add_to_overnight_queue(
-                        facility_id=request.facility_id,
-                        escalation_id=escalation.id,
-                        guest_message=request.message,
-                        db=self.db
-                    )
-                    
-                    # 夜間自動返信メッセージ送信
-                    await self.overnight_queue_service.send_overnight_auto_reply(
-                        conversation_id=conversation.id,
-                        language=request.language,
-                        db=self.db
-                    )
-                    queued_for_overnight = True
-
+            queued_for_overnight = await queue_escalation_if_staff_absence(
+                self.db,
+                facility_id=request.facility_id,
+                escalation_id=escalation.id,
+                conversation_id=conversation.id,
+                guest_message=request.message,
+                guest_language_for_auto_reply=request.language,
+                overnight_queue_service=self.overnight_queue_service,
+            )
             if not queued_for_overnight:
                 await send_staff_escalation_notification(self.db, escalation.id)
         
