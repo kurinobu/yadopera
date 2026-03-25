@@ -1,11 +1,11 @@
 <template>
   <div class="bg-white dark:bg-gray-800 rounded-lg shadow border border-gray-200 dark:border-gray-700 p-6">
     <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-      未解決の質問
+      FAQとAIで解決できなかった質問
     </h3>
     
     <div v-if="escalations.length === 0" class="text-center py-8">
-      <p class="text-gray-500 dark:text-gray-400">未解決の質問はありません</p>
+      <p class="text-gray-500 dark:text-gray-400">FAQとAIで解決できなかった質問はありません</p>
     </div>
     
     <div v-else class="space-y-3">
