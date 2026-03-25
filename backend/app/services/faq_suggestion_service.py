@@ -138,24 +138,14 @@ class FAQSuggestionService:
         if message.conversation.facility_id != facility_id:
             raise ValueError(f"Message does not belong to facility: message_id={message_id}, facility_id={facility_id}")
         
-        # USERロールのメッセージに対してFAQ提案を生成しようとした場合、エラーを発生させる
+        # USERロールも未解決質問（staff_mode等）として扱えるため、例外で止めずに新規FAQ提案として生成する。
         if message.role == MessageRole.USER.value:
-            logger.error(
-                f"Attempted to generate FAQ suggestion for USER role message: "
-                f"message_id={message_id}, facility_id={facility_id}, "
-                f"conversation_id={message.conversation_id}, "
-                f"content={message.content[:100] if message.content else 'None'}..."
-            )
-            # データ不整合の可能性をログに記録
-            logger.error(
-                f"Data inconsistency detected: message_id={message_id} is USER role but was included in negative feedbacks. "
-                f"This should not happen as feedback_service.py filters for ASSISTANT role messages only."
-            )
-            raise ValueError(
-                f"FAQ suggestion cannot be generated for USER role messages. "
-                f"Please specify an ASSISTANT role message (message_id={message_id} is USER role). "
-                f"USER role messages are user questions, not AI responses that need improvement. "
-                f"If you see this error, it indicates a data inconsistency issue."
+            logger.info(
+                "FAQ suggestion generate from USER role message (new question): "
+                "message_id=%s facility_id=%s conversation_id=%s",
+                message_id,
+                facility_id,
+                message.conversation_id,
             )
         
         # 既存の提案を確認（最新の1件を取得）

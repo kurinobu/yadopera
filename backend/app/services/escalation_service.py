@@ -414,8 +414,19 @@ class EscalationService:
                         f"No assistant message found after user message for conversation {conversation.id} "
                         f"(escalation_id={escalation.id}, facility_id={facility_id}, user_message_id={user_message.id})"
                     )
-                    # ASSISTANTメッセージが見つからない場合、このエスカレーションは未解決質問リストから除外される
-                    continue
+                    # ASSISTANTメッセージが無い経路（例: ゲストの「スタッフへ連絡」）でも、
+                    # 未解決質問リストに載せるために USERメッセージIDで返す。
+                    unresolved_questions.append(
+                        UnresolvedQuestionResponse(
+                            id=escalation.id,
+                            message_id=user_message.id,  # USERロールのメッセージID（staff_mode等）
+                            facility_id=facility_id,
+                            question=user_message.content,
+                            language=conversation.guest_language or "en",
+                            confidence_score=float(escalation.ai_confidence) if escalation.ai_confidence else 0.0,
+                            created_at=escalation.created_at,
+                        )
+                    )
             else:
                 logger.warning(
                     f"No user message found for conversation {conversation.id} "
