@@ -3,8 +3,8 @@
 """
 
 import pytest
-from datetime import datetime, timedelta
-from unittest.mock import patch
+from datetime import datetime, timezone
+from unittest.mock import patch, AsyncMock
 from app.services.overnight_queue_service import OvernightQueueService
 from app.models.overnight_queue import OvernightQueue
 from app.models.escalation import Escalation
@@ -138,4 +138,116 @@ class TestOvernightQueue:
         system_messages = [m for m in messages if m.role == "system"]
         assert len(system_messages) > 0
 
+    @pytest.mark.asyncio
+    async def test_process_scheduled_notifications_sends_staff_notification(
+        self, db_session, test_facility, queue_service
+    ):
+        """時間窓内のキューに対しスタッフ通知経路が成功したら queue.notified_at が立つ"""
+        from app.models.escalation import Escalation
+
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="test-session-process-notify",
+            guest_language="en",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+        await db_session.refresh(conversation)
+
+        escalation = Escalation(
+            facility_id=test_facility.id,
+            conversation_id=conversation.id,
+            trigger_type="low_confidence",
+            ai_confidence=0.5,
+            escalation_mode="normal",
+        )
+        db_session.add(escalation)
+        await db_session.commit()
+        await db_session.refresh(escalation)
+
+        scheduled = datetime.utcnow()
+        oq = OvernightQueue(
+            facility_id=test_facility.id,
+            escalation_id=escalation.id,
+            guest_message="hello",
+            scheduled_notify_at=scheduled,
+        )
+        db_session.add(oq)
+        await db_session.commit()
+        await db_session.refresh(oq)
+
+        async def fake_send(db, escalation_id):
+            esc = await db.get(Escalation, escalation_id)
+            assert esc is not None
+            esc.notified_at = datetime.now(timezone.utc)
+            await db.commit()
+            return True
+
+        with patch(
+            "app.services.overnight_queue_service.send_staff_escalation_notification",
+            new=fake_send,
+        ):
+            success_list, total = await queue_service.process_scheduled_notifications(
+                db_session, facility_id=test_facility.id
+            )
+
+        assert total == 1
+        assert len(success_list) == 1
+        await db_session.refresh(oq)
+        assert oq.notified_at is not None
+
+    @pytest.mark.asyncio
+    async def test_process_scheduled_notifications_skips_queue_on_send_failure(
+        self, db_session, test_facility, queue_service
+    ):
+        """送信が False のときキューは未通知のまま（再実行でリトライ可能）"""
+        from app.models.escalation import Escalation
+
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="test-session-process-fail",
+            guest_language="en",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+        await db_session.refresh(conversation)
+
+        escalation = Escalation(
+            facility_id=test_facility.id,
+            conversation_id=conversation.id,
+            trigger_type="low_confidence",
+            ai_confidence=0.5,
+            escalation_mode="normal",
+        )
+        db_session.add(escalation)
+        await db_session.commit()
+        await db_session.refresh(escalation)
+
+        oq = OvernightQueue(
+            facility_id=test_facility.id,
+            escalation_id=escalation.id,
+            guest_message="hello",
+            scheduled_notify_at=datetime.utcnow(),
+        )
+        db_session.add(oq)
+        await db_session.commit()
+        await db_session.refresh(oq)
+
+        with patch(
+            "app.services.overnight_queue_service.send_staff_escalation_notification",
+            new_callable=AsyncMock,
+            return_value=False,
+        ):
+            success_list, total = await queue_service.process_scheduled_notifications(
+                db_session, facility_id=test_facility.id
+            )
+
+        assert total == 1
+        assert len(success_list) == 0
+        await db_session.refresh(oq)
+        assert oq.notified_at is None
 

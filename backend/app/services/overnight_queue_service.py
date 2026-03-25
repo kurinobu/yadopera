@@ -3,17 +3,16 @@
 """
 
 import logging
-from typing import List, Optional, Dict
-from datetime import datetime, time, timedelta
+from typing import List, Optional, Dict, Tuple
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 import pytz
 import json
 from app.models.facility import Facility
 from app.models.overnight_queue import OvernightQueue
-from app.models.escalation import Escalation
-from app.models.conversation import Conversation
 from app.models.message import Message
+from app.services.escalation_notification_service import send_staff_escalation_notification
 from app.utils.staff_absence import is_in_staff_absence_period, get_next_notification_time
 from app.core.cache import delete_cache_pattern, cache_key
 
@@ -160,7 +159,7 @@ class OvernightQueueService:
         self,
         db: AsyncSession,
         facility_id: Optional[int] = None
-    ) -> List[OvernightQueue]:
+    ) -> Tuple[List[OvernightQueue], int]:
         """
         通知予定時刻の一括通知処理（v0.3新規、v0.3改善: スタッフ不在時間帯に対応）
         MVP期間中: 手動実行ボタンまたは外部cron対応
@@ -170,7 +169,7 @@ class OvernightQueueService:
             facility_id: 施設ID（指定時はその施設のみ処理、None時は全施設）
         
         Returns:
-            List[OvernightQueue]: 処理されたキューリスト
+            (staff にメール送信まで完了したキュー一覧, 時間窓内の未通知キュー総数)
         """
         now = datetime.utcnow()
         
@@ -191,28 +190,45 @@ class OvernightQueueService:
         result = await db.execute(query)
         queues_list = result.scalars().all()
         
-        processed_count = 0
+        processed_success: List[OvernightQueue] = []
+        notified_ts = datetime.now(timezone.utc)
+
         for queue in queues_list:
             try:
-                # スタッフへ通知送信（Phase 2で実装）
-                # TODO: send_escalation_notification()を実装後に有効化
-                # escalation = await db.get(Escalation, queue.escalation_id)
-                # await send_escalation_notification(
-                #     facility_id=queue.facility_id,
-                #     escalation=escalation
-                # )
-                
-                queue.notified_at = now
-                await db.commit()
-                processed_count += 1
-                
+                ok = await send_staff_escalation_notification(
+                    db, queue.escalation_id
+                )
+                if not ok:
+                    logger.warning(
+                        "Overnight queue: staff escalation email not sent "
+                        "(queue left pending for retry): overnight_queue_id=%s "
+                        "escalation_id=%s facility_id=%s",
+                        queue.id,
+                        queue.escalation_id,
+                        queue.facility_id,
+                    )
+                    continue
+
+                row = await db.get(OvernightQueue, queue.id)
+                if not row:
+                    logger.error(
+                        "Overnight queue row missing after staff email: overnight_queue_id=%s",
+                        queue.id,
+                    )
+                    continue
+                if row.notified_at is None:
+                    row.notified_at = notified_ts
+                    await db.commit()
+                await db.refresh(row)
+                processed_success.append(row)
+
                 logger.info(
-                    f"Processed overnight queue notification: {queue.id}",
+                    "Processed overnight queue notification (staff email path)",
                     extra={
                         "overnight_queue_id": queue.id,
                         "facility_id": queue.facility_id,
-                        "escalation_id": queue.escalation_id
-                    }
+                        "escalation_id": queue.escalation_id,
+                    },
                 )
             except Exception as e:
                 logger.error(
@@ -226,15 +242,18 @@ class OvernightQueueService:
                 await db.rollback()
         
         logger.info(
-            f"Processed {processed_count}/{len(queues_list)} overnight queue notifications",
+            "Overnight queue batch: successful=%s candidates=%s facility_id=%s",
+            len(processed_success),
+            len(queues_list),
+            facility_id,
             extra={
-                "processed_count": processed_count,
+                "processed_count": len(processed_success),
                 "total_count": len(queues_list),
                 "facility_id": facility_id
             }
         )
         
-        return queues_list
+        return processed_success, len(queues_list)
     
     async def get_overnight_queue(
         self,

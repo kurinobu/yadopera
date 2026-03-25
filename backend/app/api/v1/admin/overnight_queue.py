@@ -135,14 +135,14 @@ async def process_notifications(
         
         # 夜間対応キューサービスで通知処理実行
         queue_service = OvernightQueueService()
-        processed_queues = await queue_service.process_scheduled_notifications(
+        processed_queues, total_eligible = await queue_service.process_scheduled_notifications(
             db=db,
             facility_id=facility_id
         )
         
         return ProcessNotificationsResponse(
             processed_count=len(processed_queues),
-            total_count=len(processed_queues)
+            total_count=total_eligible
         )
     
     except HTTPException:
