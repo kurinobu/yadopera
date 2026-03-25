@@ -35,6 +35,7 @@ from app.ai.embeddings import generate_embedding
 from app.ai.vector_search import search_similar_faqs
 from app.ai.fallback import get_faq_only_no_match_message
 from app.services.escalation_service import EscalationService
+from app.services.escalation_notification_service import send_staff_escalation_notification
 from app.services.overnight_queue_service import OvernightQueueService
 from app.services.stripe_service import is_stripe_configured, report_usage_to_meter
 from app.core.plan_limits import get_plan_limits
@@ -227,7 +228,8 @@ class ChatService:
                 db=self.db
             )
             escalation_id = escalation.id
-            
+            queued_for_overnight = False
+
             # 夜間対応キュー処理（スタッフ不在時間帯の場合）
             facility = await self.db.get(Facility, request.facility_id)
             if facility:
@@ -259,7 +261,7 @@ class ChatService:
                     current_weekday=current_weekday,
                     staff_absence_periods=staff_absence_periods
                 ):
-                    # 夜間対応キューに追加
+                    # 夜間対応キューに追加（この場合は即時メールは送らず、スケジュール側で送る）
                     await self.overnight_queue_service.add_to_overnight_queue(
                         facility_id=request.facility_id,
                         escalation_id=escalation.id,
@@ -273,6 +275,10 @@ class ChatService:
                         language=request.language,
                         db=self.db
                     )
+                    queued_for_overnight = True
+
+            if not queued_for_overnight:
+                await send_staff_escalation_notification(self.db, escalation.id)
         
         # 会話の最終活動時刻を更新
         conversation.last_activity_at = datetime.now(timezone.utc)
