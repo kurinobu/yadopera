@@ -35,9 +35,40 @@
 
 ---
 
+## A-4 スタッフ通知メール（pytest・Docker PostgreSQL）
+
+**用途**: `ARRAY` 型などの都合で SQLite では skip になるテストを、ローカルの **docker compose postgres** 上で一括実行する。
+
+**前提**: リポジトリルートで `docker compose.yml` の PostgreSQL（既定 `localhost:5433`）が使えること。初回はテスト DB `yadopera_test` を自動作成します。
+
+**実行例（リポジトリルート）**
+
+```bash
+bash backend/scripts/run_a4_tests_with_docker_postgres.sh
+# 追加の pytest 引数も渡せる
+bash backend/scripts/run_a4_tests_with_docker_postgres.sh -v -k receipt_id
+```
+
+**手動で同等することを行う場合**
+
+```bash
+docker compose up -d postgres
+# DB 作成（未作成時のみ）
+docker compose exec postgres psql -U yadopera_user -d postgres -c "CREATE DATABASE yadopera_test;"
+cd backend
+USE_POSTGRES_TEST=true \
+TEST_DATABASE_URL=postgresql+asyncpg://yadopera_user:yadopera_password@127.0.0.1:5433/yadopera_test \
+python -m pytest tests/test_escalation_notification_service.py tests/test_overnight_queue.py
+```
+
+詳細は `docs/エスカレーション_A-4_スタッフ通知メール_実装計画.md` §6 ステップ 5。
+
+---
+
 ## その他のスクリプト
 
 | スクリプト | 用途 |
 |------------|------|
 | `apply_faq_presets.py` | 指定施設にFAQプリセットを一括投入（`--facility-id`, `--dry-run`） |
+| `run_a4_tests_with_docker_postgres.sh` | A-4 関連 pytest を Docker PostgreSQL で実行 |
 | その他 | 検証・テスト用スクリプト（必要に応じて実行） |

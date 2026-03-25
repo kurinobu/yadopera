@@ -133,3 +133,54 @@ async def test_send_staff_escalation_notification_no_brevo_key(db_session, test_
 
     fresh = await db_session.get(Escalation, escalation.id)
     assert fresh.notified_at is None
+
+
+@pytest.mark.asyncio
+async def test_send_staff_escalation_notification_includes_receipt_id_everywhere(
+    db_session, test_facility
+):
+    """件名・HTML・テキストに受付番号（escalations.id のみ）が含まれる"""
+    conversation = Conversation(
+        facility_id=test_facility.id,
+        session_id="sess-receipt-1",
+        guest_language="ja",
+        started_at=datetime.utcnow(),
+        last_activity_at=datetime.utcnow(),
+    )
+    db_session.add(conversation)
+    await db_session.flush()
+    await db_session.refresh(conversation)
+
+    escalation = Escalation(
+        facility_id=test_facility.id,
+        conversation_id=conversation.id,
+        trigger_type="staff_mode",
+    )
+    db_session.add(escalation)
+    await db_session.commit()
+    await db_session.refresh(escalation)
+    eid = escalation.id
+    receipt = str(eid)
+
+    with patch.object(settings, "brevo_api_key", "test-brevo-key"), patch.object(
+        settings, "brevo_sender_email", "noreply@test.example"
+    ), patch.object(settings, "brevo_sender_name", "YadOPERA Test"), patch.object(
+        settings, "frontend_url", "https://app.test.example"
+    ), patch(
+        "app.services.escalation_notification_service.sib_api_v3_sdk.TransactionalEmailsApi"
+    ) as mock_api_cls:
+        mock_api = MagicMock()
+        mock_api.send_transac_email.return_value = MagicMock(message_id="mid-rid")
+        mock_api_cls.return_value = mock_api
+
+        ok = await send_staff_escalation_notification(db_session, eid)
+
+    assert ok is True
+    mock_api.send_transac_email.assert_called_once()
+    sent = mock_api.send_transac_email.call_args[0][0]
+    assert receipt in (sent.subject or "")
+    assert receipt in (sent.html_content or "")
+    assert receipt in (sent.text_content or "")
+    admin_path = f"/admin/conversations/{conversation.session_id}"
+    assert admin_path in (sent.html_content or "")
+    assert admin_path in (sent.text_content or "")
