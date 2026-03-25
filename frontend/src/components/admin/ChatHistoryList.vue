@@ -63,7 +63,7 @@ interface Props {
   conversations: ChatHistory[]
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 const emit = defineEmits<{
   click: [conversation: ChatHistory]

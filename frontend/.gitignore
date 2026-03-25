@@ -1,0 +1,7 @@
+# ESLint の --ignore-path と整合（リポジトリルートの .gitignore と重複可）
+node_modules/
+dist/
+dist-ssr/
+*.local
+.DS_Store
+coverage/

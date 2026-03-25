@@ -81,7 +81,17 @@ class DashboardService:
             logger.debug(f"Dashboard cache hit: {cache_key_str}")
             # monthly_usage（plan_type 含む）はキャッシュに含めず、常に DB から取得する（案A）
             monthly_usage_fresh = await self.get_monthly_usage(facility_id)
-            return DashboardResponse(**{**cached_data, "monthly_usage": monthly_usage_fresh})
+            # エスカレーション関連はリアルタイム性が必要（スタッフに連絡直後に一覧へ出す）
+            unresolved_fresh = await self.get_unresolved_escalations(facility_id)
+            escalations_summary_fresh = await self.get_escalations_summary(facility_id)
+            return DashboardResponse(
+                **{
+                    **cached_data,
+                    "monthly_usage": monthly_usage_fresh,
+                    "unresolved_escalations": unresolved_fresh,
+                    "escalations_summary": escalations_summary_fresh,
+                }
+            )
         
         # キャッシュミス: 並列処理でデータ取得
         logger.debug(f"Dashboard cache miss: {cache_key_str}")
@@ -704,24 +714,24 @@ class DashboardService:
             )
             return None  # エラー時はNoneを返す
     
-    async def get_unresolved_escalations(self, facility_id: int, limit: int = 10) -> List[UnresolvedEscalation]:
+    async def get_unresolved_escalations(self, facility_id: int, limit: int = 30) -> List[UnresolvedEscalation]:
         """
-        未解決エスカレーションを取得（最新10件）
+        未解決エスカレーションを取得（最新 limit 件）
         
         Args:
             facility_id: 施設ID
-            limit: 取得件数（デフォルト: 10）
+            limit: 取得件数（デフォルト: 30）
         
         Returns:
             List[UnresolvedEscalation]: 未解決エスカレーションリスト
         """
         try:
             # 未解決エスカレーションを取得
+            # Escalation.facility_id を基準にする（JOIN + Conversation.facility 条件で行が落ちる事故を防ぐ）
             escalations_result = await self.db.execute(
                 select(Escalation)
-                .join(Conversation, Escalation.conversation_id == Conversation.id)
                 .where(
-                    Conversation.facility_id == facility_id,
+                    Escalation.facility_id == facility_id,
                     Escalation.resolved_at.is_(None)
                 )
                 .order_by(Escalation.created_at.desc())
@@ -732,12 +742,32 @@ class DashboardService:
             
             unresolved_list: List[UnresolvedEscalation] = []
             for escalation in escalations:
-                # ゲストメッセージを取得（最初のユーザーメッセージ）
+                # 一覧のプレビュー: 「会話の最初の一言」だと長いチャットで中身と乖離するため、
+                # 当該エスカレーション作成時刻までの **直近のユーザーメッセージ** を表示する。
                 message = ""
                 if escalation.conversation and escalation.conversation.messages:
-                    user_messages = [m for m in escalation.conversation.messages if m.role == MessageRole.USER.value]
-                    if user_messages:
-                        message = user_messages[0].content[:200]  # 200文字まで
+                    esc_created = escalation.created_at
+                    user_before = [
+                        m
+                        for m in escalation.conversation.messages
+                        if m.role == MessageRole.USER.value
+                        and esc_created is not None
+                        and m.created_at is not None
+                        and m.created_at <= esc_created
+                    ]
+                    if user_before:
+                        user_before.sort(key=lambda m: (m.created_at, m.id))
+                        message = user_before[-1].content[:200]
+                    else:
+                        # 時刻ずれ等で対象が無いときはフォールバック（最新のユーザーメッセージ）
+                        user_all = [
+                            m
+                            for m in escalation.conversation.messages
+                            if m.role == MessageRole.USER.value
+                        ]
+                        if user_all:
+                            user_all.sort(key=lambda m: (m.created_at or esc_created, m.id))
+                            message = user_all[-1].content[:200]
                 
                 # session_idを取得（安全に）
                 session_id = ""

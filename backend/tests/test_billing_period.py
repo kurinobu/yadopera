@@ -5,6 +5,8 @@
 import pytest
 from datetime import datetime, timedelta
 import pytz
+
+_JST_OFFSET = timedelta(hours=9)
 from app.utils.billing_period import calculate_billing_period
 
 
@@ -22,8 +24,8 @@ class TestCalculateBillingPeriod:
         # 1回目の請求期間: 2026-01-15 10:00:00 〜 2026-02-15 09:59:59
         assert billing_start.strftime('%Y-%m-%d %H:%M:%S') == '2026-01-15 10:00:00'
         assert billing_end.strftime('%Y-%m-%d %H:%M:%S') == '2026-02-15 09:59:59'
-        assert billing_start.tzinfo == jst
-        assert billing_end.tzinfo == jst
+        assert billing_start.utcoffset() == _JST_OFFSET
+        assert billing_end.utcoffset() == _JST_OFFSET
     
     def test_billing_period_day_30(self):
         """プラン開始日から30日目（1回目の請求期間の最終日）"""
@@ -128,10 +130,9 @@ class TestCalculateBillingPeriod:
         
         billing_start, billing_end = calculate_billing_period(plan_start, now)
         
-        # JSTとして扱われる
-        jst = pytz.timezone('Asia/Tokyo')
-        assert billing_start.tzinfo == jst
-        assert billing_end.tzinfo == jst
+        # JSTとして扱われる（tzinfo オブジェクト同一性は環境により異なるため UTC オフセットで検証）
+        assert billing_start.utcoffset() == _JST_OFFSET
+        assert billing_end.utcoffset() == _JST_OFFSET
         assert billing_start.strftime('%Y-%m-%d %H:%M:%S') == '2026-01-15 10:00:00'
         assert billing_end.strftime('%Y-%m-%d %H:%M:%S') == '2026-02-15 09:59:59'
     
@@ -145,8 +146,8 @@ class TestCalculateBillingPeriod:
         billing_start, billing_end = calculate_billing_period(plan_start, now)
         
         # JSTに変換される
-        assert billing_start.tzinfo == jst
-        assert billing_end.tzinfo == jst
+        assert billing_start.utcoffset() == _JST_OFFSET
+        assert billing_end.utcoffset() == _JST_OFFSET
         # JST基準で請求期間が計算される
         assert billing_start.strftime('%Y-%m-%d %H:%M:%S') == '2026-01-15 10:00:00'
         assert billing_end.strftime('%Y-%m-%d %H:%M:%S') == '2026-02-15 09:59:59'

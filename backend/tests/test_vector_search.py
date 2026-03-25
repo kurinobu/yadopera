@@ -7,6 +7,7 @@ import pytest
 from unittest.mock import AsyncMock, patch
 from app.ai.vector_search import search_similar_faqs, search_similar_patterns
 from app.models.faq import FAQ
+from app.models.faq_translation import FAQTranslation
 from app.models.question_pattern import QuestionPattern
 from decimal import Decimal
 
@@ -55,18 +56,24 @@ class TestVectorSearch:
         """データありでの類似FAQ検索テスト（PostgreSQL + pgvectorが必要）"""
         # このテストはPostgreSQL + pgvector環境で実行する必要がある
         # USE_POSTGRES_TEST=true で実行
-        from app.models.faq import FAQ
-        
-        # テスト用FAQデータ作成
+        # テスト用FAQデータ作成（インテント + 翻訳に埋め込み）
         faq = FAQ(
             facility_id=test_facility.id,
-            question="What is the WiFi password?",
-            answer="The WiFi password is guest123",
             category="basic",
-            embedding=mock_embedding,
+            intent_key="facilities_wifi_password",
+            priority=5,
             is_active=True,
         )
         db_session.add(faq)
+        await db_session.flush()
+        tr = FAQTranslation(
+            faq_id=faq.id,
+            language="en",
+            question="What is the WiFi password?",
+            answer="The WiFi password is guest123",
+            embedding=mock_embedding,
+        )
+        db_session.add(tr)
         await db_session.commit()
         
         # 類似FAQ検索実行
@@ -80,7 +87,7 @@ class TestVectorSearch:
         
         # 結果確認
         assert len(result) > 0
-        assert result[0]["question"] == "What is the WiFi password?"
+        assert result[0].intent_key == "facilities_wifi_password"
     
     @pytest.mark.asyncio
     async def test_search_similar_patterns_empty_embedding(self, db_session):
@@ -138,6 +145,6 @@ class TestVectorSearch:
         
         # 結果確認
         assert len(result) > 0
-        assert result[0]["total_count"] == 10
-        assert result[0]["resolved_count"] == 8
+        assert result[0].total_count == 10
+        assert result[0].resolved_count == 8
 

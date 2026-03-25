@@ -19,9 +19,7 @@ class TestConfidence:
             id=1,
             facility_id=1,
             category="basic",
-            language="en",
-            question="What time is check-out?",
-            answer="Check-out is by 11:00 AM.",
+            intent_key="basic_checkout_time",
             priority=5,
             is_active=True,
             created_by=None  # テンプレートFAQ
@@ -35,9 +33,7 @@ class TestConfidence:
             id=2,
             facility_id=1,
             category="basic",
-            language="en",
-            question="Custom question",
-            answer="Custom answer",
+            intent_key="custom_intent",
             priority=5,
             is_active=True,
             created_by=1  # カスタムFAQ

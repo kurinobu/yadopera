@@ -98,7 +98,7 @@ class TestEscalation:
         escalation_info = await escalation_service.check_escalation_needed(
             facility_id=test_facility.id,
             confidence=Decimal("0.8"),  # 高信頼度でも緊急キーワードは即エスカレ
-            message="I need emergency help",
+            message="I am locked out of my room",
             session_id="test-session-3",
             language="en",
             conversation_id=conversation.id,

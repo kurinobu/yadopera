@@ -76,7 +76,7 @@ interface Props {
   isMobile?: boolean
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 // 章の折りたたみ状態管理
 const expandedSections = reactive<Record<string, boolean>>({})

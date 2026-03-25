@@ -16,31 +16,23 @@ export function useAuth() {
   const user = computed(() => authStore.user)
 
   async function login(loginData: LoginRequest) {
-    try {
-      const response = await authApi.login(loginData)
-      authStore.login(response.user, response.access_token)
-      await router.push('/admin/dashboard')
-      return response
-    } catch (error) {
-      throw error
-    }
+    const response = await authApi.login(loginData)
+    authStore.login(response.user, response.access_token)
+    await router.push('/admin/dashboard')
+    return response
   }
 
   async function register(registerData: RegisterRequest) {
-    try {
-      const response = await authApi.register(registerData)
-      // メール確認待ち画面へ遷移（ログインはしない）
-      await router.push({
-        name: 'EmailVerificationPending',
-        query: {
-          email: response.email,
-          facility_name: response.facility_name
-        }
-      })
-      return response
-    } catch (error) {
-      throw error
-    }
+    const response = await authApi.register(registerData)
+    // メール確認待ち画面へ遷移（ログインはしない）
+    await router.push({
+      name: 'EmailVerificationPending',
+      query: {
+        email: response.email,
+        facility_name: response.facility_name
+      }
+    })
+    return response
   }
 
   async function logout() {

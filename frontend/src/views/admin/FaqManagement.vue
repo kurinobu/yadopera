@@ -613,7 +613,7 @@ const handleCloseForm = () => {
   editingFaq.value = null
 }
 
-const handleApproveSuggestion = async (_suggestion: FaqSuggestion) => {
+const handleApproveSuggestion = async () => {
   // API連携はFaqSuggestionCard内で実装済み
   // ここでは提案をクリアしてFAQ一覧と未解決質問リストを再取得
   selectedSuggestion.value = null
@@ -623,7 +623,7 @@ const handleApproveSuggestion = async (_suggestion: FaqSuggestion) => {
   await fetchLowRatedAnswers()
 }
 
-const handleRejectSuggestion = async (_suggestion: FaqSuggestion) => {
+const handleRejectSuggestion = async () => {
   // API連携はFaqSuggestionCard内で実装済み
   // ここでは提案をクリア
   selectedSuggestion.value = null
@@ -699,7 +699,7 @@ const confirmIgnore = async () => {
   }
 }
 
-const handleCancelSuggestion = (_suggestion: FaqSuggestion) => {
+const handleCancelSuggestion = () => {
   // 提案をクリア（承認・却下せずに閉じる）
   selectedSuggestion.value = null
 }

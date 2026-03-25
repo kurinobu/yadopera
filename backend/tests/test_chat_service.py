@@ -13,6 +13,7 @@ from app.schemas.chat import ChatRequest, RAGEngineResponse, EscalationInfo
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.facility import Facility
+from app.models.escalation import Escalation
 
 
 class TestChatService:
@@ -27,30 +28,28 @@ class TestChatService:
         test_facility
     ):
         """新規会話でのメッセージ処理テスト"""
-        # モック設定
+        mock_rag_response = RAGEngineResponse(
+            response="Test response",
+            ai_confidence=Decimal("0.8"),
+            matched_faq_ids=[],
+            response_time_ms=100,
+            escalation=EscalationInfo(
+                needed=False, mode=None, trigger_type=None, reason=None, notified=None
+            ),
+        )
         mock_rag_engine = AsyncMock()
-        mock_response = AsyncMock()
-        mock_response.message_id = 1
-        mock_response.session_id = "new-session-1"
-        mock_response.response = "Test response"
-        mock_response.ai_confidence = 0.8
-        mock_response.source = "rag_generated"
-        mock_response.matched_faq_ids = [1]
-        mock_response.response_time_ms = 100
-        mock_response.escalation.needed = False
-        
-        mock_rag_engine.process_message = AsyncMock(return_value=mock_response)
+        mock_rag_engine.process_message = AsyncMock(return_value=mock_rag_response)
         mock_rag_engine_class.return_value = mock_rag_engine
         
         # チャットサービス初期化
         chat_service = ChatService(db_session)
         chat_service.rag_engine = mock_rag_engine
         
-        # テスト実行
+        # テスト実行（Free プランは ja のみ選択可）
         request = ChatRequest(
             facility_id=test_facility.id,
             message="What time is check-out?",
-            language="en"
+            language="ja",
         )
         
         response = await chat_service.process_chat_message(
@@ -59,9 +58,9 @@ class TestChatService:
             ip_address="127.0.0.1"
         )
         
-        # アサーション
+        # アサーション（ChatResponse は message に本文を持つ）
         assert response.session_id is not None
-        assert response.response == "Test response"
+        assert response.message.content == "Test response"
         
         # 会話が作成されたか確認
         from sqlalchemy import select
@@ -115,7 +114,40 @@ class TestChatService:
         assert history is not None
         assert history.session_id == "test-session-history"
         assert len(history.messages) == 2
+        assert history.unresolved_escalation_id is None
     
+    @pytest.mark.asyncio
+    async def test_get_conversation_history_unresolved_escalation_id(self, db_session, test_facility):
+        """管理用履歴取得時、未解決エスカレのIDが付与される"""
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="test-session-esc-open",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+        await db_session.refresh(conversation)
+
+        escalation = Escalation(
+            facility_id=test_facility.id,
+            conversation_id=conversation.id,
+            trigger_type="staff_mode",
+            resolved_at=None,
+        )
+        db_session.add(escalation)
+        await db_session.commit()
+        await db_session.refresh(escalation)
+
+        chat_service = ChatService(db_session)
+        history = await chat_service.get_conversation_history(
+            session_id="test-session-esc-open",
+            facility_id=test_facility.id,
+        )
+        assert history is not None
+        assert history.unresolved_escalation_id == escalation.id
+
     @pytest.mark.asyncio
     async def test_get_conversation_history_not_found(self, db_session):
         """会話履歴が見つからない場合のテスト"""

@@ -58,25 +58,21 @@ export function useSession() {
    */
   async function linkSession(facilityId: number, token: string): Promise<void> {
     const currentSessionId = getOrCreateSessionId()
-    
-    try {
-      const response = await sessionApi.linkSession({
-        facility_id: facilityId,
-        token,
-        current_session_id: currentSessionId
-      })
 
-      // 統合されたセッションIDを設定
-      if (response.primary_session_id) {
-        chatStore.setSessionId(response.primary_session_id)
-        cookies.set(SESSION_ID_COOKIE_NAME, response.primary_session_id, {
-          expires: new Date(Date.now() + SESSION_ID_EXPIRES_DAYS * 24 * 60 * 60 * 1000),
-          sameSite: 'lax',
-          secure: import.meta.env.PROD
-        })
-      }
-    } catch (error) {
-      throw error
+    const response = await sessionApi.linkSession({
+      facility_id: facilityId,
+      token,
+      current_session_id: currentSessionId
+    })
+
+    // 統合されたセッションIDを設定
+    if (response.primary_session_id) {
+      chatStore.setSessionId(response.primary_session_id)
+      cookies.set(SESSION_ID_COOKIE_NAME, response.primary_session_id, {
+        expires: new Date(Date.now() + SESSION_ID_EXPIRES_DAYS * 24 * 60 * 60 * 1000),
+        sameSite: 'lax',
+        secure: import.meta.env.PROD
+      })
     }
   }
 

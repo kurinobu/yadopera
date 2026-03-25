@@ -56,7 +56,7 @@ interface Props {
   facilityId: number
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 const emit = defineEmits<{
   'update:isOpen': [value: boolean]

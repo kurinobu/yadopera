@@ -100,9 +100,12 @@ onMounted(async () => {
     console.error('Error object JSON (完全な構造):', JSON.stringify(err, null, 2))
     console.error('Error object prototype:', Object.getPrototypeOf(err))
     console.error('Error object hasOwnProperty check:', {
-      hasCode: err?.hasOwnProperty?.('code'),
-      hasError: err?.hasOwnProperty?.('error'),
-      hasResponse: err?.hasOwnProperty?.('response')
+      hasCode:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'code'),
+      hasError:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'error'),
+      hasResponse:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'response')
     })
     console.error('=== [Welcome.vue] エラーオブジェクト構造確認終了 ===')
     
@@ -193,9 +196,12 @@ const handleMessageSubmit = async (message: string) => {
     console.error('Error object JSON (完全な構造):', JSON.stringify(err, null, 2))
     console.error('Error object prototype:', Object.getPrototypeOf(err))
     console.error('Error object hasOwnProperty check:', {
-      hasCode: err?.hasOwnProperty?.('code'),
-      hasError: err?.hasOwnProperty?.('error'),
-      hasResponse: err?.hasOwnProperty?.('response')
+      hasCode:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'code'),
+      hasError:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'error'),
+      hasResponse:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'response')
     })
     console.error('=== [Welcome.vue] エラーオブジェクト構造確認終了 ===')
     

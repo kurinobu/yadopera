@@ -30,7 +30,7 @@ onMounted(() => {
     
     if (lastFacilityUrl) {
       // ホワイトリスト方式: ゲスト側のルート（/f/:facilityId）のみ許可
-      const allowedPattern = /^\/f\/([^\/]+)(\/.*)?$/
+      const allowedPattern = /^\/f\/([^/]+)(\/.*)?$/
       const match = lastFacilityUrl.match(allowedPattern)
       
       if (match) {

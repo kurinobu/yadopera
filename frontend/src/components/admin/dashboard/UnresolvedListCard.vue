@@ -22,7 +22,10 @@
       >
         <div class="flex items-start justify-between">
           <div class="flex-1">
-            <p class="text-sm text-gray-900 dark:text-white line-clamp-2">
+            <p class="text-xs font-medium text-gray-800 dark:text-gray-200">
+              受付番号: {{ escalation.id }}
+            </p>
+            <p class="text-sm text-gray-900 dark:text-white line-clamp-2 mt-1">
               {{ escalation.message || 'メッセージなし' }}
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -56,7 +59,7 @@ interface Props {
   escalations: UnresolvedEscalation[]
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 const router = useRouter()
 
 const handleClick = (escalation: UnresolvedEscalation) => {

@@ -74,6 +74,7 @@ class TestLogin:
             full_name="Inactive User",
             role="staff",
             is_active=False,
+            email_verified=True,
         )
         db_session.add(inactive_user)
         await db_session.commit()
@@ -100,12 +101,12 @@ class TestLogin:
         
         assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         data = response.json()
-        # FastAPIのバリデーションエラーは "detail" キーを使用
-        assert "detail" in data
-        assert isinstance(data["detail"], list)
-        assert len(data["detail"]) > 0
-        # エラーの詳細を確認
-        error_detail = data["detail"][0]
+        # グローバルハンドラは error.details.errors に Pydantic 形式を載せる
+        assert "error" in data
+        errors = data["error"]["details"]["errors"]
+        assert isinstance(errors, list)
+        assert len(errors) > 0
+        error_detail = errors[0]
         assert "loc" in error_detail
         assert "msg" in error_detail
         assert "type" in error_detail
