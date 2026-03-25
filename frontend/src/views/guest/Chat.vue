@@ -27,6 +27,7 @@
           <DarkModeToggle />
           <EscalationButton
             :disabled="isLoading"
+            :button-text="escalationCopy.staffContactButton"
             @escalation="handleEscalation"
           />
         </div>
@@ -121,6 +122,59 @@
       @update:is-open="showTokenInput = $event"
       @link="handleTokenLink"
     />
+
+    <!-- スタッフ連絡：送信前の確認（A-1 / A-2 方針A） -->
+    <Modal
+      v-model="showEscalationConfirm"
+      :title="escalationCopy.confirmTitle"
+      size="md"
+      :before-close="escalationModalBeforeClose"
+    >
+      <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+        {{ escalationCopy.policyLine }}
+      </p>
+      <p class="text-sm text-gray-700 dark:text-gray-300 mt-4 leading-relaxed">
+        {{ escalationCopy.cautionLine }}
+      </p>
+      <template #footer>
+        <button
+          type="button"
+          class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg disabled:opacity-50"
+          :disabled="escalationSubmitting"
+          @click="showEscalationConfirm = false"
+        >
+          {{ escalationCopy.cancel }}
+        </button>
+        <button
+          type="button"
+          class="px-4 py-2 text-sm font-medium text-white bg-red-600 hover:bg-red-700 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          :disabled="escalationSubmitting"
+          @click="submitEscalation"
+        >
+          {{ escalationSubmitting ? escalationCopy.sending : escalationCopy.submit }}
+        </button>
+      </template>
+    </Modal>
+
+    <!-- スタッフ連絡：受付完了（A-3 受付番号） -->
+    <Modal
+      v-model="showEscalationSuccess"
+      :title="escalationCopy.successTitle"
+      size="md"
+    >
+      <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+        {{ escalationSuccessBody }}
+      </p>
+      <template #footer>
+        <button
+          type="button"
+          class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg"
+          @click="showEscalationSuccess = false"
+        >
+          {{ escalationCopy.close }}
+        </button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -141,8 +195,10 @@ import EscalationButton from '@/components/guest/EscalationButton.vue'
 import SessionTokenDisplay from '@/components/guest/SessionTokenDisplay.vue'
 import SessionTokenInput from '@/components/guest/SessionTokenInput.vue'
 import DarkModeToggle from '@/components/common/DarkModeToggle.vue'
+import Modal from '@/components/common/Modal.vue'
 import type { ChatMessage } from '@/types/chat'
 import { log, warn } from '@/utils/logger'
+import { getEscalationGuestCopy } from '@/utils/escalationGuestCopy'
 
 const route = useRoute()
 const router = useRouter()
@@ -188,6 +244,24 @@ const error = ref<string | null>(null)
 const sessionToken = computed(() => chatStore.sessionToken)
 const tokenExpiresAt = ref<string | null>(null)
 const showTokenInput = ref(false)
+// スタッフ連絡（エスカレーション）UX
+const showEscalationConfirm = ref(false)
+const showEscalationSuccess = ref(false)
+const escalationSubmitting = ref(false)
+const lastEscalationId = ref<number | null>(null)
+
+const escalationCopy = computed(() => getEscalationGuestCopy(language.value))
+const escalationSuccessBody = computed(() => {
+  const id = lastEscalationId.value
+  if (id == null) return ''
+  return escalationCopy.value.successBody(id)
+})
+
+const escalationModalBeforeClose = async (): Promise<boolean> => {
+  if (escalationSubmitting.value) return false
+  return true
+}
+
 // 初期質問送信済みフラグ（重複送信防止）
 const initialQuestionSent = ref(false)
 const initialMessageSent = ref(false)
@@ -233,9 +307,12 @@ onMounted(async () => {
         console.error('Error object JSON (完全な構造):', JSON.stringify(err, null, 2))
         console.error('Error object prototype:', Object.getPrototypeOf(err))
         console.error('Error object hasOwnProperty check:', {
-          hasCode: err?.hasOwnProperty?.('code'),
-          hasError: err?.hasOwnProperty?.('error'),
-          hasResponse: err?.hasOwnProperty?.('response')
+          hasCode:
+            typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'code'),
+          hasError:
+            typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'error'),
+          hasResponse:
+            typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'response')
         })
         console.error('=== [Chat.vue] エラーオブジェクト構造確認終了 ===')
         
@@ -490,9 +567,12 @@ const handleMessageSubmit = async (message: string) => {
     console.error('Error object JSON (完全な構造):', JSON.stringify(err, null, 2))
     console.error('Error object prototype:', Object.getPrototypeOf(err))
     console.error('Error object hasOwnProperty check:', {
-      hasCode: err?.hasOwnProperty?.('code'),
-      hasError: err?.hasOwnProperty?.('error'),
-      hasResponse: err?.hasOwnProperty?.('response')
+      hasCode:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'code'),
+      hasError:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'error'),
+      hasResponse:
+        typeof err === 'object' && err !== null && Object.prototype.hasOwnProperty.call(err, 'response')
     })
     console.error('Additional context:', {
       messagesCount: messages.value.length,
@@ -532,67 +612,56 @@ const handleFeedback = async (messageId: number, type: 'positive' | 'negative') 
   }
 }
 
-// エスカレーション
-const handleEscalation = async () => {
+// エスカレーション：ボタン → 確認の表示のみ
+const handleEscalation = () => {
+  error.value = null
+  if (!facilityId.value) {
+    console.error('[Chat.vue] handleEscalation: facilityId取得失敗')
+    error.value = escalationCopy.value.errFacility
+    return
+  }
+  const currentSessionId = getOrCreateSessionId()
+  if (!currentSessionId) {
+    console.error('[Chat.vue] handleEscalation: sessionId取得失敗')
+    error.value = escalationCopy.value.errSession
+    return
+  }
+  showEscalationConfirm.value = true
+}
+
+// エスカレーション：送信（API）
+const submitEscalation = async () => {
+  const currentSessionId = getOrCreateSessionId()
+  if (!facilityId.value || !currentSessionId) return
+
+  escalationSubmitting.value = true
+  error.value = null
+  log('[Chat.vue] submitEscalation: 開始', {
+    facilityId: facilityId.value,
+    sessionId: currentSessionId
+  })
   try {
-    const currentSessionId = getOrCreateSessionId()
-    
-    if (!facilityId.value) {
-      console.error('[Chat.vue] handleEscalation: facilityId取得失敗')
-      alert('施設IDの取得に失敗しました。ページをリロードしてください。')
-      return
-    }
-    
-    if (!currentSessionId) {
-      console.error('[Chat.vue] handleEscalation: sessionId取得失敗')
-      alert('セッションIDの取得に失敗しました。ページをリロードしてください。')
-      return
-    }
-    
-    log('[Chat.vue] handleEscalation: エスカレーション開始', {
-      facilityId: facilityId.value,
-      sessionId: currentSessionId
-    })
-    
-    // エスカレーションAPIを呼び出し
     const response = await chatApi.escalateToStaff({
       facility_id: facilityId.value,
       session_id: currentSessionId
     })
-    
-    log('[Chat.vue] handleEscalation: エスカレーション成功', response)
-    
-    // 成功メッセージを表示（多言語対応）
-    const message = language.value === 'ja' 
-      ? 'スタッフに連絡しました。スタッフが対応いたします。'
-      : 'We have contacted the staff. They will respond to you shortly.'
-    
-    alert(message)
-    
-    // エスカレーション成功をメッセージとして表示（オプション）
-    // メッセージリストにシステムメッセージを追加することも可能
-    
+    lastEscalationId.value = response.escalation_id
+    showEscalationConfirm.value = false
+    showEscalationSuccess.value = true
+    log('[Chat.vue] submitEscalation: 成功', response)
   } catch (err: any) {
-    console.error('[Chat.vue] handleEscalation: エラー', err)
-    
-    // エラーメッセージをユーザーフレンドリーに変換
-    let errorMessage = language.value === 'ja'
-      ? 'エスカレーションの作成に失敗しました。'
-      : 'Failed to contact staff.'
-    
-    const detail = err.response?.data?.detail || err.message || ''
-    
+    console.error('[Chat.vue] submitEscalation: エラー', err)
+    showEscalationConfirm.value = false
+    const detail = String(err.response?.data?.detail || err.message || '')
+    let msg = escalationCopy.value.errGeneric
     if (detail.includes('Conversation not found')) {
-      errorMessage = language.value === 'ja'
-        ? '会話が見つかりませんでした。メッセージを送信してから再度お試しください。'
-        : 'Conversation not found. Please send a message first and try again.'
-    } else if (detail) {
-      errorMessage = language.value === 'ja'
-        ? `エスカレーションの作成に失敗しました: ${detail}`
-        : `Failed to contact staff: ${detail}`
+      msg = escalationCopy.value.errConversationNotFound
+    } else if (detail.includes('Session expired')) {
+      msg = escalationCopy.value.errSessionExpired
     }
-    
-    alert(errorMessage)
+    error.value = msg
+  } finally {
+    escalationSubmitting.value = false
   }
 }
 

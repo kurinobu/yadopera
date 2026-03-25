@@ -5,7 +5,7 @@
 import pytest
 from unittest.mock import AsyncMock, patch
 from app.ai.embeddings import generate_embedding, generate_faq_embedding
-from app.models.faq import FAQ
+from app.models.faq_translation import FAQTranslation
 
 
 class TestEmbeddings:
@@ -50,27 +50,24 @@ class TestEmbeddings:
         # モック設定
         mock_generate_embedding.return_value = [0.1] * 1536
         
-        # テスト用FAQ作成
-        faq = FAQ(
+        # テスト用 FAQTranslation（インテント構造）
+        tr = FAQTranslation(
             id=1,
-            facility_id=1,
-            category="basic",
+            faq_id=1,
             language="en",
             question="What time is check-out?",
             answer="Check-out is by 11:00 AM.",
-            priority=5,
-            is_active=True
         )
         
         # テスト実行
-        embedding = await generate_faq_embedding(faq)
+        embedding = await generate_faq_embedding(tr)
         
         # アサーション
         assert len(embedding) == 1536
         # 質問と回答が結合されて埋め込み生成されることを確認
         mock_generate_embedding.assert_called_once_with(
             "What time is check-out? Check-out is by 11:00 AM."
-        )
+        )  # embeddings.py: f"{question} {answer}"
     
     @pytest.mark.asyncio
     @patch('app.ai.embeddings.generate_embedding')
@@ -79,20 +76,16 @@ class TestEmbeddings:
         # モック設定（エラー時は空リストを返す）
         mock_generate_embedding.return_value = []
         
-        # テスト用FAQ作成
-        faq = FAQ(
+        tr = FAQTranslation(
             id=1,
-            facility_id=1,
-            category="basic",
+            faq_id=1,
             language="en",
             question="Test question",
             answer="Test answer",
-            priority=5,
-            is_active=True
         )
         
         # テスト実行
-        embedding = await generate_faq_embedding(faq)
+        embedding = await generate_faq_embedding(tr)
         
         # アサーション
         assert embedding == []

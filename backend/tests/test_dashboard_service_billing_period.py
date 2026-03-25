@@ -4,6 +4,7 @@
 
 import uuid
 import pytest
+from decimal import Decimal
 from datetime import datetime, timedelta
 import pytz
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -355,8 +356,11 @@ class TestDashboardServiceBillingPeriod:
         escalation = Escalation(
             facility_id=facility.id,
             conversation_id=conversation.id,
+            trigger_type="low_confidence",
+            ai_confidence=Decimal("0.5"),
+            escalation_mode="normal",
             created_at=utc.localize(datetime(2026, 1, 20, 6, 5, 0)),
-            resolved_at=None
+            resolved_at=None,
         )
         db_session.add(escalation)
         

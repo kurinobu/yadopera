@@ -40,6 +40,12 @@
           会話情報
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div v-if="history.unresolved_escalation_id != null">
+            <p class="text-sm text-gray-500 dark:text-gray-400">受付番号</p>
+            <p class="text-sm font-mono font-semibold text-gray-900 dark:text-white">
+              {{ history.unresolved_escalation_id }}
+            </p>
+          </div>
           <div>
             <p class="text-sm text-gray-500 dark:text-gray-400">セッションID</p>
             <p class="text-sm font-mono text-gray-900 dark:text-white">{{ history.session_id }}</p>

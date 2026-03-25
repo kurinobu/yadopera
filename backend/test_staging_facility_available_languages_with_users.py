@@ -19,8 +19,8 @@ TEST_USERS = {
     "Free": {"email": "test31@example.com", "password": "testpassword123"},
     "Mini": {"email": "test41@example.com", "password": "testpassword123"},
     "Small": {"email": "test51@example.com", "password": "testpassword123"},
-    "Standard": {"email": "test61@example.com", "password": "testpassword123"},
-    "Premium": {"email": "test71@example.com", "password": "testpassword123"},
+    "Standard": {"email": "test62@example.com", "password": "testpassword123"},
+    "Premium": {"email": "test72@example.com", "password": "testpassword123"},
 }
 
 # 期待される言語リスト（多言語5: Premium は zh-CN, es 追加）

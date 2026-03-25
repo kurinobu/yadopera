@@ -71,7 +71,7 @@ function scrollToTop(): void {
   if (scrollContainer === window) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   } else {
-    ;(scrollContainer as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' })
+    (scrollContainer as HTMLElement).scrollTo({ top: 0, behavior: 'smooth' })
   }
 }
 
@@ -85,7 +85,7 @@ onMounted(() => {
   if (scrollContainer === window) {
     window.addEventListener('scroll', onScroll, { passive: true })
   } else {
-    ;(scrollContainer as HTMLElement).addEventListener('scroll', onScroll, { passive: true })
+    (scrollContainer as HTMLElement).addEventListener('scroll', onScroll, { passive: true })
   }
 })
 
@@ -93,7 +93,7 @@ onUnmounted(() => {
   if (scrollContainer === window) {
     window.removeEventListener('scroll', onScroll)
   } else if (scrollContainer) {
-    ;(scrollContainer as HTMLElement).removeEventListener('scroll', onScroll)
+    (scrollContainer as HTMLElement).removeEventListener('scroll', onScroll)
   }
   scrollContainer = null
 })

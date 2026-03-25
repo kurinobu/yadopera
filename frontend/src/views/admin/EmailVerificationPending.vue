@@ -140,7 +140,7 @@ const resendEmail = async () => {
     }, 1000)
   } catch (error: unknown) {
     const code = (error as { code?: string }).code
-    if (code === 'RATE_LIMIT') {
+    if (code === 'RATE_LIMIT' || code === 'RATE_LIMIT_EXCEEDED') {
       resendError.value = 'しばらく時間をおいてから再度お試しください。（60秒）'
     } else {
       const msg = getApiErrorMessage(error)

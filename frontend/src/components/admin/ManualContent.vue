@@ -78,7 +78,7 @@ const formatContent = (content: string): string => {
     const trimmed = line.trim()
 
     // リスト項目の処理（「-」「・」など＋任意の空白で始まる行を箇条書き。ハイフン類も含め広く判定し、表示は必ず「・」をHTMLに直接出す）
-    const listBulletMatch = trimmed.match(/^[\-\u2010\u2011\u2012\u2013\u2014\u2212・\u30FB\u00B7\u2022★]\s*/)
+    const listBulletMatch = trimmed.match(/^[-\u2010\u2011\u2012\u2013\u2014\u2212・\u30FB\u00B7\u2022★]\s*/)
     if (listBulletMatch) {
       if (!inList) {
         html += '<ul class="manual-list-bullet">'

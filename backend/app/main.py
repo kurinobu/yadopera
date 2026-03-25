@@ -279,6 +279,9 @@ async def general_exception_handler(request: Request, exc: Exception):
 
 # APIルーター登録
 app.include_router(api_router, prefix="/api/v1")
-# 実行環境同一性確定用（Phase 1 Step 1。原因確定後に削除すること）
-app.include_router(debug_router)
+# 実行環境同一性確定用。本番では無効（環境変数サンプル露出のため）
+if settings.environment != "production":
+    app.include_router(debug_router)
+else:
+    logger.info("GET /__debug_env is disabled (ENVIRONMENT=production)")
 

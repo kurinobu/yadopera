@@ -81,6 +81,9 @@ docker-compose.override.yml
 ehthumbs.db
 Thumbs.db
 
+# Backend: 代行用CSVなど一時配置（コミットしない）
+backend/tmp/
+
 # Temporary files
 *.tmp
 *.temp

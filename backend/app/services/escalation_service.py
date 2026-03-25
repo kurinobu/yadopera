@@ -322,6 +322,18 @@ class EscalationService:
                 "trigger_type": trigger_type
             }
         )
+
+        # ダッシュボードの Redis キャッシュが未解決一覧を古いままに残さないよう無効化
+        try:
+            from app.core.cache import cache_key, delete_cache
+
+            await delete_cache(cache_key("dashboard:data", facility_id=facility_id))
+        except Exception as e:
+            logger.warning(
+                "Failed to invalidate dashboard cache after escalation: facility_id=%s error=%s",
+                facility_id,
+                e,
+            )
         
         return escalation
     

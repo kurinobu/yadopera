@@ -1,3 +1,4 @@
+/* eslint-env node */
 /**
  * ビルド後に public/faq-csv-template を dist/faq-csv-template へコピーする。
  * Render 等で Vite の public コピーが効かない場合でも、CSV テンプレートを配信可能にする。

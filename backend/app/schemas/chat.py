@@ -81,6 +81,11 @@ class ChatHistoryResponse(BaseModel):
     started_at: datetime
     last_activity_at: datetime
     messages: List[MessageResponse] = Field(default_factory=list)
+    # 管理画面（facility_id 付き履歴取得）用: 未解決エスカレの ID（ゲスト画面の受付番号と同一。無ければ null）
+    unresolved_escalation_id: Optional[int] = Field(
+        default=None,
+        description="未解決エスカレーションID（escalations.id）。ゲスト向け取得では常に null",
+    )
 
     class Config:
         from_attributes = True

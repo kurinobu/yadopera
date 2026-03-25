@@ -88,7 +88,9 @@ class TestDeveloperFaqBulkUpload:
             headers=auth_headers,
         )
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
-        assert "developer" in response.json()["detail"].lower()
+        body = response.json()
+        msg = (body.get("detail") or body.get("error", {}).get("message", "")).lower()
+        assert "developer" in msg
 
     @pytest.mark.asyncio
     async def test_facility_not_found(self, client, developer_headers):
@@ -134,7 +136,9 @@ class TestDeveloperFaqBulkUpload:
             headers=developer_headers,
         )
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert "ユーザー" in response.json()["detail"]
+        body = response.json()
+        detail = body.get("detail") or body.get("error", {}).get("message", "")
+        assert "ユーザー" in detail
 
     @pytest.mark.asyncio
     @patch("app.services.faq_service.generate_embedding")

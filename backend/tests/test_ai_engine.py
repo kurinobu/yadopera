@@ -7,26 +7,11 @@ from decimal import Decimal
 from unittest.mock import AsyncMock, patch, MagicMock
 from app.ai.engine import RAGChatEngine
 from app.models.faq import FAQ
-from app.schemas.chat import EscalationInfo
+from app.schemas.chat import EscalationInfo, RAGEngineResponse
 
 
 class TestRAGEngine:
     """RAG統合型AI対話エンジンテスト"""
-    
-    @pytest.fixture
-    def mock_faq(self, test_facility):
-        """モックFAQ"""
-        faq = FAQ(
-            id=1,
-            facility_id=test_facility.id,
-            category="basic",
-            language="en",
-            question="What time is check-out?",
-            answer="Check-out is by 11:00 AM.",
-            priority=5,
-            is_active=True
-        )
-        return faq
     
     @pytest.mark.asyncio
     @patch('app.ai.engine.generate_embedding')
@@ -39,12 +24,23 @@ class TestRAGEngine:
         mock_generate_embedding,
         db_session,
         test_facility,
-        mock_faq
     ):
         """メッセージ処理成功テスト"""
+        # search_similar_faqs の後に DB から再読込するため、同じ FAQ をセッション上に載せる
+        faq_in_db = FAQ(
+            facility_id=test_facility.id,
+            category="basic",
+            intent_key="basic_checkout_time",
+            priority=5,
+            is_active=True,
+        )
+        db_session.add(faq_in_db)
+        await db_session.flush()
+        await db_session.refresh(faq_in_db)
+
         # モック設定
         mock_generate_embedding.return_value = [0.1] * 1536
-        mock_search_faqs.return_value = [mock_faq]
+        mock_search_faqs.return_value = [faq_in_db]
         
         mock_client = AsyncMock()
         mock_client.generate_response = AsyncMock(return_value="Check-out is by 11:00 AM.")
@@ -61,11 +57,9 @@ class TestRAGEngine:
             language="en"
         )
         
-        # アサーション
-        assert response.session_id == "test-session-1"
+        # アサーション（RAGEngineResponse は session_id を含まない中間形式）
         assert response.response == "Check-out is by 11:00 AM."
         assert response.ai_confidence == Decimal("0.7")  # 暫定値
-        assert response.source == "rag_generated"
         assert len(response.matched_faq_ids) > 0
         assert isinstance(response.escalation, EscalationInfo)
     
@@ -102,7 +96,6 @@ class TestRAGEngine:
         )
         
         # アサーション（埋め込み失敗でも処理は続行）
-        assert response.session_id == "test-session-2"
         assert response.response is not None
     
     @pytest.mark.asyncio
@@ -127,14 +120,16 @@ class TestRAGEngine:
         # エンジン初期化
         engine = RAGChatEngine(db_session)
         
-        # テスト実行（存在しない施設ID）
-        with pytest.raises(ValueError, match="Facility not found"):
-            await engine.process_message(
-                message="Test question",
-                facility_id=99999,  # 存在しない施設ID
-                session_id="test-session-3",
-                language="en"
-            )
+        # テスト実行（存在しない施設ID）— 例外は捕捉されフォールバック応答になる
+        response = await engine.process_message(
+            message="Test question",
+            facility_id=99999,  # 存在しない施設ID
+            session_id="test-session-3",
+            language="en"
+        )
+        assert isinstance(response, RAGEngineResponse)
+        assert response.escalation.needed is True
+        assert response.escalation.trigger_type == "error"
     
     @pytest.mark.asyncio
     @patch('app.ai.engine.generate_embedding')
@@ -169,7 +164,6 @@ class TestRAGEngine:
         )
         
         # アサーション（エラー時はフォールバックレスポンス）
-        assert response.session_id == "test-session-4"
         assert response.escalation.needed is True
         assert response.escalation.trigger_type == "error"
 

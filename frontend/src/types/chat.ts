@@ -48,6 +48,8 @@ export interface ChatHistoryResponse {
   started_at: string
   last_activity_at: string
   messages: ChatMessage[]
+  /** 管理画面の履歴取得時: 未解決エスカレのID（受付番号）。ゲスト取得では undefined/null */
+  unresolved_escalation_id?: number | null
 }
 
 export interface FeedbackRequest {

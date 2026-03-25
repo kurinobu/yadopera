@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 import pytz
 
 from app.models.conversation import Conversation
+from app.models.escalation import Escalation
 from app.models.message import Message, MessageRole
 from app.models.facility import Facility
 from app.models.faq import FAQ
@@ -648,6 +649,19 @@ class ChatService:
             )
             for msg in messages
         ]
+
+        unresolved_escalation_id: Optional[int] = None
+        if facility_id is not None:
+            open_esc = await self.db.execute(
+                select(Escalation.id)
+                .where(
+                    Escalation.conversation_id == conversation.id,
+                    Escalation.resolved_at.is_(None),
+                )
+                .order_by(Escalation.created_at.desc())
+                .limit(1)
+            )
+            unresolved_escalation_id = open_esc.scalar_one_or_none()
         
         return ChatHistoryResponse(
             session_id=conversation.session_id,
@@ -656,7 +670,8 @@ class ChatService:
             location=conversation.location,
             started_at=conversation.started_at,
             last_activity_at=conversation.last_activity_at,
-            messages=message_responses
+            messages=message_responses,
+            unresolved_escalation_id=unresolved_escalation_id,
         )
     
     async def save_feedback(

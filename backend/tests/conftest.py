@@ -151,22 +151,20 @@ async def db_session():
                     pass  # クローズエラーは無視（イベントループが閉じられている場合など）
     
     # テスト後のクリーンアップ: テーブル削除
-    # ステージング環境（TEST_DATABASE_URLが設定されている場合）ではテーブル削除をスキップ
-    # ローカル環境（TEST_DATABASE_URLが未設定）ではテーブルを削除
-    if not os.getenv("TEST_DATABASE_URL"):
-        # ローカル環境のみテーブル削除を実行
-        try:
-            if USE_POSTGRES_TEST:
-                # PostgreSQL環境: テーブル削除（データベースは保持）
+    # PostgreSQL は永続 DB のため、既定では毎回 drop して次テストの汚染を防ぐ。
+    # ステージング等でスキーマを残して調査したいときだけ PRESERVE_POSTGRES_TEST_DB=true を付与する。
+    try:
+        if USE_POSTGRES_TEST:
+            if os.getenv("PRESERVE_POSTGRES_TEST_DB", "").lower() != "true":
                 async with test_engine.begin() as cleanup_conn:
                     await cleanup_conn.run_sync(Base.metadata.drop_all)
-            else:
-                # SQLite環境: テーブル削除
-                async with test_engine.begin() as cleanup_conn:
-                    await cleanup_conn.run_sync(Base.metadata.drop_all)
-        except (Exception, RuntimeError):
-            # クリーンアップエラーは無視（テーブルが存在しない場合やイベントループが閉じられている場合など）
-            pass
+                # drop 後にプールに残った接続が次テストの create_all と競合するのを防ぐ
+                await test_engine.dispose()
+        else:
+            async with test_engine.begin() as cleanup_conn:
+                await cleanup_conn.run_sync(Base.metadata.drop_all)
+    except (Exception, RuntimeError):
+        pass
 
 
 @pytest.fixture(scope="function")
@@ -300,6 +298,7 @@ async def test_user(db_session: AsyncSession, test_facility):
         full_name="Test User",
         role="staff",
         is_active=True,
+        email_verified=True,
     )
     db_session.add(user)
     # commit()を削除: トランザクション内でデータを作成し、テスト終了時にrollback()で削除

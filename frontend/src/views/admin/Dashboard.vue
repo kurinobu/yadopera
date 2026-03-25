@@ -168,7 +168,7 @@ import UnresolvedListCard from '@/components/admin/dashboard/UnresolvedListCard.
 import Loading from '@/components/common/Loading.vue'
 import { formatPercentage } from '@/utils/formatters'
 import { dashboardApi } from '@/api/dashboard'
-import type { DashboardData, ChatHistory, FeedbackStats as FeedbackStatsType } from '@/types/dashboard'
+import type { DashboardData, ChatHistory } from '@/types/dashboard'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -309,7 +309,7 @@ const handleConversationClick = (conversation: ChatHistory) => {
 
 // handleQueueViewAllは削除（未使用のため）
 
-const handleFeedbackRespond = (_answer: FeedbackStatsType['low_rated_answers'][0]) => {
+const handleFeedbackRespond = () => {
   // FAQ管理ページにジャンプ（FeedbackStatsコンポーネント内で既に処理されている）
 }
 </script>

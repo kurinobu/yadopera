@@ -88,7 +88,7 @@ interface Props {
   stats: FeedbackStats
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 const router = useRouter()
 

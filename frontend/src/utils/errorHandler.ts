@@ -82,8 +82,10 @@ export function handleApiError(error: unknown): AppError {
         }
       case 429:
         return {
-          code: 'RATE_LIMIT',
-          message: 'リクエストが多すぎます。しばらく時間をおいてから再度お試しください。'
+          code: 'RATE_LIMIT_EXCEEDED',
+          message:
+            detailMessage ??
+            'リクエストが多すぎます。しばらく時間をおいてから再度お試しください。'
         }
       case 500:
         return {

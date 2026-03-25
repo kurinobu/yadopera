@@ -6,6 +6,8 @@ import pytest
 from unittest.mock import AsyncMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from sqlalchemy import update
+
 from app.models.facility import Facility
 from app.models.faq import FAQ
 from app.models.faq_translation import FAQTranslation
@@ -63,6 +65,12 @@ class TestFAQServiceLanguageLimit:
         db_session.add(facility)
         await db_session.flush()
         await db_session.refresh(facility)
+        # PostgreSQL の server_default が ORM の None を上書きする場合があるため無制限を明示
+        await db_session.execute(
+            update(Facility).where(Facility.id == facility.id).values(language_limit=None)
+        )
+        await db_session.flush()
+        await db_session.refresh(facility)
         return facility
     
     async def _create_test_user(self, db_session: AsyncSession, facility_id: int, email: str):
@@ -74,7 +82,8 @@ class TestFAQServiceLanguageLimit:
             password_hash=hash_password("testpassword123"),
             full_name="Test User",
             role="staff",
-            is_active=True
+            is_active=True,
+            email_verified=True,
         )
         db_session.add(user)
         await db_session.flush()
@@ -90,7 +99,7 @@ class TestFAQServiceLanguageLimit:
             intent_key="basic_test",
             priority=5,
             is_active=True,
-            created_by=1
+            created_by=None,
         )
         db_session.add(faq)
         await db_session.flush()
@@ -261,7 +270,7 @@ class TestFAQServiceLanguageLimit:
             intent_key="basic_test_mini",
             priority=5,
             is_active=True,
-            created_by=1
+            created_by=None,
         )
         db_session.add(faq)
         await db_session.flush()
@@ -381,7 +390,7 @@ class TestFAQServiceLanguageLimit:
             intent_key="basic_test_premium",
             priority=5,
             is_active=True,
-            created_by=1
+            created_by=None,
         )
         db_session.add(faq)
         await db_session.flush()

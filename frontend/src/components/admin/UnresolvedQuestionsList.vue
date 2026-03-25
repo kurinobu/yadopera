@@ -78,7 +78,7 @@ interface Props {
   questions: UnresolvedQuestion[]
 }
 
-const props = defineProps<Props>()
+defineProps<Props>()
 
 const emit = defineEmits<{
   'add-faq': [question: UnresolvedQuestion]

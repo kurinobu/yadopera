@@ -1,6 +1,7 @@
 """
 実行環境同一性確定用の一時エンドポイント（Phase 1 Step 1）。
-原因確定後に削除または無効化すること。
+本番（ENVIRONMENT=production）では app.main でルーター未登録とし、応答しない。
+ステージング・開発では RENDER_GIT_COMMIT 確認等に利用可。
 """
 import os
 import glob

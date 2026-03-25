@@ -102,7 +102,7 @@ interface Props {
   showResolveButton?: boolean  // 対応済みボタンを表示するか（専用ページ用）
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   showResolveButton: false
 })
 

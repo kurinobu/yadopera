@@ -104,11 +104,11 @@ class TestOvernightQueue:
         assert any(q.id == queue.id for q in queues)
     
     @pytest.mark.asyncio
-    async def test_send_overnight_auto_reply(self, db_session, queue_service):
+    async def test_send_overnight_auto_reply(self, db_session, test_facility, queue_service):
         """夜間自動返信メッセージ送信テスト"""
         # 会話作成
         conversation = Conversation(
-            facility_id=1,
+            facility_id=test_facility.id,
             session_id="test-session-3",
             guest_language="en",
             started_at=datetime.utcnow(),
