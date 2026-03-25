@@ -375,22 +375,27 @@ class EscalationService:
                 )
                 continue
             
-            # 最初のユーザーメッセージを取得
+            # スタッフ連絡（staff_mode等）発生時点（escalation.created_at）以前の
+            # 直近USERメッセージを質問として採用する。
+            #
+            # これにより、同一会話内でその後に別の質問が続いても、
+            # 「スタッフへ連絡した対象質問」にFAQ管理の未解決リストを揃えられる。
             user_message_query = select(Message).where(
                 Message.conversation_id == conversation.id,
-                Message.role == MessageRole.USER.value
-            ).order_by(Message.created_at.asc()).limit(1)
+                Message.role == MessageRole.USER.value,
+                Message.created_at <= escalation.created_at,
+            ).order_by(Message.created_at.desc()).limit(1)
             
             user_message_result = await db.execute(user_message_query)
             user_message = user_message_result.scalar_one_or_none()
             
             if user_message:
-                # そのUSERメッセージに対するASSISTANTロールのメッセージを取得
-                # USERメッセージの後に作成された最初のASSISTANTメッセージを取得
+                # 直近USERの直後に作成された最初のASSISTANTメッセージを取得（ただし escalation.created_at 以前まで）
                 assistant_message_query = select(Message).where(
                     Message.conversation_id == conversation.id,
                     Message.role == MessageRole.ASSISTANT.value,
-                    Message.created_at > user_message.created_at
+                    Message.created_at > user_message.created_at,
+                    Message.created_at <= escalation.created_at,
                 ).order_by(Message.created_at.asc()).limit(1)
                 
                 assistant_message_result = await db.execute(assistant_message_query)
