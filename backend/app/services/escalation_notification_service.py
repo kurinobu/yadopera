@@ -2,7 +2,7 @@
 スタッフ向けエスカレーション通知（A-4：送信の芯）。
 
 Brevo 経由で施設の連絡先メールへ送り、成功時のみ escalations.notified_at を更新する。
-呼び出し元（チャット・夜間キュー等）は別タスクでこのモジュールに接続する。
+`ChatService`・`POST /chat/escalate`・`OvernightQueueService.process_scheduled_notifications` から呼ばれる。
 """
 
 import logging
@@ -34,7 +34,8 @@ async def send_staff_escalation_notification(
 
     - 受付番号は必ず escalations.id のみを本文・件名に含める。
     - 既に notified_at が入っている場合は送信せず True を返す（冪等）。
-    - BREVO_API_KEY が無い場合は warning を出して False（本番では起動時にキー必須のため、通常は送信まで到達する）。
+    - BREVO_API_KEY が無い場合は開発では warning、本番では error ログのうえ False
+      （本番は `Settings` で起動時にキー必須のため通常ここには到達しないが、防御的に記録）。
     - 送信に成功した場合のみ notified_at を更新し commit する。
 
     Returns:
@@ -77,10 +78,13 @@ async def send_staff_escalation_notification(
         return False
 
     if not settings.brevo_api_key:
-        logger.warning(
-            "BREVO_API_KEY not set; staff escalation email not sent: escalation_id=%s",
-            escalation_id,
+        msg = (
+            "BREVO_API_KEY not set; staff escalation email not sent: escalation_id=%s"
         )
+        if settings.environment == "production":
+            logger.error(msg, escalation_id)
+        else:
+            logger.warning(msg, escalation_id)
         return False
 
     receipt_id = escalation.id

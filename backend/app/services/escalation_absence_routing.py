@@ -1,5 +1,5 @@
 """
-エスカレーション作成直後のルーティング（スタッフ不在時間内なら夜間キュー、それ以外は即時メールは呼び出し先）。
+エスカレーション作成直後のルーティング（スタッフ不在時間内ならスタッフ不在時間帯対応キューへ、それ以外は呼び出し側が即時メール送信を行う）。
 ChatService と POST /chat/escalate で共通利用する。
 """
 
@@ -28,7 +28,7 @@ async def queue_escalation_if_staff_absence(
     overnight_queue_service: OvernightQueueService,
 ) -> bool:
     """
-    スタッフ不在時間内なら夜間キューへ入れ自動返信し True（この場合は即時メールを送らない）。
+    スタッフ不在時間内ならスタッフ不在時間帯対応キューへ入れ自動返信し True（この場合は即時メールを送らない）。
     不在時間外、または施設が取れない場合は False（呼び出し元が即時メールを送る）。
     """
     facility = await db.get(Facility, facility_id)

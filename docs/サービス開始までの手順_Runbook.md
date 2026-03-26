@@ -1,7 +1,7 @@
 # サービス開始までの手順 Runbook
 
 **作成日**: 2026年3月19日  
-**最終更新日**: 2026年3月25日（§3.3.1 A-4 スタッフ通知メールの本番前確認を追記）  
+**最終更新日**: 2026年3月26日（§3.3.1 調査記録・チェック更新・用語注記）  
 **目的**: 本番リリース当日に、手順漏れなく安全にサービス開始するための実行手順書。  
 **対象環境**: `main`（本番） / Render（Backend + Frontend） / 本番DB / Redis / Stripe本番。  
 **前提**: すべての修正・検証は Docker 環境で完了済みであること。
@@ -212,10 +212,23 @@
 
 実装計画: `docs/エスカレーション_A-4_スタッフ通知メール_実装計画.md`。開発時の自動テストは `backend/scripts/run_a4_tests_with_docker_postgres.sh`（Docker PostgreSQL 前提）。
 
-- [ ] Backend に **`BREVO_API_KEY`** / **`BREVO_SENDER_EMAIL`**（および送信者名）／**`FRONTEND_URL`**（管理画面リンクのベース）が、対象環境で設定されている。
-- [ ] 通知先となる **施設の `Facility.email`** が有効な受信箱である（テスト送信で到達確認してよい）。
-- [ ] **ゲスト画面に表示される受付番号**と、**スタッフ通知メールの件名・本文に記載される受付番号**が一致する（いずれも DB の **`escalations.id`**）。チャット経由の自動エスカレーションと「スタッフに連絡」のいずれか一方で確認してよい。
-- [ ] スタッフ不在時間内にキューへ入れた場合は、**夜間キューの通知処理**（管理画面の手動実行または運用で定めたバッチ）実行後に、同じ受付番号でメールが届くことを、ステージングまたは本番で確認する。
+**用語**: 本節・運用説明では **スタッフ不在時間帯対応キュー** と書く（旧称「夜間キュー」は文書に増やさない）。正本: `docs/開発規約/文書用語_スタッフ不在時間帯対応キュー.md`。
+
+**§3.3.1 調査記録（2026-03-26）**: リポジトリの `render.yaml`・`backend/.env.example`・公開ヘルス・Docker 上 pytest、ならびにこれまでのステージング作業記録に基づき判定。本番は別途 Dashboard で同じ項目を目視すること。
+
+- [x] Backend に **`BREVO_API_KEY`** / **`BREVO_SENDER_EMAIL`**（および送信者名）／**`FRONTEND_URL`**（管理画面リンクのベース）が、対象環境で設定されている。  
+  - **ステージング**: `render.yaml` に **`FRONTEND_URL=https://yadopera-frontend-staging.onrender.com`** を確認。`BREVO_*` は Blueprint に列挙されていないため **Render Dashboard の `yadopera-backend-staging` 環境変数で設定**が正本。**`GET https://yadopera-backend-staging.onrender.com/api/v1/health` → 200**（2026-03-26 実行）でサービス稼働を確認。過去のステージング作業で **`BREVO_API_KEY` および `FRONTEND_URL` が Dashboard に存在する画面**があり、スタッフ通知メール経路まで到達した記録がある。**`BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME`** は Dashboard のキー一覧で **空でないことを最終目視**すること（未設定時は Brevo 送信が成立しない）。  
+  - **本番**: リリース当日に **同キーが本番 Web サービスに入っているか**を必ず Dashboard で確認（本記録はステージング中心）。
+- [x] 通知先となる **施設の `Facility.email`** が有効な受信箱である（テスト送信で到達確認してよい）。  
+  - **ステージング**: `docs/セッション引き継ぎ_A-4_FAQ未解決リスト_20260325.md` §6 に、**`Facility.email` を有効アドレスへ修正したうえでスタッフ通知メールの送達が復旧した**事実記録あり。**施設を増やす・本番化するたびに宛先の有効性を再確認**すること。
+- [x] **ゲスト画面に表示される受付番号**と、**スタッフ通知メールの件名・本文に記載される受付番号**が一致する（いずれも DB の **`escalations.id`**）。チャット経由のエスカレーション（AI がエスカレーションが必要と判断して記録が付くケース）と「スタッフに連絡」のいずれか一方で確認してよい。  
+  - **実装・自動検証**: `send_staff_escalation_notification` は **`escalations.id` のみ**を件名・本文に埋め込む。Docker PostgreSQL 上で **`backend/scripts/run_a4_tests_with_docker_postgres.sh` → 10 passed**（2026-03-26 再実行）。  
+  - **ステージング（利用者実施）**: ゲストの「スタッフに連絡」で **受付番号表示**・**`POST .../escalate` 200**・**メール本文の受付番号一致**を確認した記録がある（即時送信経路）。**新規検証時**は受信トレイまたは Brevo 送信ログでも再確認すること。
+- [x] **スタッフ不在時間帯**に **スタッフ不在時間帯対応キュー**へ入れた場合は、**一括通知処理**（管理画面の手動実行 `POST /api/v1/admin/overnight-queue/process` または運用で定めたバッチ）を実行したあと、**同じ受付番号**でメールが届くことを、ステージングまたは本番で確認する。  
+  - **コード・Docker**: `process_scheduled_notifications` から `send_staff_escalation_notification` を呼ぶ経路は **上記 pytest に含まれ 10 passed**。  
+  - **ステージング（利用者実施・前会話）**: 施設設定で **16:00〜17:00 をスタッフ不在時間帯**とし、その間にゲストで **「スタッフに連絡」**。**約30分待機後（16:31 以降）**に **`/admin/overnight-queue` の手動実行**→ **メール未到達ではなく到達**、**受付番号一致**、**対応済み**まで実施済み。**当時 Runbook へ未記載だったため、ここに追記（2026-03-26）**。
+- [x] FAQ管理画面の「未解決質問リスト」について、該当行の `question` / `message_id` を Network の `GET /api/v1/admin/escalations/unresolved-questions` で同定し、FAQ追加で叩かれる `POST /api/v1/admin/faq-suggestions/generate/{message_id}` の `{message_id}` が一致することを確認（不一致は `get_unresolved_questions()` の `question/message_id` 選定ロジック不整合の可能性）。詳しくは `docs/セッション引き継ぎ_A-4_FAQ未解決リスト_20260325.md`。  
+  - **2026-03-26 ステージング実施例**: 受付番号 `id` 91・`message_id` **2552**・質問「新しいバスタオルが借りたいです」について、`POST .../faq-suggestions/generate/2552` が **201**、`source_message_id` **2552**・`suggested_question` が同文言で一致することを確認済み。
 
 ### 3.4 決済・Webhook（本番キー切替直後）
 

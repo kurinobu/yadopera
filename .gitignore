@@ -122,4 +122,7 @@ backups/
 # Local test data (do not commit)
 backend/scripts/test_csv_bulk_upload.csv
 
+# Local release snapshot (do not commit)
+.release-main/
+
 
