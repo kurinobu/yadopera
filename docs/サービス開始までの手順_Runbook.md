@@ -1,7 +1,7 @@
 # サービス開始までの手順 Runbook
 
 **作成日**: 2026年3月19日  
-**最終更新日**: 2026年3月26日（§3.3.1 調査記録・チェック更新・用語注記）  
+**最終更新日**: 2026年3月26日（A-4 本番ブラウザ実施記録を追記）  
 **目的**: 本番リリース当日に、手順漏れなく安全にサービス開始するための実行手順書。  
 **対象環境**: `main`（本番） / Render（Backend + Frontend） / 本番DB / Redis / Stripe本番。  
 **前提**: すべての修正・検証は Docker 環境で完了済みであること。
@@ -107,6 +107,7 @@
 
 - [x] `develop` で最終確認済みコミットを `main` に反映。  
   - 2026-03-23 実施: `main` に `origin/develop` をマージ（`landing/index.html` 競合は今回方針どおり `main` 先行内容を採用）し、`8dd263a` を `origin/main` へ push 済み。
+  - 2026-03-26 追記: `origin/develop` の先端 `96178b1` を `main` へ fast-forward 反映し、`origin/main` に push 済み（`19f2172..96178b1`）。
 - [x] **`STRIPE_*` 本番（live）**: **§1.4（§6.0）完了前**は Render 本番に live を入れない（test のまま、または未課金で動作確認する）。**live は §1.5 を満たした後**に設定する。  
   - §1.4 完了を記録済み。live 投入は未実施（本番作業フェーズで実施）。
 - [x] `main` push 後、Render 自動デプロイ開始を確認。  
@@ -219,16 +220,20 @@
 - [x] Backend に **`BREVO_API_KEY`** / **`BREVO_SENDER_EMAIL`**（および送信者名）／**`FRONTEND_URL`**（管理画面リンクのベース）が、対象環境で設定されている。  
   - **ステージング**: `render.yaml` に **`FRONTEND_URL=https://yadopera-frontend-staging.onrender.com`** を確認。`BREVO_*` は Blueprint に列挙されていないため **Render Dashboard の `yadopera-backend-staging` 環境変数で設定**が正本。**`GET https://yadopera-backend-staging.onrender.com/api/v1/health` → 200**（2026-03-26 実行）でサービス稼働を確認。過去のステージング作業で **`BREVO_API_KEY` および `FRONTEND_URL` が Dashboard に存在する画面**があり、スタッフ通知メール経路まで到達した記録がある。**`BREVO_SENDER_EMAIL` / `BREVO_SENDER_NAME`** は Dashboard のキー一覧で **空でないことを最終目視**すること（未設定時は Brevo 送信が成立しない）。  
   - **本番**: リリース当日に **同キーが本番 Web サービスに入っているか**を必ず Dashboard で確認（本記録はステージング中心）。
+  - **本番（2026-03-26 利用者実施）**: Render `yadopera-backend-production` の Environment で `BREVO_API_KEY` と `FRONTEND_URL` が設定済みであることを目視確認し、実送信テスト（下記）で経路到達を再確認。
 - [x] 通知先となる **施設の `Facility.email`** が有効な受信箱である（テスト送信で到達確認してよい）。  
   - **ステージング**: `docs/セッション引き継ぎ_A-4_FAQ未解決リスト_20260325.md` §6 に、**`Facility.email` を有効アドレスへ修正したうえでスタッフ通知メールの送達が復旧した**事実記録あり。**施設を増やす・本番化するたびに宛先の有効性を再確認**すること。
+  - **本番（2026-03-26 利用者実施）**: Free プランで新規登録した施設で「スタッフへ連絡」を実行し、施設宛メールの到達を確認。
 - [x] **ゲスト画面に表示される受付番号**と、**スタッフ通知メールの件名・本文に記載される受付番号**が一致する（いずれも DB の **`escalations.id`**）。チャット経由のエスカレーション（AI がエスカレーションが必要と判断して記録が付くケース）と「スタッフに連絡」のいずれか一方で確認してよい。  
   - **実装・自動検証**: `send_staff_escalation_notification` は **`escalations.id` のみ**を件名・本文に埋め込む。Docker PostgreSQL 上で **`backend/scripts/run_a4_tests_with_docker_postgres.sh` → 10 passed**（2026-03-26 再実行）。  
   - **ステージング（利用者実施）**: ゲストの「スタッフに連絡」で **受付番号表示**・**`POST .../escalate` 200**・**メール本文の受付番号一致**を確認した記録がある（即時送信経路）。**新規検証時**は受信トレイまたは Brevo 送信ログでも再確認すること。
+  - **本番（2026-03-26 利用者実施）**: 件名 `【YadOPERA】スタッフ連絡受付番号 95（やどぴとホテル）` の到達を確認。メール本文の受付番号 `95` と管理画面会話詳細の受付番号 `95` が一致。
 - [x] **スタッフ不在時間帯**に **スタッフ不在時間帯対応キュー**へ入れた場合は、**一括通知処理**（管理画面の手動実行 `POST /api/v1/admin/overnight-queue/process` または運用で定めたバッチ）を実行したあと、**同じ受付番号**でメールが届くことを、ステージングまたは本番で確認する。  
   - **コード・Docker**: `process_scheduled_notifications` から `send_staff_escalation_notification` を呼ぶ経路は **上記 pytest に含まれ 10 passed**。  
   - **ステージング（利用者実施・前会話）**: 施設設定で **16:00〜17:00 をスタッフ不在時間帯**とし、その間にゲストで **「スタッフに連絡」**。**約30分待機後（16:31 以降）**に **`/admin/overnight-queue` の手動実行**→ **メール未到達ではなく到達**、**受付番号一致**、**対応済み**まで実施済み。**当時 Runbook へ未記載だったため、ここに追記（2026-03-26）**。
 - [x] FAQ管理画面の「未解決質問リスト」について、該当行の `question` / `message_id` を Network の `GET /api/v1/admin/escalations/unresolved-questions` で同定し、FAQ追加で叩かれる `POST /api/v1/admin/faq-suggestions/generate/{message_id}` の `{message_id}` が一致することを確認（不一致は `get_unresolved_questions()` の `question/message_id` 選定ロジック不整合の可能性）。詳しくは `docs/セッション引き継ぎ_A-4_FAQ未解決リスト_20260325.md`。  
   - **2026-03-26 ステージング実施例**: 受付番号 `id` 91・`message_id` **2552**・質問「新しいバスタオルが借りたいです」について、`POST .../faq-suggestions/generate/2552` が **201**、`source_message_id` **2552**・`suggested_question` が同文言で一致することを確認済み。
+  - **2026-03-26 本番実施例（利用者）**: 未解決質問「アイロンを貸してくれますか？」の `FAQ追加` 操作で、Network 上の `faq-suggestions/generate/2566` が **201**（2回）となることを確認。画面上の FAQ 追加提案カードが同質問文脈で更新されることを確認。
 
 ### 3.4 決済・Webhook（本番キー切替直後）
 
@@ -405,6 +410,6 @@ union all select 'messages', count(*) from public.messages;"
 
 ---
 
-**Document Version**: 2.8  
-**Last Updated**: 2026年3月24日  
-**Status**: §3.3（主要導線: ゲスト）および §3.2（主要導線: 管理者）に加え、開発者導線・方法D の本番確認、本番データ全削除（重複リスク解消）まで実施。**§6.0 は完了（Owner Go）**。`STRIPE_*` live 反映は完了。現在は **Stripe 審査ブロッカー解消（§3.6）を先行**し、その後 §3.4 の最終判定へ進む。
+**Document Version**: 2.9  
+**Last Updated**: 2026年3月26日  
+**Status**: §3.2（管理者）・§3.3（ゲスト）に加え、**§3.3.1 A-4（スタッフ通知メール）を本番ブラウザ実施で再確認**。Free プラン新規登録施設で「スタッフへ連絡」→ メール到達（受付番号一致）→ 管理画面会話詳細反映 → FAQ管理「未解決質問リスト」反映 → `FAQ追加` の `generate/{message_id}` 201 を確認。`main` は `96178b1` まで反映済み。
