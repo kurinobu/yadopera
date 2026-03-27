@@ -18,7 +18,7 @@ from app.schemas.faq import (
     BulkFAQCreateResponse,
     BulkUploadResult,
 )
-from app.services.faq_service import FAQService
+from app.services.faq_service import FAQService, FAQLimitExceededError
 from app.services.csv_parser import CSVParseError
 from app.core.plan_limits import get_initial_faq_count
 
@@ -144,6 +144,11 @@ async def create_faq(
         
         return faq
     
+    except FAQLimitExceededError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
     except ValueError as e:
         # バリデーションエラー
         raise HTTPException(

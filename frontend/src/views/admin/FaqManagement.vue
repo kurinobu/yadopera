@@ -9,6 +9,9 @@
         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
           FAQの追加・編集・削除と自動学習機能
         </p>
+        <p v-if="faqCountSummary" class="mt-1 text-sm text-gray-600 dark:text-gray-300">
+          {{ faqCountSummary }}
+        </p>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -182,6 +185,7 @@ const faqs = ref<FAQ[]>([])
 const unresolvedQuestions = ref<UnresolvedQuestion[]>([])
 const loadingUnresolved = ref(false)
 const planType = ref<string | null>(null)
+const faqLimit = ref<number | null>(null)
 const showBulkUploadModal = ref(false)
 // 修正案B: モーダルを開くたびに子を再マウントしてテンプレートブロックを確実に表示
 const bulkUploadModalKey = ref(0)
@@ -198,6 +202,11 @@ async function openBulkUploadModal() {
 const canUseCsvBulkUpload = computed(() =>
   planType.value === 'Standard' || planType.value === 'Premium'
 )
+
+const faqCountSummary = computed(() => {
+  if (faqLimit.value == null) return null
+  return `現在 ${faqs.value.length} / 上限 ${faqLimit.value} 件`
+})
 
 // モックデータ（Week 4でAPI連携に置き換え、一部は残す）
 /* const mockFaqs: FAQ[] = [
@@ -420,8 +429,10 @@ async function loadFacilityPlan() {
   try {
     const res = await facilityApi.getFacilitySettings()
     planType.value = res.facility?.plan_type ?? null
+    faqLimit.value = res.facility?.faq_limit ?? null
   } catch {
     planType.value = null
+    faqLimit.value = null
   }
 }
 

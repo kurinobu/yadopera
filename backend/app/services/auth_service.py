@@ -70,7 +70,7 @@ def get_plan_defaults(plan_type: str) -> dict:
     defaults = {
         'Free': {
             'monthly_question_limit': 30,
-            'faq_limit': 20,
+            'faq_limit': 30,
             'language_limit': 1  # ["ja"]
         },
         'Mini': {

@@ -34,6 +34,10 @@ logger = logging.getLogger(__name__)
 FAQ_CACHE_TTL = 3600  # 1時間
 
 
+class FAQLimitExceededError(ValueError):
+    """FAQ件数上限を超過した場合の業務例外。API層で409へマッピングする。"""
+
+
 def normalize_question(question: str) -> str:
     """
     質問文を正規化してintent_keyを生成するためのキーを作成
@@ -439,6 +443,16 @@ class FAQService:
                 "同じ内容のFAQは既に登録されています。CSV一括登録では、既に登録済みのFAQ（同じ質問・カテゴリ）を再度アップロードすることはできません。"
                 "既存の同じFAQをFAQ一覧から削除してから、再度アップロードしてください。"
             )
+
+        # FAQ件数上限チェック（Premium は faq_limit=None のためスキップ）
+        # A3: create_faq経路でもサーバ側で上限を強制する
+        if facility.faq_limit is not None:
+            current_count = await self._get_faq_count(facility_id)
+            if current_count >= facility.faq_limit:
+                raise FAQLimitExceededError(
+                    f"{facility.plan_type}プランでは{facility.faq_limit}件までしか登録できません。"
+                    f"現在のFAQ数: {current_count}件。不要なFAQを削除するか、プラン変更を検討してください。"
+                )
         
         # priorityがNoneの場合はデフォルト値1を使用（念のため）
         priority = request.priority if request.priority is not None else 1
@@ -611,8 +625,32 @@ class FAQService:
             List[FAQResponse]: 作成されたFAQリスト（translationsを含む）
         """
         created_faqs = []
+
+        facility = await self.db.get(Facility, facility_id)
+        if not facility:
+            raise ValueError(f"Facility not found: facility_id={facility_id}")
+
+        # A4: 一括作成でもFAQ件数上限を先に算出し、超過分は作成処理に入れない
+        remaining_slots: Optional[int] = None
+        if facility.faq_limit is not None:
+            current_count = await self._get_faq_count(facility_id)
+            remaining_slots = max(0, facility.faq_limit - current_count)
+            if remaining_slots == 0:
+                logger.warning(
+                    "Bulk FAQ creation skipped: facility_id=%s already at faq_limit=%s",
+                    facility_id,
+                    facility.faq_limit,
+                )
+                return []
         
         for request in faq_requests:
+            if remaining_slots is not None and remaining_slots <= 0:
+                logger.info(
+                    "Bulk FAQ creation stopped at faq_limit: facility_id=%s, created=%s",
+                    facility_id,
+                    len(created_faqs),
+                )
+                break
             try:
                 # 個別のcreate_faqを呼び出し
                 faq_response = await self.create_faq(
@@ -621,6 +659,8 @@ class FAQService:
                     user_id=user_id
                 )
                 created_faqs.append(faq_response)
+                if remaining_slots is not None:
+                    remaining_slots -= 1
                 logger.info(f"Bulk FAQ creation: created faq_id={faq_response.id}, intent_key={faq_response.intent_key}")
             except ValueError as e:
                 logger.warning(f"Bulk FAQ creation: skipped due to validation error: {str(e)}")
