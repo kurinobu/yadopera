@@ -67,7 +67,10 @@ class FacilityResponse(BaseModel):
     house_rules: Optional[str] = None
     local_info: Optional[str] = None
     prohibited_items: Optional[str] = None
-    languages: List[str] = Field(default_factory=list)
+    # 互換目的の旧フィールド。管理画面の表示ロジックは allowed_faq_languages を正として扱う。
+    languages: List[str] = Field(default_factory=list, description="(legacy) 施設の保存言語設定")
+    # プラン制限に基づく正規化済みのFAQ対応言語（管理画面表示の単一ソース）
+    allowed_faq_languages: List[str] = Field(default_factory=list, description="プランに基づくFAQ対応言語")
     timezone: str = "Asia/Tokyo"
     subscription_plan: Literal["free", "mini", "small", "standard", "premium"] = "small"
     plan_type: Optional[str] = Field(None, description="料金プラン表示用（Free, Mini, Small, Standard, Premium）")

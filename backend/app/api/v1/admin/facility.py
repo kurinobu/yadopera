@@ -15,7 +15,7 @@ from app.schemas.facility import (
     FacilityResponse,
     StaffAbsencePeriod,
 )
-from app.core.plan_limits import OVERAGE_BEHAVIOR_CHOICES
+from app.core.plan_limits import OVERAGE_BEHAVIOR_CHOICES, get_plan_limits
 from app.core.security import hash_password
 from datetime import time as time_type
 import json
@@ -59,6 +59,11 @@ async def get_facility_settings(
         
         if facility.check_out_time:
             check_out_time_str = facility.check_out_time.strftime("%H:%M")
+
+        # B2: 管理画面の言語表示は plan_limits 由来を正とする
+        subscription_plan = (facility.subscription_plan or "small").lower()
+        plan_limits = get_plan_limits(subscription_plan)
+        allowed_faq_languages = plan_limits.get("languages") or []
         
         # FacilityResponseを構築
         facility_response = FacilityResponse(
@@ -75,8 +80,9 @@ async def get_facility_settings(
             local_info=facility.local_info,
             prohibited_items=getattr(facility, "prohibited_items", None),
             languages=facility.languages or [],
+            allowed_faq_languages=allowed_faq_languages,
             timezone=facility.timezone or "Asia/Tokyo",
-            subscription_plan=(facility.subscription_plan or "small").lower(),
+            subscription_plan=subscription_plan,
             plan_type=facility.plan_type or "Free",
             monthly_question_limit=facility.monthly_question_limit or 200,
             is_active=facility.is_active,
@@ -285,6 +291,11 @@ async def update_facility_settings(
         
         if facility.check_out_time:
             check_out_time_str = facility.check_out_time.strftime("%H:%M")
+
+        # B2: 管理画面の言語表示は plan_limits 由来を正とする
+        subscription_plan = (facility.subscription_plan or "small").lower()
+        plan_limits = get_plan_limits(subscription_plan)
+        allowed_faq_languages = plan_limits.get("languages") or []
         
         facility_response = FacilityResponse(
             id=facility.id,
@@ -299,8 +310,9 @@ async def update_facility_settings(
             house_rules=facility.house_rules,
             local_info=facility.local_info,
             languages=facility.languages or [],
+            allowed_faq_languages=allowed_faq_languages,
             timezone=facility.timezone or "Asia/Tokyo",
-            subscription_plan=(facility.subscription_plan or "small").lower(),
+            subscription_plan=subscription_plan,
             plan_type=facility.plan_type or "Free",
             monthly_question_limit=facility.monthly_question_limit or 200,
             is_active=facility.is_active,

@@ -289,10 +289,10 @@
         </h2>
         <div class="space-y-2">
           <p class="text-sm text-gray-600 dark:text-gray-400">
-            {{ settings?.facility.languages.join(', ') || 'en' }}
+            {{ languageDisplay }}
           </p>
           <p class="text-xs text-gray-500 dark:text-gray-400">
-            現在は英語のみ対応。多言語対応はPhase 2以降で実装予定です。
+            現在のプラン（{{ settings?.facility.plan_type || 'Free' }}）に基づく設定です。
           </p>
         </div>
       </div>
@@ -467,6 +467,13 @@
           {{ isSaving ? '保存中...' : '保存' }}
         </button>
       </div>
+      <p
+        v-if="saveErrorSummary"
+        class="text-sm text-red-600 dark:text-red-400 mt-2 text-right"
+        role="alert"
+      >
+        {{ saveErrorSummary }}
+      </p>
     </div>
   </div>
 </template>
@@ -548,6 +555,7 @@ const passwordForm = ref<PasswordChangeRequest>({
 // バリデーションエラー
 const errors = ref<Record<string, string>>({})
 const passwordErrors = ref<Record<string, string>>({})
+const saveErrorSummary = ref('')
 
 // 曜日オプション
 const daysOfWeek = [
@@ -569,6 +577,32 @@ const isPasswordFormValid = computed(() => {
     passwordForm.value.new_password === passwordForm.value.confirm_password
   )
 })
+
+const languageDisplay = computed(() => {
+  const langs =
+    settings.value?.facility.allowed_faq_languages ??
+    settings.value?.facility.languages ??
+    []
+  if (langs.length === 0) {
+    return '未設定'
+  }
+  return langs.join(', ')
+})
+
+const focusFirstErrorField = () => {
+  requestAnimationFrame(() => {
+    const firstError = document.querySelector('.text-red-600, .text-red-400') as HTMLElement | null
+    if (firstError) {
+      firstError.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+  })
+}
+
+const setSaveValidationError = (field: string, message: string, summary: string) => {
+  errors.value[field] = message
+  saveErrorSummary.value = summary
+  focusFirstErrorField()
+}
 
 // 施設設定を取得
 const fetchSettings = async () => {
@@ -653,14 +687,15 @@ const handleSave = async () => {
   try {
     isSaving.value = true
     errors.value = {}
+    saveErrorSummary.value = ''
     
     // バリデーション
     if (!formData.value.name || formData.value.name.trim().length === 0) {
-      errors.value.name = '施設名は必須です'
+      setSaveValidationError('name', '施設名は必須です', '保存できません。施設名を入力してください。')
       return
     }
     if (!formData.value.email || formData.value.email.trim().length === 0) {
-      errors.value.email = 'メールアドレスは必須です'
+      setSaveValidationError('email', 'メールアドレスは必須です', '保存できません。メールアドレスを入力してください。')
       return
     }
     // ゲストに表示するが ON のとき、施設メールがログインメールと同一ならエラー
@@ -668,7 +703,11 @@ const handleSave = async () => {
       const facilityEmail = formData.value.email.trim().toLowerCase()
       const loginEmail = currentUserEmail.value.trim().toLowerCase()
       if (facilityEmail === loginEmail) {
-        errors.value.email = '施設の連絡先メールは、ログインに使用しているメールアドレスとは別のものを設定してください。'
+        setSaveValidationError(
+          'email',
+          '施設の連絡先メールは、ログインに使用しているメールアドレスとは別のものを設定してください。',
+          '保存できません。施設連絡先メールをログイン用メールとは別のアドレスに変更してください。'
+        )
         return
       }
     }
@@ -689,6 +728,7 @@ const handleSave = async () => {
   } catch (err: any) {
     console.error('Failed to save facility settings:', err)
     const detail = err.response?.data?.detail || err.message || ''
+    saveErrorSummary.value = '保存に失敗しました。入力内容を確認して再試行してください。'
     alert(`保存に失敗しました: ${detail}`)
   } finally {
     isSaving.value = false
