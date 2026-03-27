@@ -58,7 +58,8 @@ export interface FacilitySettingsFacility {
   house_rules?: string
   local_info?: string
   prohibited_items?: string
-  languages: string[]
+  languages: string[]  // legacy（互換用）
+  allowed_faq_languages?: string[]  // API正規化済みのFAQ対応言語
   timezone: string
   subscription_plan: string
   plan_type?: string  // Free, Mini, Small, Standard, Premium（CSV一括登録の表示判定用）
