@@ -36,23 +36,23 @@ def get_plan_defaults(plan_type: str) -> dict:
     defaults = {
         'Free': {
             'monthly_question_limit': 30,
-            'faq_limit': 20,
+            'faq_limit': 30,
             'language_limit': 1
         },
         'Mini': {
             'monthly_question_limit': None,  # 無制限
-            'faq_limit': 20,
-            'language_limit': 1
+            'faq_limit': 30,
+            'language_limit': 2
         },
         'Small': {
             'monthly_question_limit': 200,
-            'faq_limit': 20,
-            'language_limit': 1
+            'faq_limit': 50,
+            'language_limit': 3
         },
         'Standard': {
             'monthly_question_limit': 500,
-            'faq_limit': 20,
-            'language_limit': 1
+            'faq_limit': 100,
+            'language_limit': 4
         },
         'Premium': {
             'monthly_question_limit': 1000,

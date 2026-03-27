@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 # 料金プラン別のFAQ登録数上限と対応言語リスト
 PLAN_FAQ_LIMITS: Dict[str, Dict[str, Any]] = {
     "free": {
-        "max_faqs": 20,  # FAQ登録数上限（インテント単位）
+        "max_faqs": 30,  # FAQ登録数上限（インテント単位）
         "languages": ["ja"]  # 対応言語リスト（日本語のみ）
     },
     "mini": {
