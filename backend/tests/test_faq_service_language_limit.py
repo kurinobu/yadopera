@@ -26,8 +26,10 @@ class TestFAQServiceLanguageLimit:
             name="Test Hotel Free",
             slug="test-hotel-free",
             email="test-free@example.com",
+            subscription_plan="free",
             plan_type="Free",
             language_limit=1,
+            faq_limit=30,
             is_active=True
         )
         db_session.add(facility)
@@ -42,8 +44,10 @@ class TestFAQServiceLanguageLimit:
             name="Test Hotel Mini",
             slug="test-hotel-mini",
             email="test-mini@example.com",
+            subscription_plan="mini",
             plan_type="Mini",
             language_limit=2,
+            faq_limit=30,
             is_active=True
         )
         db_session.add(facility)
@@ -58,8 +62,10 @@ class TestFAQServiceLanguageLimit:
             name="Test Hotel Premium",
             slug="test-hotel-premium",
             email="test-premium@example.com",
+            subscription_plan="premium",
             plan_type="Premium",
             language_limit=None,  # 無制限
+            faq_limit=None,
             is_active=True
         )
         db_session.add(facility)
@@ -216,8 +222,8 @@ class TestFAQServiceLanguageLimit:
                 user_id=user.id
             )
         
-        assert "言語数制限に達しています" in str(exc_info.value)
-        assert "1言語" in str(exc_info.value)
+        assert "このプランでは利用できません" in str(exc_info.value)
+        assert "en" in str(exc_info.value)
     
     @pytest.mark.asyncio
     @patch('app.services.faq_service.generate_embedding')
@@ -371,8 +377,8 @@ class TestFAQServiceLanguageLimit:
                 user_id=1
             )
         
-        assert "言語数制限に達しています" in str(exc_info.value)
-        assert "1言語" in str(exc_info.value)
+        assert "このプランでは利用できません" in str(exc_info.value)
+        assert "en" in str(exc_info.value)
     
     @pytest.mark.asyncio
     @patch('app.services.faq_service.generate_embedding')

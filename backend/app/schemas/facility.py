@@ -70,10 +70,15 @@ class FacilityResponse(BaseModel):
     # 互換目的の旧フィールド。管理画面の表示ロジックは allowed_faq_languages を正として扱う。
     languages: List[str] = Field(default_factory=list, description="(legacy) 施設の保存言語設定")
     # プラン制限に基づく正規化済みのFAQ対応言語（管理画面表示の単一ソース）
-    allowed_faq_languages: List[str] = Field(default_factory=list, description="プランに基づくFAQ対応言語")
+    allowed_faq_languages: List[str] = Field(
+        default_factory=list,
+        description="FAQ管理用の許容言語コード（plan_limits と既存FAQ翻訳言語の和集合、プラン定義順）",
+    )
     timezone: str = "Asia/Tokyo"
     subscription_plan: Literal["free", "mini", "small", "standard", "premium"] = "small"
     plan_type: Optional[str] = Field(None, description="料金プラン表示用（Free, Mini, Small, Standard, Premium）")
+    faq_limit: Optional[int] = Field(None, description="FAQ登録数上限（None=無制限）")
+    language_limit: Optional[int] = Field(None, description="FAQで同時に使える言語数の上限（None=無制限）")
     monthly_question_limit: int = 200
     is_active: bool = True
     coupon_enabled: bool = False

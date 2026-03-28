@@ -3,24 +3,42 @@
 """
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Optional
+from typing import List, Optional, Set
 from app.database import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.facility import Facility
+from app.models.faq import FAQ
+from app.models.faq_translation import FAQTranslation
 from app.schemas.facility import (
     FacilitySettingsResponse,
     FacilitySettingsUpdateRequest,
     FacilityResponse,
     StaffAbsencePeriod,
 )
-from app.core.plan_limits import OVERAGE_BEHAVIOR_CHOICES, get_plan_limits
+from app.core.plan_limits import OVERAGE_BEHAVIOR_CHOICES, resolve_allowed_faq_language_codes
 from app.core.security import hash_password
 from datetime import time as time_type
 import json
 
 router = APIRouter(prefix="/admin/facility", tags=["admin", "facility"])
+
+
+async def _distinct_faq_languages_for_facility(
+    db: AsyncSession,
+    facility_id: int,
+) -> Set[str]:
+    """施設に紐づく全FAQ翻訳の言語（無効FAQも含む。編集UIで不整合データを扱えるようにする）。"""
+    q = (
+        select(FAQTranslation.language)
+        .join(FAQ, FAQTranslation.faq_id == FAQ.id)
+        .where(FAQ.facility_id == facility_id)
+        .distinct()
+    )
+    r = await db.execute(q)
+    return {row[0] for row in r.all() if row[0]}
 
 
 @router.get("/settings", response_model=FacilitySettingsResponse)
@@ -60,11 +78,15 @@ async def get_facility_settings(
         if facility.check_out_time:
             check_out_time_str = facility.check_out_time.strftime("%H:%M")
 
-        # B2: 管理画面の言語表示は plan_limits 由来を正とする
+        # C1: FAQ許容言語は plan_limits + language_limit 入力 + 既存FAQ言語を resolve に集約
         subscription_plan = (facility.subscription_plan or "small").lower()
-        plan_limits = get_plan_limits(subscription_plan)
-        allowed_faq_languages = plan_limits.get("languages") or []
-        
+        existing_langs = await _distinct_faq_languages_for_facility(db, facility_id)
+        allowed_faq_languages = resolve_allowed_faq_language_codes(
+            subscription_plan,
+            facility.language_limit,
+            existing_langs,
+        )
+
         # FacilityResponseを構築
         facility_response = FacilityResponse(
             id=facility.id,
@@ -84,6 +106,8 @@ async def get_facility_settings(
             timezone=facility.timezone or "Asia/Tokyo",
             subscription_plan=subscription_plan,
             plan_type=facility.plan_type or "Free",
+            faq_limit=getattr(facility, "faq_limit", None),
+            language_limit=getattr(facility, "language_limit", None),
             monthly_question_limit=facility.monthly_question_limit or 200,
             is_active=facility.is_active,
             coupon_enabled=getattr(facility, "coupon_enabled", False),
@@ -292,11 +316,14 @@ async def update_facility_settings(
         if facility.check_out_time:
             check_out_time_str = facility.check_out_time.strftime("%H:%M")
 
-        # B2: 管理画面の言語表示は plan_limits 由来を正とする
         subscription_plan = (facility.subscription_plan or "small").lower()
-        plan_limits = get_plan_limits(subscription_plan)
-        allowed_faq_languages = plan_limits.get("languages") or []
-        
+        existing_langs = await _distinct_faq_languages_for_facility(db, facility.id)
+        allowed_faq_languages = resolve_allowed_faq_language_codes(
+            subscription_plan,
+            facility.language_limit,
+            existing_langs,
+        )
+
         facility_response = FacilityResponse(
             id=facility.id,
             name=facility.name,
@@ -314,6 +341,8 @@ async def update_facility_settings(
             timezone=facility.timezone or "Asia/Tokyo",
             subscription_plan=subscription_plan,
             plan_type=facility.plan_type or "Free",
+            faq_limit=getattr(facility, "faq_limit", None),
+            language_limit=getattr(facility, "language_limit", None),
             monthly_question_limit=facility.monthly_question_limit or 200,
             is_active=facility.is_active,
             coupon_enabled=getattr(facility, "coupon_enabled", False),
