@@ -71,6 +71,9 @@
               <option value="standard">Standard</option>
               <option value="premium">Premium</option>
             </select>
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              FAQ管理画面上部の<strong>CSV一括登録</strong>ボタン・関連リンクは、契約後に<strong>Standard / Premium</strong>の施設だけに表示されます（Free・Mini・Small では非表示・仕様です）。
+            </p>
           </div>
 
           <!-- エラーメッセージ -->
