@@ -35,10 +35,14 @@
             v-model="translation.language"
             class="block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="en">英語</option>
-            <option value="ja">日本語</option>
-            <option value="zh-TW">繁体字中国語</option>
-            <option value="fr">フランス語</option>
+            <option
+              v-for="opt in languageRowOptions(index)"
+              :key="opt.code"
+              :value="opt.code"
+              :disabled="opt.disabled"
+            >
+              {{ opt.label }}{{ opt.disabledReason ? ` — ${opt.disabledReason}` : '' }}
+            </option>
           </select>
         </div>
 
@@ -164,12 +168,27 @@
 import { ref, computed, watch } from 'vue'
 import Input from '@/components/common/Input.vue'
 import type { FAQ, FAQCreate, FAQCategory, FAQTranslationCreate } from '@/types/faq'
+import { SUPPORTED_LANGUAGES } from '@/utils/constants'
+
+const supportedByCode = new Map<string, { name: string; flag: string }>(
+  SUPPORTED_LANGUAGES.map(s => [s.code, { name: s.name, flag: s.flag }])
+)
 
 interface Props {
   faq?: FAQ | null
+  /** C1: 施設設定APIの allowed_faq_languages（空のときは SUPPORTED の全コードにフォールバック） */
+  allowedFaqLanguages?: string[]
+  /** 施設の言語数上限（null で無制限） */
+  languageLimit?: number | null
+  /** 他の有効FAQで使用中の言語（編集中FAQは除く） */
+  otherFaqLanguages?: string[]
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), {
+  allowedFaqLanguages: () => [],
+  languageLimit: null,
+  otherFaqLanguages: () => []
+})
 
 const emit = defineEmits<{
   submit: [data: FAQCreate]
@@ -177,6 +196,77 @@ const emit = defineEmits<{
 }>()
 
 const isEditMode = computed(() => !!props.faq)
+
+/** C1 ∩ SUPPORTED（allowed の順序を維持）。allowed が空なら SUPPORTED 順の全コード */
+const baseOrderedCodes = computed(() => {
+  const supportedCodes = new Set<string>(SUPPORTED_LANGUAGES.map(s => s.code))
+  const alb = props.allowedFaqLanguages
+  if (!alb.length) {
+    return SUPPORTED_LANGUAGES.map(s => s.code)
+  }
+  return alb.filter(c => supportedCodes.has(c))
+})
+
+/** C3: 新規作成時の既定＝許容リスト先頭（= プラン第一言語）。フォールバックは ja */
+const defaultTranslationLanguage = computed(() => baseOrderedCodes.value[0] ?? 'ja')
+
+function labelForCode(code: string): string {
+  const s = supportedByCode.get(code)
+  if (s) return `${s.flag} ${s.name}`
+  return code
+}
+
+interface LangRowOption {
+  code: string
+  label: string
+  disabled: boolean
+  disabledReason: string
+}
+
+function languageRowOptions(rowIndex: number): LangRowOption[] {
+  const orderedBase = baseOrderedCodes.value
+  const codeSet = new Set<string>(orderedBase)
+  formData.value.translations.forEach(t => {
+    if (t.language) codeSet.add(t.language)
+  })
+  const ordered: string[] = []
+  for (const c of orderedBase) {
+    if (codeSet.has(c)) ordered.push(c)
+  }
+  for (const c of [...codeSet].sort()) {
+    if (!ordered.includes(c)) ordered.push(c)
+  }
+
+  const restLangs = new Set<string>()
+  formData.value.translations.forEach((t, j) => {
+    if (j !== rowIndex && t.language) restLangs.add(t.language)
+  })
+  const other = new Set(props.otherFaqLanguages || [])
+  const lim = props.languageLimit
+  const cur = formData.value.translations[rowIndex]?.language
+  const allowedStrict = props.allowedFaqLanguages
+
+  return ordered.map(code => {
+    let disabled = false
+    let disabledReason = ''
+    if (allowedStrict.length > 0 && !allowedStrict.includes(code)) {
+      disabled = true
+      disabledReason = 'プランの対象外です'
+    }
+    if (lim != null && lim > 0 && code !== cur) {
+      const combined = new Set<string>([...other, ...restLangs])
+      if (!combined.has(code) && combined.size >= lim) {
+        disabled = true
+        disabledReason = disabledReason || '言語数の上限に達しています'
+      }
+    }
+    if (code === cur) {
+      disabled = false
+      disabledReason = ''
+    }
+    return { code, label: labelForCode(code), disabled, disabledReason }
+  })
+}
 
 const formData = ref<{
   category: FAQCategory | ''
@@ -189,7 +279,7 @@ const formData = ref<{
   intent_key: undefined,
   translations: [
     {
-      language: 'en',
+      language: 'ja',
       question: '',
       answer: ''
     }
@@ -202,6 +292,7 @@ const errors = ref<Record<string, string>>({})
 
 // 編集モード時にフォームデータを初期化
 watch(() => props.faq, (faq) => {
+  const firstLang = defaultTranslationLanguage.value
   if (faq) {
     // 編集モード: FAQのtranslationsからフォームデータを初期化
     formData.value = {
@@ -222,7 +313,7 @@ watch(() => props.faq, (faq) => {
       intent_key: undefined,
       translations: [
         {
-          language: 'en',
+          language: firstLang,
           question: '',
           answer: ''
         }
@@ -233,6 +324,19 @@ watch(() => props.faq, (faq) => {
   }
   errors.value = {}
 }, { immediate: true })
+
+// 施設設定の取得が遅延した場合、新規下書きの第1言語をプラン先頭に合わせる
+watch(
+  () => props.allowedFaqLanguages.slice(),
+  () => {
+    if (props.faq) return
+    const t = formData.value.translations[0]
+    if (formData.value.translations.length !== 1 || !t) return
+    const empty = !t.question.trim() && !t.answer.trim()
+    if (!empty) return
+    t.language = defaultTranslationLanguage.value
+  }
+)
 
 const isValid = computed(() => {
   return (
@@ -290,8 +394,13 @@ const validateTranslationAnswer = (index: number) => {
 }
 
 const addTranslation = () => {
+  // C3: 同一FAQ内の重複言語を避け、プラン順で最初の未使用コードを選ぶ
+  const used = new Set(formData.value.translations.map(t => t.language))
+  const pick =
+    baseOrderedCodes.value.find(code => !used.has(code)) ??
+    defaultTranslationLanguage.value
   formData.value.translations.push({
-    language: 'en',
+    language: pick,
     question: '',
     answer: ''
   })
@@ -352,5 +461,3 @@ const handleCancel = () => {
 <style scoped>
 /* Component styles */
 </style>
-
-

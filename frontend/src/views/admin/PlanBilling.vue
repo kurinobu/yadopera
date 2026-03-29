@@ -95,6 +95,9 @@
             </tbody>
           </table>
         </div>
+        <p class="mt-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+          <strong>CSV一括登録</strong>（FAQ管理画面上部のボタン・案内）は、<strong>Standard / Premium</strong>のときのみ表示されます。Free・Mini・Small では表示されません（仕様です）。
+        </p>
       </div>
 
       <!-- プラン超過時の挙動（Free / Small / Standard / Premium のみ表示。Mini は非表示） -->

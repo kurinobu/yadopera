@@ -12,6 +12,8 @@ from datetime import datetime
 
 from app.models.faq_suggestion import FAQSuggestion, FAQSuggestionStatus
 from app.models.faq import FAQ, FAQCategory
+from app.models.faq_translation import FAQTranslation
+from app.models.facility import Facility
 from app.models.message import Message, MessageRole
 from app.models.guest_feedback import GuestFeedback
 from app.models.escalation import Escalation
@@ -20,6 +22,10 @@ from app.schemas.faq_suggestion import FAQSuggestionResponse, ApproveSuggestionR
 from app.schemas.faq import FAQRequest, FAQTranslationRequest
 from app.ai.openai_client import OpenAIClient
 from app.services.faq_service import FAQService
+from app.core.plan_limits import (
+    get_first_faq_language_for_plan,
+    resolve_allowed_faq_language_codes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +68,36 @@ class FAQSuggestionService:
         self.db = db
         self.openai_client = OpenAIClient()
         self.faq_service = FAQService(db)
+
+    async def _distinct_faq_languages_for_facility(self, facility_id: int) -> set[str]:
+        """施設に紐づく全FAQ翻訳の言語（管理画面 allowed_faq_languages と同じ基準）。"""
+        q = (
+            select(FAQTranslation.language)
+            .join(FAQ, FAQTranslation.faq_id == FAQ.id)
+            .where(FAQ.facility_id == facility_id)
+            .distinct()
+        )
+        r = await self.db.execute(q)
+        return {row[0] for row in r.all() if row[0]}
+
+    def _clamp_faq_language_to_facility(
+        self,
+        language: str,
+        facility: Facility,
+        existing_faq_languages: set[str],
+    ) -> str:
+        """C3: 提案・承認時の言語をプラン許容集合に収める（不許可ならプラン第一言語）。"""
+        plan = (facility.subscription_plan or "small").lower()
+        allowed = resolve_allowed_faq_language_codes(
+            plan,
+            facility.language_limit,
+            existing_faq_languages,
+        )
+        if language in allowed:
+            return language
+        if allowed:
+            return allowed[0]
+        return get_first_faq_language_for_plan(plan)
     
     async def get_suggestions(
         self,
@@ -279,8 +315,8 @@ class FAQSuggestionService:
             question = message.content
             existing_answer = None  # 新規FAQ提案
         
-        # 会話の言語を取得
-        conversation_language = message.conversation.guest_language or "en"
+        # 会話の言語を取得（未設定時は日本語を既定。C3: 英語固定にしない）
+        conversation_language = message.conversation.guest_language or "ja"
         
         # 質問文の言語を検出
         question_language = detect_language(question)
@@ -361,6 +397,12 @@ Language: {language}"""
                 suggested_answer = f"This is a suggested answer template for: {question}. Please customize this answer."
             suggested_category = "basic"
         
+        facility = await self.db.get(Facility, facility_id)
+        if not facility:
+            raise ValueError(f"Facility not found: facility_id={facility_id}")
+        existing_langs = await self._distinct_faq_languages_for_facility(facility_id)
+        language = self._clamp_faq_language_to_facility(language, facility, existing_langs)
+
         # FAQ提案を作成
         suggestion = FAQSuggestion(
             facility_id=facility_id,
@@ -506,6 +548,14 @@ Language: {language}"""
             if not answer:
                 raise ValueError(f"Answer is required: suggestion_id={suggestion_id}")
             
+            facility = await self.db.get(Facility, facility_id)
+            if not facility:
+                raise ValueError(f"Facility not found: facility_id={facility_id}")
+            existing_langs = await self._distinct_faq_languages_for_facility(facility_id)
+            faq_language = self._clamp_faq_language_to_facility(
+                suggestion.language, facility, existing_langs
+            )
+
             # FAQRequestを新しい構造（インテントベース）に修正
             # translationsリストに1つの翻訳を含める
             faq_request = FAQRequest(
@@ -513,7 +563,7 @@ Language: {language}"""
                 intent_key=None,  # 自動生成される
                 translations=[
                     FAQTranslationRequest(
-                        language=suggestion.language,
+                        language=faq_language,
                         question=question,
                         answer=answer
                     )

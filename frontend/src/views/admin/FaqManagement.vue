@@ -107,6 +107,9 @@
       <FaqForm
         ref="faqFormRef"
         :faq="editingFaq"
+        :allowed-faq-languages="allowedFaqLanguages"
+        :language-limit="languageLimit"
+        :other-faq-languages="otherFaqLanguages"
         @submit="handleSubmitFaq"
         @cancel="handleCloseForm"
       />
@@ -186,6 +189,10 @@ const unresolvedQuestions = ref<UnresolvedQuestion[]>([])
 const loadingUnresolved = ref(false)
 const planType = ref<string | null>(null)
 const faqLimit = ref<number | null>(null)
+/** C2: 施設設定APIの allowed_faq_languages */
+const allowedFaqLanguages = ref<string[]>([])
+/** C2: 言語数上限（null=無制限） */
+const languageLimit = ref<number | null>(null)
 const showBulkUploadModal = ref(false)
 // 修正案B: モーダルを開くたびに子を再マウントしてテンプレートブロックを確実に表示
 const bulkUploadModalKey = ref(0)
@@ -430,9 +437,13 @@ async function loadFacilityPlan() {
     const res = await facilityApi.getFacilitySettings()
     planType.value = res.facility?.plan_type ?? null
     faqLimit.value = res.facility?.faq_limit ?? null
+    allowedFaqLanguages.value = res.facility?.allowed_faq_languages ?? []
+    languageLimit.value = res.facility?.language_limit ?? null
   } catch {
     planType.value = null
     faqLimit.value = null
+    allowedFaqLanguages.value = []
+    languageLimit.value = null
   }
 }
 
@@ -443,7 +454,7 @@ function onBulkUploadSuccess() {
 
 onMounted(async () => {
   try {
-    loadFacilityPlan()
+    await loadFacilityPlan()
     await fetchFaqs()
     await fetchUnresolvedQuestions()
     await fetchLowRatedAnswers()
@@ -475,6 +486,21 @@ watch(() => window.location.hash, async (newHash, oldHash) => {
 // 状態管理
 const showAddForm = ref(false)
 const editingFaq = ref<FAQ | null>(null)
+
+/** 他の有効FAQで使われている言語（編集中のFAQは除外）。サーバの言語数制限判定に合わせる */
+const otherFaqLanguages = computed(() => {
+  const editingId = editingFaq.value?.id
+  const set = new Set<string>()
+  for (const f of faqs.value) {
+    if (!f.is_active) continue
+    if (editingId != null && f.id === editingId) continue
+    for (const t of f.translations || []) {
+      if (t.language) set.add(t.language)
+    }
+  }
+  return Array.from(set)
+})
+
 const selectedSuggestion = ref<FaqSuggestion | null>(null)
 const faqFormRef = ref<InstanceType<typeof FaqForm> | null>(null)
 const showBackdropWarning = ref(false)

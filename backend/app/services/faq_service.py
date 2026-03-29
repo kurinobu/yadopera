@@ -7,7 +7,7 @@ import asyncio
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Sequence, Set
 from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_
@@ -27,6 +27,7 @@ from app.services.csv_parser import (
     extract_languages_from_rows,
     parse_faq_csv,
 )
+from app.core.plan_limits import resolve_allowed_faq_language_codes
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,46 @@ class FAQService:
         languages = {row[0] for row in result.all()}
         
         return languages
+
+    async def _distinct_faq_translation_languages_all_faqs(self, facility_id: int) -> Set[str]:
+        """
+        施設に紐づく全FAQ（無効含む）の翻訳言語。
+        管理APIの allowed_faq_languages（C1）と同一基準。
+        """
+        q = (
+            select(FAQTranslation.language)
+            .join(FAQ, FAQTranslation.faq_id == FAQ.id)
+            .where(FAQ.facility_id == facility_id)
+            .distinct()
+        )
+        r = await self.db.execute(q)
+        return {row[0] for row in r.all() if row[0]}
+
+    def _validate_translation_languages_allowed_for_facility(
+        self,
+        facility: Facility,
+        existing_translation_langs: Set[str],
+        translations: Sequence[Any],
+    ) -> None:
+        """
+        C4: リクエストの各翻訳 language がプラン許容集合に含まれるか検証する。
+        """
+        plan = (facility.subscription_plan or "small").lower()
+        allowed_list = resolve_allowed_faq_language_codes(
+            plan,
+            facility.language_limit,
+            existing_translation_langs,
+        )
+        allowed_set = set(allowed_list)
+        for trans in translations:
+            lang = getattr(trans, "language", None)
+            if not lang:
+                raise ValueError("各翻訳に language が必要です")
+            if lang not in allowed_set:
+                raise ValueError(
+                    f"言語「{lang}」はこのプランでは利用できません。"
+                    f"利用可能な言語: {', '.join(allowed_list)}"
+                )
     
     async def _get_faq_count(self, facility_id: int) -> int:
         """施設のFAQ登録数（インテント単位）を返す。"""
@@ -393,6 +434,12 @@ class FAQService:
         facility = await self.db.get(Facility, facility_id)
         if not facility:
             raise ValueError(f"Facility not found: facility_id={facility_id}")
+
+        if request.translations:
+            existing_langs_all = await self._distinct_faq_translation_languages_all_faqs(facility_id)
+            self._validate_translation_languages_allowed_for_facility(
+                facility, existing_langs_all, request.translations
+            )
         
         # 言語数制限バリデーション（Premiumプランの場合はスキップ）
         if facility.language_limit is not None:
@@ -751,10 +798,14 @@ class FAQService:
         # translationsの更新または作成
         if request.translations is not None:
             # 施設情報を取得
-            from app.models.facility import Facility
             facility = await self.db.get(Facility, facility_id)
             if not facility:
                 raise ValueError(f"Facility not found: facility_id={facility_id}")
+
+            existing_langs_all = await self._distinct_faq_translation_languages_all_faqs(facility_id)
+            self._validate_translation_languages_allowed_for_facility(
+                facility, existing_langs_all, request.translations
+            )
             
             # 言語数制限バリデーション（Premiumプランの場合はスキップ）
             if facility.language_limit is not None:

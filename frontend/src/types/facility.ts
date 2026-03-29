@@ -64,6 +64,8 @@ export interface FacilitySettingsFacility {
   subscription_plan: string
   plan_type?: string  // Free, Mini, Small, Standard, Premium（CSV一括登録の表示判定用）
   faq_limit?: number | null  // FAQ登録数上限（null は無制限）
+  /** FAQで同時に使える言語数の上限（null は無制限） */
+  language_limit?: number | null
   monthly_question_limit: number
   is_active: boolean
   /** クーポン（リードゲット）設定 */

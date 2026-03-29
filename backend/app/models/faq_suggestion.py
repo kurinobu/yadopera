@@ -30,7 +30,7 @@ class FAQSuggestion(Base):
     suggested_question = Column(Text, nullable=False)
     suggested_answer = Column(Text, nullable=False)
     suggested_category = Column(String(50), nullable=False)  # 'basic', 'facilities', 'location', 'trouble'
-    language = Column(String(10), default="en")  # 'en', 'ja', 'zh-TW', 'fr'
+    language = Column(String(10), default="ja")  # C3: 既定はプラン第一言語に合わせ ja
     status = Column(String(20), default="pending", index=True)  # 'pending', 'approved', 'rejected'
     reviewed_at = Column(DateTime(timezone=True))
     reviewed_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))

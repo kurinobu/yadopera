@@ -3,7 +3,7 @@
 各プランのFAQ登録数上限と対応言語リストを定義
 """
 
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set, Iterable
 
 # 料金プラン別のFAQ登録数上限と対応言語リスト
 PLAN_FAQ_LIMITS: Dict[str, Dict[str, Any]] = {
@@ -28,6 +28,11 @@ PLAN_FAQ_LIMITS: Dict[str, Dict[str, Any]] = {
         "languages": None  # 無制限（全言語対応）
     }
 }
+
+# Premium / ゲスト公開情報と揃えた管理画面FAQ用の言語コード一覧（plan_limits["languages"] が None のとき）
+PREMIUM_FAQ_LANGUAGE_CODES: List[str] = [
+    "ja", "en", "zh-TW", "zh-CN", "fr", "ko", "es"
+]
 
 # 初期自動登録件数の定義
 # 注意: これは新規登録時に自動投入されるFAQ件数であり、
@@ -62,6 +67,54 @@ def get_plan_limits(plan: str) -> Dict[str, Any]:
         plan = "small"
     
     return PLAN_FAQ_LIMITS[plan]
+
+
+def get_first_faq_language_for_plan(subscription_plan: str) -> str:
+    """
+    プラン定義における FAQ 用の「第一言語」コード（新規作成時の既定に使用）。
+    """
+    raw = (subscription_plan or "small").lower()
+    if raw not in PLAN_FAQ_LIMITS:
+        raw = "small"
+    langs = PLAN_FAQ_LIMITS[raw]["languages"]
+    if langs is None:
+        return PREMIUM_FAQ_LANGUAGE_CODES[0]
+    return langs[0] if langs else "ja"
+
+
+def resolve_allowed_faq_language_codes(
+    subscription_plan: str,
+    language_limit: Optional[int],
+    existing_faq_languages: Optional[Iterable[str]] = None,
+) -> List[str]:
+    """
+    管理画面FAQで選択可能にすべき言語コード一覧を一意に算出する。
+
+    - プランの許容語（get_plan_limits）をベースとし、Premium は PREMIUM_FAQ_LANGUAGE_CODES を使用
+    - 施設の既存FAQに含まれる言語を和集合（プラン外のコードがあれば末尾に辞書順で追加）
+    - language_limit は create_faq / update_faq の検証と整合するため引数で受け取る（C2 で UI 制御に使用）
+
+    Args:
+        subscription_plan: 課金サブスクプラン（free, mini, small, ...）
+        language_limit: 施設の同時利用言語数上限（None は無制限）
+        existing_faq_languages: 当該施設の FAQ 翻訳に現れる言語コード
+
+    Returns:
+        プラン定義順を先頭に並べた言語コードのリスト
+    """
+    _ = language_limit  # C1: 集約APIの入力として保持。選択肢の絞り込みは C2 で行う。
+    existing: Set[str] = set(existing_faq_languages or [])
+    raw_plan = (subscription_plan or "small").lower()
+    if raw_plan not in PLAN_FAQ_LIMITS:
+        raw_plan = "small"
+    plan_langs = PLAN_FAQ_LIMITS[raw_plan]["languages"]
+    if plan_langs is None:
+        ordered_pool = list(PREMIUM_FAQ_LANGUAGE_CODES)
+    else:
+        ordered_pool = list(plan_langs)
+    pool_set = set(ordered_pool)
+    extras = sorted(lang for lang in existing if lang not in pool_set)
+    return ordered_pool + extras
 
 
 def get_initial_faq_count(plan: str) -> int:
