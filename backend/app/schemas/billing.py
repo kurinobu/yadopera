@@ -61,7 +61,8 @@ class SubscriptionCancelResponse(BaseModel):
 class InvoiceItemResponse(BaseModel):
     """請求書1件（一覧用）"""
     id: str = Field(..., description="Stripe Invoice ID")
-    amount_due: int = Field(0, description="請求額（セント）。0の場合は0")
+    currency: str = Field("jpy", description="ISO 4217 lower（Stripe Invoice と同じ）。例: jpy, usd")
+    amount_due: int = Field(0, description="請求額。Stripe の amount_due（通貨の最小単位: JPY なら円、USD ならセント）")
     status: Optional[str] = Field(None, description="draft, open, paid, uncollectible, void 等")
     created: Optional[int] = Field(None, description="作成日時（Unix タイムスタンプ）")
     hosted_invoice_url: Optional[str] = Field(None, description="領収書ページURL（あれば）")

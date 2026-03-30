@@ -295,6 +295,7 @@ async def list_invoices(
     for inv in raw:
         invoices.append(InvoiceItemResponse(
             id=inv.get("id", ""),
+            currency=(inv.get("currency") or "jpy").lower(),
             amount_due=inv.get("amount_due") or 0,
             status=inv.get("status"),
             created=inv.get("created"),

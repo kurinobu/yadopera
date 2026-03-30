@@ -193,7 +193,7 @@
                   {{ formatInvoiceDate(inv.created) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                  ¥{{ (inv.amount_due / 100).toLocaleString() }}
+                  {{ formatInvoiceAmountLabel(inv) }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                   {{ inv.status || '—' }}
@@ -332,6 +332,27 @@ const showOverageBehaviorSection = computed(() => {
   const t = currentPlanType.value
   return t === 'Free' || t === 'Small' || t === 'Standard' || t === 'Premium'
 })
+
+/** Stripe ゼロデシマル（最小単位＝現額の通貨）。https://docs.stripe.com/currencies#zero-decimal */
+const STRIPE_ZERO_DECIMAL_CURRENCIES = new Set([
+  'bif', 'clp', 'djf', 'gnf', 'jpy', 'kmf', 'krw', 'mga', 'pyg', 'rwf', 'ugx', 'vnd', 'vuv', 'xaf', 'xof', 'xpf'
+])
+
+function stripeAmountToMajorUnits(amount: number, currency: string): number {
+  const c = currency.toLowerCase()
+  if (STRIPE_ZERO_DECIMAL_CURRENCIES.has(c)) return amount
+  return amount / 100
+}
+
+function formatInvoiceAmountLabel(inv: InvoiceItem): string {
+  const c = (inv.currency || 'jpy').toLowerCase()
+  const major = stripeAmountToMajorUnits(inv.amount_due, c)
+  if (c === 'jpy') return `¥${major.toLocaleString('ja-JP')}`
+  if (c === 'usd') {
+    return `$${major.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+  }
+  return `${major.toLocaleString('ja-JP')} ${c.toUpperCase()}`
+}
 
 function formatInvoiceDate(created: number | null): string {
   if (created == null) return '—'

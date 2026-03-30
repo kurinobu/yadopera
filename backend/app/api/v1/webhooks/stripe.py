@@ -166,9 +166,11 @@ async def stripe_webhook(request: Request) -> Response:
     署名検証に生ボディが必要なため、JSON ではなく bytes で受け取り検証する。
     """
     payload = await request.body()
-    sig_header = request.headers.get("stripe-signature", "")
+    sig_header = (request.headers.get("stripe-signature") or "").strip()
 
-    if not settings.stripe_webhook_secret:
+    # Render 等の環境変数に末尾改行が混ざると署名が一致しない（見た目は同じ文字列）
+    endpoint_secret = (settings.stripe_webhook_secret or "").strip()
+    if not endpoint_secret:
         logger.warning("Stripe Webhook: STRIPE_WEBHOOK_SECRET not set, rejecting")
         return Response(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
 
@@ -176,7 +178,7 @@ async def stripe_webhook(request: Request) -> Response:
         event = stripe.Webhook.construct_event(
             payload,
             sig_header,
-            settings.stripe_webhook_secret,
+            endpoint_secret,
         )
     except ValueError as e:
         logger.warning("Stripe Webhook invalid payload: %s", e)

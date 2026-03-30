@@ -34,6 +34,8 @@ export interface SubscriptionCancelResponse {
 
 export interface InvoiceItem {
   id: string
+  /** ISO 4217 lowercase（API は Stripe Invoice に合わせる。例: jpy, usd） */
+  currency: string
   amount_due: number
   status: string | null
   created: number | null
