@@ -79,7 +79,10 @@ def create_subscription(
     try:
         sub = stripe.Subscription.create(
             customer=customer_id,
-            items=[{"price": price_id}],
+            items=[{
+                "price": price_id,
+                "tax_rates": ["txr_1TGKOzLnkMufdVquYoyM7JZB"]  # ← ここ追加
+            }],
             payment_behavior="default_incomplete",
             metadata=metadata or {"facility_id": str(facility_id)},
             expand=["latest_invoice.payment_intent"],
