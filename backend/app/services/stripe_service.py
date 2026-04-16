@@ -20,6 +20,10 @@ logger = logging.getLogger(__name__)
 if getattr(settings, "stripe_secret_key", None):
     stripe.api_key = settings.stripe_secret_key
 
+# 2026-04-15 時点の税率ID（Stripe test）
+# A1: 新規作成とプラン変更で同じ税率を適用し、請求表示を対称化する。
+DEFAULT_SUBSCRIPTION_TAX_RATE_IDS = ["txr_1TGKOzLnkMufdVquYoyM7JZB"]
+
 
 def _ensure_stripe_configured() -> None:
     if not settings.stripe_secret_key:
@@ -79,7 +83,10 @@ def create_subscription(
     try:
         sub = stripe.Subscription.create(
             customer=customer_id,
-            items=[{"price": price_id}],
+            items=[{
+                "price": price_id,
+                "tax_rates": DEFAULT_SUBSCRIPTION_TAX_RATE_IDS
+            }],
             payment_behavior="default_incomplete",
             metadata=metadata or {"facility_id": str(facility_id)},
             expand=["latest_invoice.payment_intent"],
@@ -103,7 +110,11 @@ def update_subscription_price(
         si_id = sub["items"]["data"][0]["id"]
         stripe.Subscription.modify(
             subscription_id,
-            items=[{"id": si_id, "price": new_price_id}],
+            items=[{
+                "id": si_id,
+                "price": new_price_id,
+                "tax_rates": DEFAULT_SUBSCRIPTION_TAX_RATE_IDS,
+            }],
             proration_behavior="create_prorations",
         )
         return stripe.Subscription.retrieve(subscription_id)

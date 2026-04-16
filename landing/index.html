@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YadOPERA | 小規模宿泊施設向け案内支援サービス（準備中）</title>
-    <meta name="description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。現在サービス準備中。開始時に1通だけご案内します。">
-    <meta name="robots" content="noindex, nofollow">
+    <title>YadOPERA | 小規模宿泊施設向け案内支援サービス</title>
+    <meta name="description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。無人・半無人時間帯の案内負担を減らします。">
+    <meta name="robots" content="index, follow">
     
     <!-- Content Security Policy -->
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://formspree.io;">
@@ -13,14 +13,14 @@
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://yadopera.com/">
-    <meta property="og:title" content="YadOPERA | 小規模宿泊施設向け案内支援サービス（準備中）">
-    <meta property="og:description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。現在サービス準備中。">
+    <meta property="og:title" content="YadOPERA | 小規模宿泊施設向け案内支援サービス">
+    <meta property="og:description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。無人・半無人時間帯の案内負担を減らします。">
     
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://yadopera.com/">
-    <meta property="twitter:title" content="YadOPERA | 小規模宿泊施設向け案内支援サービス（準備中）">
-    <meta property="twitter:description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。現在サービス準備中。">
+    <meta property="twitter:title" content="YadOPERA | 小規模宿泊施設向け案内支援サービス">
+    <meta property="twitter:description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。無人・半無人時間帯の案内負担を減らします。">
     
     <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -104,232 +104,138 @@
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 scroll-smooth">
-    <!-- main の landing/index.html（ティザー）差し替え元。GitHub Pages は main の landing/ を配信。 -->
+    <header class="bg-white/95 backdrop-blur sticky top-0 z-50 border-b border-sky-100">
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between">
+            <a href="#top" class="text-2xl font-bold text-primary">YadOPERA</a>
+            <nav class="hidden md:flex items-center gap-6 text-sm">
+                <a href="#about" class="hover:text-primary">YadOPERAとは</a>
+                <a href="#purpose" class="hover:text-primary">導入目的</a>
+                <a href="#benefits" class="hover:text-primary">期待できる効果</a>
+                <a href="#voices" class="hover:text-primary">現場の声</a>
+                <a href="#contact" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-hover">導入相談</a>
+            </nav>
+        </div>
+    </header>
 
-    <main class="min-h-screen">
-        
-        <!-- ファーストビュー -->
-        <section class="hero-gradient text-white py-16 md:py-24 fade-in">
+    <main id="top" class="min-h-screen">
+        <section class="hero-gradient text-white py-14 md:py-20 fade-in">
             <div class="container mx-auto px-4">
-                <div class="max-w-4xl mx-auto text-center">
-                    <h1 class="text-3xl md:text-5xl font-bold mb-6">
-                        フロントに人がいない時間、<br>
-                        説明を止めない
-                    </h1>
-                    <p class="text-xl md:text-2xl mb-4">YadOPERA</p>
-                    <p class="text-base md:text-lg mb-8 opacity-90">
-                        小規模宿泊施設向け案内支援サービス
-                    </p>
-                    <p class="text-sm md:text-base mb-8 opacity-90">
-                        夜間だけではありません。<br>
-                        フロント閉鎖中、清掃中、外出中──<br>
-                        <strong>フロントに人が対応できない時間</strong>を前提に設計されています。チェックアウト後の対応はできません。
-                    </p>
-                    <p class="mb-8">
-                        <span class="inline-block bg-white text-primary font-semibold px-8 py-4 rounded-lg">
-                            受付準備中（開始時期は本ページでお知らせします）
-                        </span>
-                    </p>
-                </div>
-            </div>
-        </section>
-
-        <!-- メインコンテンツ -->
-        <section class="py-12 md:py-16">
-            <div class="container mx-auto px-4">
-                <div class="max-w-3xl mx-auto">
-                    
-                    <!-- コアメッセージ -->
-                    <div class="bg-white rounded-lg shadow-sm p-8 md:p-10 mb-8">
-                        <div class="mb-8">
-                            <div class="space-y-4 text-base md:text-lg text-gray-700 leading-relaxed">
-                                <p>
-                                    YadOPERAは、<br>
-                                    スタッフが対応しきれない時間帯や、<br>
-                                    ゲストの「尋ねにくさ」が生まれやすい場面での<br>
-                                    <strong class="font-semibold text-primary">宿泊施設の案内負担を軽くする</strong>ためのサービスです。
-                                </p>
-                                <p>
-                                    夜間限定のツールではありません。<br>
-                                    無人・半無人時間帯を前提とした設計です。
-                                </p>
-                                <p>
-                                    自動接客ツールでもありません。<br>
-                                    説明を継続するための一次対応の仕組みです。
-                                </p>
-                            </div>
-                        </div>
-
-                        <hr class="border-gray-200 my-8">
-
-                        <!-- 対象施設 -->
-                        <div class="mb-8">
-                            <h3 class="text-lg md:text-xl font-semibold text-primary mb-4">
-                                こんな宿泊施設を想定しています
-                            </h3>
-                            <ul class="space-y-2 text-sm md:text-base text-gray-700">
-                                <li class="flex items-start">
-                                    <span class="text-accent mr-2">・</span>
-                                    <span>ゲストハウス・ホステル</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <span class="text-accent mr-2">・</span>
-                                    <span>スタッフ1〜10名規模</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <span class="text-accent mr-2">・</span>
-                                    <span>常時フロントに人がいるわけではない</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <span class="text-accent mr-2">・</span>
-                                    <span>説明対応・問い合わせ対応が負担になっている</span>
-                                </li>
-                            </ul>
-                        </div>
-
-                        <hr class="border-gray-200 my-8">
-
-                        <!-- やらないこと -->
-                        <div class="mb-8">
-                            <h3 class="text-lg md:text-xl font-semibold text-primary mb-4">
-                                YadOPERAが「やらないこと」
-                            </h3>
-                            <ul class="space-y-2 text-sm md:text-base text-gray-700">
-                                <li class="flex items-start">
-                                    <span class="text-gray-400 mr-2">・</span>
-                                    <span>スタッフの代わりに接客する</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <span class="text-gray-400 mr-2">・</span>
-                                    <span>判断や責任を代行する</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <span class="text-gray-400 mr-2">・</span>
-                                    <span>完全無人化を目指す</span>
-                                </li>
-                            </ul>
-                            <p class="text-sm text-gray-600 mt-4 leading-relaxed">
-                                判断や責任は人に戻す前提で設計されています。
-                            </p>
-                        </div>
-
-                        <hr class="border-gray-200 my-8">
-
-                        <!-- 補足情報 -->
-                        <div class="mb-8">
-                            <h3 class="text-lg md:text-xl font-semibold text-primary mb-4">
-                                補足
-                            </h3>
-                            <ul class="space-y-2 text-sm md:text-base text-gray-700">
-                                <li class="flex items-start">
-                                    <span class="text-accent mr-2">・</span>
-                                    <span>Freeプランから始められます（詳細は提供開始時にご案内）</span>
-                                </li>
-                                <li class="flex items-start">
-                                    <span class="text-accent mr-2">・</span>
-                                    <span>現在、正式リリースに向けて準備を進めています</span>
-                                </li>
-                            </ul>
-                        </div>
-
-                        <hr class="border-gray-200 my-8">
-
-                        <!-- 登録フォーム -->
-                        <div>
-                            <p class="text-center text-base md:text-lg text-gray-700 mb-6">
-                                サービス開始時に<strong class="font-semibold text-primary">1通だけ</strong>ご連絡します
-                            </p>
-
-                            <form
-                                action="https://formspree.io/f/xzdddjwn"
-                                method="POST"
-                                class="space-y-4"
-                            >
-                                <!-- 施設名（任意） -->
-                                <div>
-                                    <label for="facility_name" class="block text-sm font-medium text-gray-700 mb-2">
-                                        施設名（任意）
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="facility_name"
-                                        name="facility_name"
-                                        placeholder="例：京都ゲストハウス"
-                                        class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    />
-                                </div>
-
-                                <!-- メールアドレス（必須） -->
-                                <div>
-                                    <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
-                                        メールアドレス <span class="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="email"
-                                        id="email"
-                                        name="email"
-                                        required
-                                        placeholder="example@guesthouse.com"
-                                        class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                                    />
-                                </div>
-
-                                <!-- 隠しフィールド：登録日時 -->
-                                <input type="hidden" name="_subject" value="YadOPERA ティザー登録">
-                                <input type="hidden" name="_next" value="https://yadopera.com/thanks.html">
-                                
-                                <button
-                                    type="submit"
-                                    class="w-full bg-primary text-white font-medium py-3 rounded-md hover:bg-primary-hover transition-colors duration-200"
-                                >
-                                    開始時に連絡を受け取る
-                                </button>
-                            </form>
-
-                            <p class="text-xs text-gray-500 mt-4 text-center leading-relaxed">
-                                ※ 営業メールは送信しません<br>
-                                ※ 本通知は1回限りです
-                            </p>
-                        </div>
-
-                    </div>
-
-                    <!-- 宿泊施設実証実験・運営者情報・ストーリー（信頼補強） -->
-                    <div class="bg-accent-light rounded-lg p-6 md:p-8 mb-8">
-                        <p class="text-sm text-gray-700 text-center mb-6">
-                            現在、<strong class="text-primary">宿泊施設実証実験</strong>を実施しています。<br>
-                            正式リリースは2026年春を予定しています。
+                <div class="grid md:grid-cols-2 gap-8 items-center max-w-6xl mx-auto">
+                    <div>
+                        <p class="inline-block bg-white/15 rounded-full px-4 py-1 text-sm mb-4">小規模宿泊施設向け案内支援</p>
+                        <h1 class="text-3xl md:text-5xl font-bold leading-tight mb-4">
+                            ワンオペ宿の案内負担を、<br>
+                            仕組みで軽くする
+                        </h1>
+                        <p class="text-base md:text-lg opacity-95 mb-6">
+                            YadOPERAは、QRコードを使ってゲストの質問にその場で回答し、
+                            スタッフが本当に大切な接客に集中できる環境をつくります。
                         </p>
-                        <div class="border-t border-sky-200 pt-6 text-sm md:text-base text-gray-700 leading-relaxed space-y-4">
-                            <h3 class="text-base font-semibold text-primary">開発の背景</h3>
-                            <p>
-                                なぜ開発したか。開発者は 2014 年から「やどびと」というゲストハウス・ホステル専門の求人サイトを運営し、小規模宿泊施設の労働力・業務実態について考察してきました。さらにフリーアコモデーションで 4 箇所の宿泊施設に関わり、宿泊施設が抱えるスタッフ不足・作業の効率化・現場での説明や問い合わせ対応の負担などの課題を体感してきました。
-                            </p>
-                            <p>
-                                これらの知識・体験を活かすべく YadOPERA の開発に着手しました。
-                            </p>
-                            <dl class="pt-2 space-y-2 text-sm md:text-base">
-                                <dt class="font-medium text-gray-900">販売業者</dt>
-                                <dd>アプラウソ株式会社</dd>
-                                <dt class="font-medium text-gray-900 mt-3">運営責任者</dt>
-                                <dd>栗原伸行</dd>
-                                <dt class="font-medium text-gray-900 mt-3">所在地</dt>
-                                <dd>〒652-0806 神戸市兵庫区西出町2丁目3-23</dd>
-                            </dl>
-                            <p class="text-center text-sm text-gray-600 pt-4">
-                                やどびと <a href="https://yadobito.com" class="text-primary hover:underline" target="_blank" rel="noopener noreferrer">https://yadobito.com</a>
-                            </p>
+                        <div class="flex flex-wrap gap-3">
+                            <a href="#contact" class="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-sky-50">導入相談をする</a>
+                            <a href="#about" class="border border-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10">仕組みを見る</a>
                         </div>
+                        <p class="text-xs mt-4 opacity-90">※ 新規登録/ログイン導線は現在公開していません</p>
                     </div>
-
+                    <div>
+                        <img src="./main_image.png" alt="YadOPERAの利用イメージ" class="w-full rounded-2xl shadow-2xl border border-white/20" onerror="this.style.display='none'">
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- フッター -->
+        <section id="about" class="py-14 md:py-16 bg-white">
+            <div class="container mx-auto px-4">
+                <div class="max-w-5xl mx-auto">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-4">YadOPERAとは（具体的な仕組み）</h2>
+                    <p class="text-gray-700 text-base md:text-lg leading-relaxed mb-8">
+                        YadOPERAは、客室や館内に設置したQRコードをゲストがスマートフォンで読み取るだけで、
+                        チェックアウト時間、設備の使い方、周辺案内などの質問にその場で自動回答する仕組みです。
+                    </p>
+                    <div class="grid md:grid-cols-2 gap-5">
+                        <div class="bg-sky-50 rounded-xl p-5 border border-sky-100">ゲストはQRコードを読み取るだけ（アプリ不要）</div>
+                        <div class="bg-sky-50 rounded-xl p-5 border border-sky-100">ゲスト自身のスマートフォンで利用</div>
+                        <div class="bg-sky-50 rounded-xl p-5 border border-sky-100">施設側はQRコードを印刷して設置するだけ</div>
+                        <div class="bg-sky-50 rounded-xl p-5 border border-sky-100">専用端末や機器の購入は一切不要</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="purpose" class="py-14 md:py-16">
+            <div class="container mx-auto px-4">
+                <div class="max-w-5xl mx-auto">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-8">導入の目的（ワンオペ宿をサポート）</h2>
+                    <div class="grid md:grid-cols-2 gap-5">
+                        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">繰り返し発生する質問対応の負担を減らす</div>
+                        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">フロントがスタッフ不在時間帯でも案内を可能にする</div>
+                        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">少人数運営でも安定した案内を実現する</div>
+                        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">顧客満足度と従業員満足度を高める</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="benefits" class="py-14 md:py-16 bg-white">
+            <div class="container mx-auto px-4">
+                <div class="max-w-5xl mx-auto">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-8">期待できる効果</h2>
+                    <div class="space-y-4 text-gray-700 text-base md:text-lg">
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">「Wi-Fiは？」「チェックアウトは何時？」など定型質問の対応削減</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">夜間・清掃中の問い合わせ対応の削減</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">ゲストがその場で自己解決できる環境の提供</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">スタッフはゲスト満足度を高める対応に集中</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="voices" class="py-14 md:py-16">
+            <div class="container mx-auto px-4">
+                <div class="max-w-5xl mx-auto">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-8">実証実験から現場の声</h2>
+                    <div class="grid md:grid-cols-2 gap-5">
+                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm">「シフトを毎日1時間減らすことができた」</blockquote>
+                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm">「チェックインピーク時のドタバタが減った」</blockquote>
+                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm">「急いでいる、疲れているゲストへの館内案内を簡略化できた」</blockquote>
+                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm">「ゲストに意外な疑問が意外な時間帯に発生することを知った」</blockquote>
+                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm md:col-span-2">「2人体制時の重なり時間帯を減らせた」</blockquote>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="contact" class="py-14 md:py-16 bg-white">
+            <div class="container mx-auto px-4">
+                <div class="max-w-3xl mx-auto bg-sky-50 rounded-2xl p-7 md:p-10 border border-sky-100">
+                    <h2 class="text-2xl md:text-3xl font-bold text-primary text-center mb-3">導入相談・開始案内の受付</h2>
+                    <p class="text-center text-gray-700 mb-8">新規登録やログイン公開の前に、導入相談を優先して受け付けています。</p>
+                    <form action="https://formspree.io/f/xzdddjwn" method="POST" class="space-y-4">
+                        <div>
+                            <label for="facility_name" class="block text-sm font-medium text-gray-700 mb-2">施設名（任意）</label>
+                            <input type="text" id="facility_name" name="facility_name" placeholder="例：京都ゲストハウス" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">メールアドレス <span class="text-red-500">*</span></label>
+                            <input type="email" id="email" name="email" required placeholder="example@guesthouse.com" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        </div>
+                        <div>
+                            <label for="message" class="block text-sm font-medium text-gray-700 mb-2">ご相談内容（任意）</label>
+                            <textarea id="message" name="message" rows="4" placeholder="導入時期や施設規模など" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                        </div>
+                        <input type="hidden" name="_subject" value="YadOPERA 導入相談">
+                        <input type="hidden" name="_next" value="https://yadopera.com/thanks.html">
+                        <button type="submit" class="w-full bg-primary text-white font-medium py-3 rounded-md hover:bg-primary-hover transition-colors duration-200">
+                            送信する
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
         <footer class="bg-white border-t border-gray-200 py-8">
             <div class="container mx-auto px-4">
-                <div class="max-w-3xl mx-auto">
+                <div class="max-w-5xl mx-auto">
                     <nav class="flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-gray-600 mb-6">
                         <a href="legal/operation.html" class="hover:text-primary transition-colors">運営</a>
                         <a href="legal/privacy.html" class="hover:text-primary transition-colors">プライバシーポリシー</a>
@@ -338,14 +244,10 @@
                         <a href="legal/faq.html" class="hover:text-primary transition-colors">FAQ</a>
                         <a href="legal/security.html" class="hover:text-primary transition-colors">セキュリティ方針</a>
                     </nav>
-                    <div class="text-center text-xs text-gray-500">
-                    <p>© 2026 YadOPERA. All rights reserved.</p>
-                    </div>
+                    <p class="text-center text-xs text-gray-500">© 2026 YadOPERA. All rights reserved.</p>
                 </div>
             </div>
         </footer>
-
     </main>
-
 </body>
 </html>
