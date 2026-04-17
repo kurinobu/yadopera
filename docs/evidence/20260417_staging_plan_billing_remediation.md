@@ -73,4 +73,31 @@
 
 ---
 
-**Document Version**: 1.0
+## 6. 収束確認ログ（2026-04-17）
+
+### 6.1 実測結果（Owner 共有スクリーンショット反映）
+
+- 実測時刻: 2026-04-17 10:38 JST 前後
+- 画面: `https://yadopera-frontend-staging.onrender.com/admin/billing`
+- 結果:
+  - `GET .../api/v1/admin/plans` → **200**
+  - `GET .../api/v1/admin/invoices` → **200**
+  - プラン一覧表示正常（言語列の表示含む）
+  - Console に請求 API の 4xx/5xx は観測されず
+
+判定: **本インシデントはステージングで収束**。
+
+### 6.2 監視（30〜60分）記録欄
+
+> 注: Render Logs の最終確認は Owner 画面アクセスが必要なため、ここではチェック項目のみ記録する。
+
+- [ ] Render backend logs で `Stripe Invoice list failed` の再発なし
+- [ ] Render backend logs で `ModuleNotFoundError` の再発なし
+- [ ] `/admin/invoices` の 500 再発なし（Spot-check）
+- 監視開始:
+- 監視終了:
+- 備考:
+
+---
+
+**Document Version**: 1.1
