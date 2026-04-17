@@ -35,6 +35,64 @@ from app.services import stripe_service
 logger = logging.getLogger(__name__)
 
 
+def _invoice_dict_to_item(inv: dict) -> InvoiceItemResponse:
+    """
+    Stripe の請求行（dict）を一覧用スキーマへ変換する。
+    dict.get("id", "") はキーが存在して値が None のとき None を返すため、必ず str に正規化する。
+    """
+    rid = inv.get("id")
+    inv_id = "" if rid is None else str(rid)
+
+    cur = inv.get("currency")
+    if cur is None or cur == "":
+        currency = "jpy"
+    else:
+        currency = str(cur).lower()
+
+    raw_amt = inv.get("amount_due")
+    if raw_amt is None:
+        amount_due = 0
+    elif isinstance(raw_amt, bool):
+        amount_due = int(raw_amt)
+    elif isinstance(raw_amt, int):
+        amount_due = raw_amt
+    elif isinstance(raw_amt, float):
+        amount_due = int(raw_amt)
+    else:
+        try:
+            amount_due = int(raw_amt)
+        except (TypeError, ValueError):
+            amount_due = 0
+
+    raw_created = inv.get("created")
+    if raw_created is None:
+        created = None
+    elif isinstance(raw_created, (int, float)):
+        created = int(raw_created)
+    else:
+        try:
+            created = int(raw_created)
+        except (TypeError, ValueError):
+            created = None
+
+    st = inv.get("status")
+    if st is not None and not isinstance(st, str):
+        st = str(st)
+
+    url = inv.get("hosted_invoice_url")
+    if url is not None and not isinstance(url, str):
+        url = str(url) if url else None
+
+    return InvoiceItemResponse(
+        id=inv_id,
+        currency=currency,
+        amount_due=amount_due,
+        status=st,
+        created=created,
+        hosted_invoice_url=url,
+    )
+
+
 async def _invalidate_dashboard_cache(facility_id: int) -> None:
     """プラン変更後、ダッシュボードAPIのキャッシュを無効化する。"""
     key = cache_key("dashboard:data", facility_id=facility_id)
@@ -295,16 +353,7 @@ async def list_invoices(
         logger.exception("Stripe Invoice list failed: %s", e)
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Failed to list invoices")
 
-    invoices = []
-    for inv in raw:
-        invoices.append(InvoiceItemResponse(
-            id=inv.get("id", ""),
-            currency=(inv.get("currency") or "jpy").lower(),
-            amount_due=inv.get("amount_due") or 0,
-            status=inv.get("status"),
-            created=inv.get("created"),
-            hosted_invoice_url=inv.get("hosted_invoice_url"),
-        ))
+    invoices = [_invoice_dict_to_item(inv) for inv in raw]
     return InvoicesResponse(invoices=invoices)
 
 
