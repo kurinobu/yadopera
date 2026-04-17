@@ -12,6 +12,7 @@ from typing import Optional, List, Any
 
 import httpx
 import stripe
+from stripe.util import convert_to_dict
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -159,8 +160,8 @@ def retrieve_subscription(subscription_id: str) -> Optional[stripe.Subscription]
 def list_invoices(
     customer_id: str,
     limit: int = 100,
-) -> List[Any]:
-    """顧客の請求書一覧を取得する。"""
+) -> List[dict[str, Any]]:
+    """顧客の請求書一覧を取得する。API 層では dict のみを扱うため StripeObject は dict に正規化する。"""
     _ensure_stripe_configured()
     try:
         invoices = stripe.Invoice.list(
@@ -169,8 +170,16 @@ def list_invoices(
         )
         # stripe-python 7+ の ListObject は dict ではないため .get("data") は不可（KeyError: 'get' 相当）
         if isinstance(invoices, dict):
-            return list(invoices.get("data", []))
-        return list(getattr(invoices, "data", None) or [])
+            rows: List[Any] = list(invoices.get("data", []))
+        else:
+            rows = list(getattr(invoices, "data", None) or [])
+        out: List[dict[str, Any]] = []
+        for inv in rows:
+            if isinstance(inv, dict):
+                out.append(inv)
+            else:
+                out.append(convert_to_dict(inv))
+        return out
     except stripe.StripeError as e:
         logger.exception("Stripe Invoice list failed: %s", e)
         raise

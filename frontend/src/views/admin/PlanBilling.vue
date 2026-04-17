@@ -314,6 +314,7 @@ import Loading from '@/components/common/Loading.vue'
 import Modal from '@/components/common/Modal.vue'
 import { billingApi, type PlanInfo, type InvoiceItem } from '@/api/billing'
 import { facilityApi } from '@/api/facility'
+import { getApiErrorMessage } from '@/utils/errorHandler'
 
 const isLoading = ref(false)
 const error = ref<string | null>(null)
@@ -383,10 +384,9 @@ function formatInvoiceDate(created: number | null): string {
   }
 }
 
+/** axios 変換後の AppError・生の Axios エラーの両方から文言を取る（502 等を「ネットワーク」と誤表示しない） */
 function extractApiError(err: unknown, fallback: string): string {
-  const msg = (err as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail
-    || (err as { message?: string })?.message
-  return typeof msg === 'string' ? msg : fallback
+  return getApiErrorMessage(err) ?? fallback
 }
 
 function formatLanguageLabel(plan: PlanInfo): string {
