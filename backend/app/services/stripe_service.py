@@ -12,7 +12,6 @@ from typing import Optional, List, Any
 
 import httpx
 import stripe
-from stripe.util import convert_to_dict
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -157,6 +156,19 @@ def retrieve_subscription(subscription_id: str) -> Optional[stripe.Subscription]
         return None
 
 
+def _stripe_resource_to_dict(obj: Any) -> dict[str, Any]:
+    """StripeObject をプレーン dict にする。stripe-python では util パッケージが無い版があるためメソッド優先。"""
+    if isinstance(obj, dict):
+        return obj
+    fn = getattr(obj, "to_dict_recursive", None)
+    if callable(fn):
+        return fn()
+    fn = getattr(obj, "to_dict", None)
+    if callable(fn):
+        return fn()
+    raise TypeError(f"Cannot convert to dict: {type(obj)}")
+
+
 def list_invoices(
     customer_id: str,
     limit: int = 100,
@@ -178,7 +190,7 @@ def list_invoices(
             if isinstance(inv, dict):
                 out.append(inv)
             else:
-                out.append(convert_to_dict(inv))
+                out.append(_stripe_resource_to_dict(inv))
         return out
     except stripe.StripeError as e:
         logger.exception("Stripe Invoice list failed: %s", e)
