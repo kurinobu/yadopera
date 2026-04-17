@@ -94,6 +94,7 @@
 - [ ] Render backend logs で `Stripe Invoice list failed` の再発なし
 - [ ] Render backend logs で `ModuleNotFoundError` の再発なし
 - [ ] `/admin/invoices` の 500 再発なし（Spot-check）
+- 既知事象: `insertBefore` の一過性フロント例外を既知事象として監視継続。
 - 監視開始:
 - 監視終了:
 - 備考:
