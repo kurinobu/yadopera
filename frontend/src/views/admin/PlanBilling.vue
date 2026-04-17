@@ -79,7 +79,7 @@
                   {{ plan.faq_limit == null ? '無制限' : plan.faq_limit }}
                 </td>
                 <td class="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                  {{ plan.language_limit == null ? '無制限' : plan.language_limit }}
+                  {{ formatLanguageLabel(plan) }}
                 </td>
                 <td class="px-4 py-3 text-sm">
                   <button
@@ -97,6 +97,9 @@
         </div>
         <p class="mt-4 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
           <strong>CSV一括登録</strong>（FAQ管理画面上部のボタン・案内）は、<strong>Standard / Premium</strong>のときのみ表示されます。Free・Mini・Small では表示されません（仕様です）。
+        </p>
+        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+          ※「言語数」は任意に好きな言語を選べる意味ではなく、プランごとに定義された対応言語セットです。
         </p>
       </div>
 
@@ -170,7 +173,22 @@
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           請求履歴・領収書
         </h2>
-        <div v-if="invoices.length === 0" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
+        <div
+          v-if="invoiceError"
+          class="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20"
+        >
+          <p class="text-sm text-amber-800 dark:text-amber-200">
+            {{ invoiceError }}
+          </p>
+          <button
+            type="button"
+            class="mt-2 text-sm font-medium text-amber-900 underline hover:no-underline dark:text-amber-100"
+            @click="retryInvoices"
+          >
+            請求履歴だけ再試行
+          </button>
+        </div>
+        <div v-else-if="invoices.length === 0" class="py-6 text-center text-sm text-gray-500 dark:text-gray-400">
           請求履歴はありません。
         </div>
         <div v-else class="overflow-x-auto">
@@ -299,6 +317,8 @@ import { facilityApi } from '@/api/facility'
 
 const isLoading = ref(false)
 const error = ref<string | null>(null)
+/** プラン取得は成功したが請求一覧だけ失敗したとき */
+const invoiceError = ref<string | null>(null)
 const currentPlanType = ref<string>('')
 const plans = ref<PlanInfo[]>([])
 const stripeConfigured = ref(false)
@@ -363,6 +383,23 @@ function formatInvoiceDate(created: number | null): string {
   }
 }
 
+function extractApiError(err: unknown, fallback: string): string {
+  const msg = (err as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail
+    || (err as { message?: string })?.message
+  return typeof msg === 'string' ? msg : fallback
+}
+
+function formatLanguageLabel(plan: PlanInfo): string {
+  const names = plan.language_names_ja ?? []
+  if (plan.language_limit == null) {
+    return names.length > 0 ? `無制限（${names.join('・')}）` : '無制限'
+  }
+  if (names.length === 0) {
+    return `${plan.language_limit}言語`
+  }
+  return `${plan.language_limit}言語（${names.join('・')}）`
+}
+
 async function fetchPlans() {
   const res = await billingApi.getPlans()
   currentPlanType.value = res.current_plan_type
@@ -382,14 +419,28 @@ async function fetchAll() {
   try {
     isLoading.value = true
     error.value = null
-    await Promise.all([fetchPlans(), fetchInvoices()])
-  } catch (err: unknown) {
-    const msg = (err as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail
-      || (err as { message?: string })?.message
-      || 'プラン・請求情報の取得に失敗しました'
-    error.value = typeof msg === 'string' ? msg : 'プラン・請求情報の取得に失敗しました'
+    invoiceError.value = null
+    const [planRes, invRes] = await Promise.allSettled([fetchPlans(), fetchInvoices()])
+    if (planRes.status === 'rejected') {
+      invoices.value = []
+      error.value = extractApiError(planRes.reason, 'プラン・請求情報の取得に失敗しました')
+      return
+    }
+    if (invRes.status === 'rejected') {
+      invoices.value = []
+      invoiceError.value = extractApiError(invRes.reason, '請求履歴の取得に失敗しました')
+    }
   } finally {
     isLoading.value = false
+  }
+}
+
+async function retryInvoices() {
+  try {
+    invoiceError.value = null
+    await fetchInvoices()
+  } catch (err: unknown) {
+    invoiceError.value = extractApiError(err, '請求履歴の取得に失敗しました')
   }
 }
 

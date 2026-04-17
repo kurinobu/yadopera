@@ -34,6 +34,18 @@ PREMIUM_FAQ_LANGUAGE_CODES: List[str] = [
     "ja", "en", "zh-TW", "zh-CN", "fr", "ko", "es"
 ]
 
+# 管理画面・LP文言の統一表示で使う言語名（日本語）
+LANGUAGE_CODE_TO_JA_NAME: Dict[str, str] = {
+    "ja": "日本語",
+    "en": "英語",
+    "zh-TW": "繁体中国語",
+    "zh-CN": "簡体中国語",
+    "fr": "フランス語",
+    "ko": "韓国語",
+    "es": "スペイン語",
+    "th": "タイ語",
+}
+
 # 初期自動登録件数の定義
 # 注意: これは新規登録時に自動投入されるFAQ件数であり、
 # プランの上限（max_faqs）とは異なる
@@ -67,6 +79,27 @@ def get_plan_limits(plan: str) -> Dict[str, Any]:
         plan = "small"
     
     return PLAN_FAQ_LIMITS[plan]
+
+
+def get_plan_language_codes(subscription_plan: str) -> List[str]:
+    """
+    プランごとの利用可能言語コードを返す。
+
+    - Premium（None）の場合は PREMIUM_FAQ_LANGUAGE_CODES を返す
+    - 不正なプランは small 扱いにフォールバックする
+    """
+    raw_plan = (subscription_plan or "small").lower()
+    if raw_plan not in PLAN_FAQ_LIMITS:
+        raw_plan = "small"
+    plan_langs = PLAN_FAQ_LIMITS[raw_plan]["languages"]
+    if plan_langs is None:
+        return list(PREMIUM_FAQ_LANGUAGE_CODES)
+    return list(plan_langs)
+
+
+def get_language_ja_name(code: str) -> str:
+    """言語コードから日本語表示名を返す（未知コードはコード文字列をそのまま返す）。"""
+    return LANGUAGE_CODE_TO_JA_NAME.get(code, code)
 
 
 def get_first_faq_language_for_plan(subscription_plan: str) -> str:

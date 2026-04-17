@@ -74,6 +74,12 @@
             <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
               FAQ管理画面上部の<strong>CSV一括登録</strong>ボタン・関連リンクは、契約後に<strong>Standard / Premium</strong>の施設だけに表示されます（Free・Mini・Small では非表示・仕様です）。
             </p>
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              対応言語はプランごとに定義されています（Free: 日本語のみ / Mini: 日本語・英語 / Small: 日本語・英語・繁体中国語 / Standard: 日本語・英語・繁体中国語・フランス語 / Premium: 無制限）。
+            </p>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+              ※「3言語」は任意の3言語を選べる意味ではありません。
+            </p>
           </div>
 
           <!-- エラーメッセージ -->

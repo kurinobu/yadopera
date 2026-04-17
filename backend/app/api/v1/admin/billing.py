@@ -28,6 +28,7 @@ from app.schemas.billing import (
     ReceiptResponse,
 )
 from app.core.cache import cache_key, delete_cache
+from app.core.plan_limits import get_plan_language_codes, get_language_ja_name
 from app.services.auth_service import get_plan_defaults
 from app.services import stripe_service
 
@@ -57,6 +58,7 @@ def _build_plans_list() -> list[PlanInfo]:
     for pt in plan_types:
         defaults = get_plan_defaults(pt)
         display = PLAN_DISPLAY.get(pt, {"name_ja": pt, "price_yen": 0})
+        language_codes = get_plan_language_codes(pt)
         out.append(PlanInfo(
             plan_type=pt,
             name_ja=display["name_ja"],
@@ -64,6 +66,8 @@ def _build_plans_list() -> list[PlanInfo]:
             monthly_question_limit=defaults.get("monthly_question_limit"),
             faq_limit=defaults.get("faq_limit"),
             language_limit=defaults.get("language_limit"),
+            language_codes=language_codes,
+            language_names_ja=[get_language_ja_name(code) for code in language_codes],
         ))
     return out
 

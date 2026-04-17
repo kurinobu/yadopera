@@ -167,7 +167,10 @@ def list_invoices(
             customer=customer_id,
             limit=limit,
         )
-        return list(invoices.get("data", []))
+        # stripe-python 7+ の ListObject は dict ではないため .get("data") は不可（KeyError: 'get' 相当）
+        if isinstance(invoices, dict):
+            return list(invoices.get("data", []))
+        return list(getattr(invoices, "data", None) or [])
     except stripe.StripeError as e:
         logger.exception("Stripe Invoice list failed: %s", e)
         raise

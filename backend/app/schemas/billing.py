@@ -24,6 +24,8 @@ class PlanInfo(BaseModel):
     monthly_question_limit: Optional[int] = Field(None, description="月間質問数上限（None=従量/無制限）")
     faq_limit: Optional[int] = Field(None, description="FAQ登録数上限（None=無制限）")
     language_limit: Optional[int] = Field(None, description="同時利用言語数上限（None=無制限）")
+    language_codes: List[str] = Field(default_factory=list, description="利用可能言語コード一覧")
+    language_names_ja: List[str] = Field(default_factory=list, description="利用可能言語名一覧（日本語）")
 
 
 class PlansResponse(BaseModel):

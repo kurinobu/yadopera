@@ -13,6 +13,8 @@ export interface PlanInfo {
   monthly_question_limit: number | null
   faq_limit: number | null
   language_limit: number | null
+  language_codes: string[]
+  language_names_ja: string[]
 }
 
 export interface PlansResponse {
