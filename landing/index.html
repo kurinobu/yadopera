@@ -511,16 +511,25 @@
                     }
                     event.preventDefault();
                     if (typeof gtag === 'function') {
+                        var redirected = false;
+                        var navigate = function () {
+                            if (redirected) {
+                                return;
+                            }
+                            redirected = true;
+                            window.location.href = targetUrl;
+                        };
                         gtag('event', 'lp_ab_cta_click', {
                             variant: variant,
                             cta_label: cta.getAttribute('data-cta-label') || 'unknown',
+                            transport_type: 'beacon',
                             event_callback: function () {
-                                window.location.href = targetUrl;
+                                navigate();
                             }
                         });
                         setTimeout(function () {
-                            window.location.href = targetUrl;
-                        }, 150);
+                            navigate();
+                        }, 800);
                     } else {
                         window.location.href = targetUrl;
                     }
