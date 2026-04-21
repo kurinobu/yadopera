@@ -6,26 +6,21 @@
     <title>YadOPERA | 小規模宿泊施設向け案内支援サービス</title>
     <meta name="description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。無人・半無人時間帯の案内負担を減らします。">
     <meta name="robots" content="index, follow">
-    
-    <!-- Content Security Policy -->
+
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.tailwindcss.com https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://www.google-analytics.com https://www.googletagmanager.com https://formspree.io;">
-    
-    <!-- Open Graph / Facebook -->
+
     <meta property="og:type" content="website">
     <meta property="og:url" content="https://yadopera.com/">
     <meta property="og:title" content="YadOPERA | 小規模宿泊施設向け案内支援サービス">
     <meta property="og:description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。無人・半無人時間帯の案内負担を減らします。">
-    
-    <!-- Twitter -->
+
     <meta property="twitter:card" content="summary_large_image">
     <meta property="twitter:url" content="https://yadopera.com/">
     <meta property="twitter:title" content="YadOPERA | 小規模宿泊施設向け案内支援サービス">
     <meta property="twitter:description" content="YadOPERAは、小規模宿泊施設の運営負担を軽くするための案内支援サービスです。無人・半無人時間帯の案内負担を減らします。">
-    
-    <!-- Tailwind CSS CDN -->
+
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Google tag (gtag.js) -->
+
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-BE9HZ0XGH4"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
@@ -35,199 +30,359 @@
             page_path: window.location.pathname,
         });
     </script>
-    
-    <!-- Custom Styles -->
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
-        
+
         body {
             font-family: 'Noto Sans JP', sans-serif;
         }
-        
-        /* カスタムカラー定義（旧募集LPサイトと同じ） */
-        .text-primary {
-            color: #0c4a6e;
-        }
-        
-        .bg-primary {
-            background-color: #0c4a6e;
-        }
-        
-        .bg-primary-hover:hover {
-            background-color: #075985;
-        }
-        
-        .text-accent {
-            color: #38b7ee;
-        }
-        
-        .bg-accent {
-            background-color: #38b7ee;
-        }
-        
-        .bg-accent-light {
-            background-color: #e0f2fe;
-        }
-        
-        .border-primary {
-            border-color: #0c4a6e;
-        }
-        
-        .focus-ring-primary:focus {
-            outline: none;
-            ring: 2px;
-            ring-color: #0c4a6e;
-        }
-        
-        .hero-gradient {
-            background: linear-gradient(135deg, #38b7ee 0%, #0ea5e9 100%);
-        }
-        
-        .fade-in {
-            animation: fadeIn 0.8s ease-in;
-        }
-        
-        @keyframes fadeIn {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        .scroll-smooth {
-            scroll-behavior: smooth;
-        }
+
+        .text-primary { color: #0c4a6e; }
+        .bg-primary { background-color: #0c4a6e; }
+        .bg-primary-hover:hover { background-color: #075985; }
+        .text-accent { color: #38b7ee; }
+        .hero-gradient { background: linear-gradient(135deg, #38b7ee 0%, #0ea5e9 100%); }
+        .scroll-smooth { scroll-behavior: smooth; }
     </style>
 </head>
 <body class="bg-gray-50 text-gray-800 scroll-smooth">
     <header class="bg-white/95 backdrop-blur sticky top-0 z-50 border-b border-sky-100">
-        <div class="container mx-auto px-4 py-4 flex items-center justify-between">
-            <a href="#top" class="text-2xl font-bold text-primary">YadOPERA</a>
-            <nav class="hidden md:flex items-center gap-6 text-sm">
-                <a href="#about" class="hover:text-primary">YadOPERAとは</a>
-                <a href="#purpose" class="hover:text-primary">導入目的</a>
-                <a href="#benefits" class="hover:text-primary">期待できる効果</a>
-                <a href="#voices" class="hover:text-primary">現場の声</a>
-                <a href="#contact" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary-hover">導入相談</a>
+        <div class="container mx-auto px-4 py-4 flex items-center justify-between gap-3">
+            <a href="#top" class="text-2xl font-bold text-primary shrink-0">YadOPERA</a>
+            <button type="button" id="mobile-menu-btn" class="md:hidden inline-flex items-center justify-center rounded-lg border border-sky-200 px-3 py-2 text-sm font-medium text-primary hover:bg-sky-50" aria-expanded="false" aria-controls="mobile-menu" aria-label="メニューを開く">
+                メニュー
+            </button>
+            <nav class="hidden md:flex items-center gap-6 text-sm" aria-label="パソコン用ナビ">
+                <a href="#" data-anchor="overview" class="hover:text-primary">サービス概要</a>
+                <a href="#" data-anchor="problems" class="hover:text-primary">課題</a>
+                <a href="#" data-anchor="steps" class="hover:text-primary">導入の流れ</a>
+                <a href="#" data-anchor="pricing" class="hover:text-primary">料金</a>
+                <a href="https://yadopera-frontend-production.onrender.com/admin/register" data-cta-label="header" class="js-ab-cta bg-primary text-white px-4 py-2 rounded-lg bg-primary-hover">無料で今すぐ導入する</a>
+                <a href="https://yadopera-frontend-production.onrender.com/admin/login" class="border border-sky-200 text-primary px-4 py-2 rounded-lg hover:bg-sky-50">ログイン</a>
             </nav>
         </div>
     </header>
 
+    <!-- backdrop-blur 付き header の子に fixed を置くと包含ブロックがヘッダーに縮み全画面にならないため、オーバーレイは header の外（body 直下）に置く -->
+    <div id="mobile-menu" class="hidden md:hidden fixed inset-0 z-[100] flex flex-col bg-white px-5 pt-5 pb-10 overflow-y-auto overscroll-contain" aria-label="モバイルメニュー" aria-modal="true" role="dialog">
+        <div class="flex justify-between items-center mb-6 shrink-0">
+            <a href="#top" class="text-xl font-bold text-primary">YadOPERA</a>
+            <button type="button" id="mobile-menu-close" class="text-sm text-gray-700 px-3 py-2 rounded-lg border border-gray-200 hover:bg-gray-50">閉じる</button>
+        </div>
+        <nav class="flex flex-col gap-1 text-sm" aria-label="モバイル用ナビ">
+            <a href="#" data-anchor="overview" class="py-3 text-primary border-b border-gray-100">サービス概要</a>
+            <a href="#" data-anchor="problems" class="py-3 text-primary border-b border-gray-100">課題</a>
+            <a href="#" data-anchor="steps" class="py-3 text-primary border-b border-gray-100">導入の流れ</a>
+            <a href="#" data-anchor="pricing" class="py-3 text-primary border-b border-gray-100">料金</a>
+            <a href="https://yadopera-frontend-production.onrender.com/admin/register" data-cta-label="header" class="js-ab-cta mt-4 text-center bg-primary text-white px-4 py-3 rounded-lg font-semibold bg-primary-hover">無料で今すぐ導入する</a>
+            <a href="https://yadopera-frontend-production.onrender.com/admin/login" class="mt-2 text-center border border-sky-200 text-primary px-4 py-3 rounded-lg hover:bg-sky-50">ログイン</a>
+        </nav>
+    </div>
+
     <main id="top" class="min-h-screen">
-        <section class="hero-gradient text-white py-14 md:py-20 fade-in">
-            <div class="container mx-auto px-4">
-                <div class="grid md:grid-cols-2 gap-8 items-center max-w-6xl mx-auto">
-                    <div>
-                        <p class="inline-block bg-white/15 rounded-full px-4 py-1 text-sm mb-4">小規模宿泊施設向け案内支援</p>
-                        <h1 class="text-3xl md:text-5xl font-bold leading-tight mb-4">
-                            ワンオペ宿の案内負担を、<br>
-                            仕組みで軽くする
-                        </h1>
-                        <p class="text-base md:text-lg opacity-95 mb-6">
-                            YadOPERAは、QRコードを使ってゲストの質問にその場で回答し、
-                            スタッフが本当に大切な接客に集中できる環境をつくります。
-                        </p>
-                        <div class="flex flex-wrap gap-3">
-                            <a href="#contact" class="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-sky-50">導入相談をする</a>
-                            <a href="#about" class="border border-white px-6 py-3 rounded-lg font-semibold hover:bg-white/10">仕組みを見る</a>
+        <noscript>
+            <style>
+                #lp-panel-a { display: block !important; }
+                #lp-panel-b { display: none !important; }
+            </style>
+        </noscript>
+
+        <section id="lp-panel-a" class="hidden">
+            <section id="a-overview" class="hero-gradient text-white py-14 md:py-20">
+                <div class="container mx-auto px-4">
+                    <div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 items-center">
+                        <div>
+                            <p class="inline-block bg-white/15 rounded-full px-4 py-1 text-sm mb-4">小規模宿泊施設向け案内支援</p>
+                            <h1 class="text-3xl md:text-5xl font-bold leading-tight mb-4">ワンオペ宿の案内負担を、<br>仕組みで軽くする</h1>
+                            <p class="text-base md:text-lg opacity-95 mb-6">YadOPERAは、QRコードを使ってゲストの質問にその場で回答し、スタッフがゲスト満足度向上に集中する環境を作ります。</p>
+                            <ul class="space-y-2 mb-6 text-sm md:text-base">
+                                <li>・アプリ不要（ゲストがQRを読み取るだけ）</li>
+                                <li>・英語・中国語・韓国語ほか対応</li>
+                                <li>・夜間・無人時間も自動対応</li>
+                            </ul>
+                            <div class="flex flex-wrap gap-3">
+                                <a href="https://yadopera-frontend-production.onrender.com/admin/register" data-cta-label="hero" class="js-ab-cta bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-sky-50">無料で今すぐ導入する</a>
+                            </div>
+                            <ul class="text-xs mt-4 opacity-90 space-y-1">
+                                <li>初期費用 ¥0</li>
+                                <li>クレカ登録不要</li>
+                                <li>10分で運用開始</li>
+                                <li>いつでも解約OK</li>
+                            </ul>
                         </div>
-                        <p class="text-xs mt-4 opacity-90">※ 新規登録/ログイン導線は現在公開していません</p>
-                    </div>
-                    <div>
-                        <img src="./main_image.png" alt="YadOPERAの利用イメージ" class="w-full rounded-2xl shadow-2xl border border-white/20" onerror="this.style.display='none'">
-                    </div>
-                </div>
-            </div>
-        </section>
-
-        <section id="about" class="py-14 md:py-16 bg-white">
-            <div class="container mx-auto px-4">
-                <div class="max-w-5xl mx-auto">
-                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-4">YadOPERAとは（具体的な仕組み）</h2>
-                    <p class="text-gray-700 text-base md:text-lg leading-relaxed mb-8">
-                        YadOPERAは、客室や館内に設置したQRコードをゲストがスマートフォンで読み取るだけで、
-                        チェックアウト時間、設備の使い方、周辺案内などの質問にその場で自動回答する仕組みです。
-                    </p>
-                    <div class="grid md:grid-cols-2 gap-5">
-                        <div class="bg-sky-50 rounded-xl p-5 border border-sky-100">ゲストはQRコードを読み取るだけ（アプリ不要）</div>
-                        <div class="bg-sky-50 rounded-xl p-5 border border-sky-100">ゲスト自身のスマートフォンで利用</div>
-                        <div class="bg-sky-50 rounded-xl p-5 border border-sky-100">施設側はQRコードを印刷して設置するだけ</div>
-                        <div class="bg-sky-50 rounded-xl p-5 border border-sky-100">専用端末や機器の購入は一切不要</div>
+                        <div>
+                            <img src="./main_image.png" alt="YadOPERAの利用イメージ" class="w-full rounded-2xl shadow-2xl border border-white/20" onerror="this.style.display='none'">
+                        </div>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <section id="purpose" class="py-14 md:py-16">
-            <div class="container mx-auto px-4">
-                <div class="max-w-5xl mx-auto">
-                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-8">導入の目的（ワンオペ宿をサポート）</h2>
-                    <div class="grid md:grid-cols-2 gap-5">
-                        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">繰り返し発生する質問対応の負担を減らす</div>
-                        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">フロントがスタッフ不在時間帯でも案内を可能にする</div>
-                        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">少人数運営でも安定した案内を実現する</div>
-                        <div class="bg-white rounded-xl p-6 shadow-sm border border-gray-100">顧客満足度と従業員満足度を高める</div>
+            <section id="a-problems" class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">こんな課題ありませんか？</h2>
+                    <div class="grid md:grid-cols-2 gap-4 text-gray-700">
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">英語対応できるスタッフが足りない</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">非英語圏のゲストに対応できない</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">夜間や清掃時の問い合わせ対応ができない</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">同じ質問に何度も対応している</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100 md:col-span-2">翻訳や案内作成に時間がかかる</p>
+                    </div>
+                    <p class="mt-6 text-gray-700">これらはすべて「人でやる設計」が原因です。</p>
+                    <p class="mt-2 text-gray-700">ゲスト満足度を下げているかもしれません。</p>
+                    <p class="mt-2 text-gray-700">その対応、すべて自動化できます。</p>
+                </div>
+            </section>
+
+            <section class="py-14 md:py-16">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">YadOPERAなら、すべて解決します</h2>
+                    <ol class="grid md:grid-cols-3 gap-4 text-gray-700 mb-8">
+                        <li class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">① QRコードを設置</li>
+                        <li class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">② ゲストがスマホで読み取る</li>
+                        <li class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">③ AIが自動で多言語対応</li>
+                    </ol>
+                    <ul class="space-y-2 text-gray-700">
+                        <li>・アプリ不要</li>
+                        <li>・インストール不要</li>
+                        <li>・スタッフ操作不要</li>
+                        <li>・即利用可能</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-8">導入後、こう変わります</h2>
+                    <div class="space-y-4 text-gray-700">
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">ゲストから寄せられる質問・チャット対応の件数を基準にした場合、そのうち<strong>最大でおよそ7割</strong>までをAIの自動応答でまかなえる想定です（施設ごとのFAQ登録内容や運用状況により変動します）。<br>→ スタッフは本来業務に集中</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">24時間対応が可能に<br>→ 夜間・無人でも安心</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">多言語対応を即実現<br>→ 翻訳・案内作成が不要に</p>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <section id="benefits" class="py-14 md:py-16 bg-white">
-            <div class="container mx-auto px-4">
-                <div class="max-w-5xl mx-auto">
-                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-8">期待できる効果</h2>
-                    <div class="space-y-4 text-gray-700 text-base md:text-lg">
-                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">「Wi-Fiは？」「チェックアウトは何時？」など定型質問の対応削減</p>
-                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">夜間・清掃中の問い合わせ対応の削減</p>
-                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">ゲストがその場で自己解決できる環境の提供</p>
-                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">スタッフはゲスト満足度を高める対応に集中</p>
+            <section class="py-14 md:py-16">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">なぜ正確に回答できるのか？</h2>
+                    <p class="text-gray-700 mb-4">YadOPERAは、施設ごとのFAQ（よくある質問）を学習し、その内容をもとにAIが回答します。</p>
+                    <ul class="space-y-2 text-gray-700">
+                        <li>・よくある質問を事前登録（テンプレあり）</li>
+                        <li>・AIが最適な回答を生成</li>
+                        <li>・不明な場合はスタッフへエスカレーション</li>
+                    </ul>
+                    <p class="mt-4 font-semibold text-primary">“適当に答えるAI”ではありません</p>
+                </div>
+            </section>
+
+            <section id="a-steps" class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">導入はたったこれだけ</h2>
+                    <ul class="space-y-2 text-gray-700 mb-4">
+                        <li>・無料登録</li>
+                        <li>・FAQを設定（テンプレあり）</li>
+                        <li>・QRコードを設置</li>
+                    </ul>
+                    <p class="text-gray-700 font-medium">最短当日から運用開始</p>
+                </div>
+            </section>
+
+            <section id="a-pricing" class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">個人経営・小規模宿でも導入できる価格設計</h2>
+                    <div class="bg-sky-50 rounded-xl p-6 border border-sky-100 text-gray-700">
+                        <p class="mb-2">初期費用：¥0</p>
+                        <p class="mb-2">月額：¥3,980〜（Smallプランの場合[3言語対応]）</p>
+                        <p>人件費と比べて圧倒的に低コスト</p>
                     </div>
                 </div>
-            </div>
-        </section>
+            </section>
 
-        <section id="voices" class="py-14 md:py-16">
-            <div class="container mx-auto px-4">
-                <div class="max-w-5xl mx-auto">
-                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-8">実証実験から現場の声</h2>
-                    <div class="grid md:grid-cols-2 gap-5">
-                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm">「シフトを毎日1時間減らすことができた」</blockquote>
-                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm">「チェックインピーク時のドタバタが減った」</blockquote>
-                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm">「急いでいる、疲れているゲストへの館内案内を簡略化できた」</blockquote>
-                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm">「ゲストに意外な疑問が意外な時間帯に発生することを知った」</blockquote>
-                        <blockquote class="bg-white rounded-xl p-6 border-l-4 border-accent shadow-sm md:col-span-2">「2人体制時の重なり時間帯を減らせた」</blockquote>
+            <section class="py-14 md:py-16">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">はじめてでも安心</h2>
+                    <ul class="space-y-2 text-gray-700 mb-4">
+                        <li>・FAQテンプレート30件を用意</li>
+                        <li>・メールサポートあり</li>
+                        <li>・いつでも解約可能</li>
+                        <li>・クレジットカード不要で開始可能</li>
+                    </ul>
+                    <p class="text-gray-700 mb-8">「試すだけ」でもOKです</p>
+                    <h3 class="text-xl md:text-2xl font-bold text-primary mb-4">よくある質問</h3>
+                    <div class="space-y-3 text-gray-700">
+                        <p class="bg-white rounded-xl p-4 border border-gray-100"><strong>本当に無料ですか？</strong> はい。初期費用は¥0から始められます。無料枠を含む各プランの詳細は、新規登録画面でご確認ください。</p>
+                        <p class="bg-white rounded-xl p-4 border border-gray-100"><strong>設定は難しいですか？</strong> 簡単です。初期設定方法もマニュアルも完備しています。</p>
+                        <p class="bg-white rounded-xl p-4 border border-gray-100"><strong>英語ができなくても大丈夫ですか？</strong> 大丈夫です。全て日本語です。</p>
+                        <p class="bg-white rounded-xl p-4 border border-gray-100"><strong>サポートはありますか？</strong> はい、メールで対応しております。</p>
                     </div>
                 </div>
-            </div>
+            </section>
+
+            <section class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl text-center">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-4">まずは無料で使ってみてください</h2>
+                    <p class="text-gray-700 mb-8">導入に悩むより、実際に使った方が早いです。10分で始めて、その効果を確認できます。</p>
+                    <a href="https://yadopera-frontend-production.onrender.com/admin/register" data-cta-label="final" class="js-ab-cta inline-block bg-primary text-white px-8 py-3 rounded-lg font-semibold bg-primary-hover">無料で今すぐ導入する</a>
+                </div>
+            </section>
         </section>
 
-        <section id="contact" class="py-14 md:py-16 bg-white">
+        <section id="lp-panel-b" class="hidden">
+            <section id="b-overview" class="hero-gradient text-white py-14 md:py-20">
+                <div class="container mx-auto px-4">
+                    <div class="max-w-6xl mx-auto grid md:grid-cols-2 gap-8 items-center">
+                        <div>
+                            <p class="inline-block bg-white/15 rounded-full px-4 py-1 text-sm mb-4">小規模宿泊施設向け案内支援</p>
+                            <h1 class="text-3xl md:text-5xl font-bold leading-tight mb-4">ワンオペ宿の案内負担を、<br>仕組みで軽くする</h1>
+                            <p class="text-base md:text-lg opacity-95 mb-6">YadOPERAは、QRコードを使ってゲストの質問にその場で回答し、スタッフがゲスト満足度向上に集中する環境を作ります。</p>
+                            <ul class="space-y-2 mb-6 text-sm md:text-base">
+                                <li>・アプリ不要（ゲストがQRを読み取るだけ）</li>
+                                <li>・英語・中国語・韓国語ほか対応</li>
+                                <li>・夜間・無人時間も自動対応</li>
+                            </ul>
+                            <a href="https://yadopera-frontend-production.onrender.com/admin/register" data-cta-label="hero" class="js-ab-cta inline-block bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-sky-50">無料で今すぐ導入する</a>
+                        </div>
+                        <div>
+                            <img src="./main_image.png" alt="YadOPERAの利用イメージ" class="w-full rounded-2xl shadow-2xl border border-white/20" onerror="this.style.display='none'">
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="b-problems" class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">こんな課題ありませんか？</h2>
+                    <div class="grid md:grid-cols-2 gap-4 text-gray-700">
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">英語対応できるスタッフが足りない</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">非英語圏のゲストに対応できない</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">夜間や清掃時の問い合わせ対応ができない</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">同じ質問に何度も対応している</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100 md:col-span-2">翻訳や案内作成に時間がかかる</p>
+                    </div>
+                    <p class="mt-6 text-gray-700">これらはすべて「人でやる設計」が原因です。</p>
+                    <p class="mt-2 text-gray-700">ゲスト満足度を下げているかもしれません。</p>
+                    <p class="mt-2 text-gray-700">その対応、すべて自動化できます。</p>
+                </div>
+            </section>
+
+            <section id="b-steps" class="py-14 md:py-16">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">YadOPERAなら、すべて解決します</h2>
+                    <ol class="grid md:grid-cols-3 gap-4 text-gray-700 mb-8">
+                        <li class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">① QRコードを設置</li>
+                        <li class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">② ゲストがスマホで読み取る</li>
+                        <li class="bg-white border border-gray-100 rounded-xl p-5 shadow-sm">③ AIが自動で多言語対応</li>
+                    </ol>
+                    <ul class="space-y-2 text-gray-700">
+                        <li>・アプリ不要</li>
+                        <li>・インストール不要</li>
+                        <li>・スタッフ操作不要</li>
+                        <li>・即利用可能</li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="py-14 md:py-16">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">小規模宿泊施設に最適化された設計</h2>
+                    <ul class="space-y-3 text-gray-700">
+                        <li class="bg-white rounded-xl p-5 border border-gray-100">20〜30件のFAQテンプレート付き（即運用可）</li>
+                        <li class="bg-white rounded-xl p-5 border border-gray-100">未解決質問はワンクリックでFAQ（よくある質問）化</li>
+                        <li class="bg-white rounded-xl p-5 border border-gray-100">夜間は自動返信＋翌朝対応キュー</li>
+                        <li class="bg-white rounded-xl p-5 border border-gray-100">医療・緊急は即エスカレーション</li>
+                    </ul>
+                    <p class="mt-6 text-gray-700 font-medium">「導入したその日から使える設計」</p>
+                </div>
+            </section>
+
+            <section class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">現場から生まれたサービスです</h2>
+                    <p class="text-gray-700 mb-2">宿泊施設求人サイト「やどびと」運営実績</p>
+                    <p class="text-gray-700 mb-2">スタッフの声や現場の課題から開発</p>
+                    <p class="text-gray-700">小規模施設に特化</p>
+                </div>
+            </section>
+
+            <section class="py-14 md:py-16">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-8">導入効果</h2>
+                    <div class="space-y-4 text-gray-700">
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">ゲストから寄せられる質問のうち、最大でおよそ7割までを自動応答で対応できる想定です（言語やFAQ整備状況により変動）。</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">スタッフの対応時間を大幅削減</p>
+                        <p class="bg-sky-50 rounded-xl p-5 border border-sky-100">人件費と比べて圧倒的に低コスト</p>
+                    </div>
+                </div>
+            </section>
+
+            <section id="b-pricing" class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-6">シンプルな料金体系</h2>
+                    <div class="bg-sky-50 rounded-xl p-6 border border-sky-100 text-gray-700 space-y-4">
+                        <div>
+                            <p class="font-semibold text-primary mb-2">【Freeプラン】</p>
+                            <p class="mb-1">初期費用：¥0</p>
+                            <p>月額：¥0</p>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-primary mb-2">【有料プラン】</p>
+                            <p class="mb-1">初期費用：¥0</p>
+                            <p class="mb-2">月額：¥3,980〜（Smallプランの場合[3言語対応]）</p>
+                        </div>
+                        <p>小規模施設でも導入可能</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="py-14 md:py-16">
+                <div class="container mx-auto px-4 max-w-5xl">
+                    <h2 class="text-2xl md:text-4xl font-bold text-primary mb-4">まずは無料でお試しください</h2>
+                    <a href="https://yadopera-frontend-production.onrender.com/admin/register" data-cta-label="middle" class="js-ab-cta inline-block bg-primary text-white px-8 py-3 rounded-lg font-semibold mb-6 bg-primary-hover">無料で今すぐ導入する</a>
+                    <ul class="space-y-2 text-gray-700 mb-8">
+                        <li>・FAQテンプレート30件を用意</li>
+                        <li>・メールサポートあり</li>
+                        <li>・いつでも解約可能</li>
+                        <li>・クレジットカード不要で開始可能</li>
+                    </ul>
+                    <h3 class="text-xl md:text-2xl font-bold text-primary mb-4">よくある質問</h3>
+                    <div class="space-y-3 text-gray-700">
+                        <p class="bg-white rounded-xl p-4 border border-gray-100"><strong>本当に無料ですか？</strong> はい。Freeプランなら無料でお試しいただけます。</p>
+                        <p class="bg-white rounded-xl p-4 border border-gray-100"><strong>設定は難しいですか？</strong> 簡単です。初期設定方法もマニュアルも完備しています。</p>
+                        <p class="bg-white rounded-xl p-4 border border-gray-100"><strong>英語ができなくても大丈夫ですか？</strong> 大丈夫です。全て日本語です。</p>
+                        <p class="bg-white rounded-xl p-4 border border-gray-100"><strong>サポートはありますか？</strong> はい、メールで対応しております。</p>
+                    </div>
+                </div>
+            </section>
+
+            <section class="py-14 md:py-16 bg-white">
+                <div class="container mx-auto px-4 max-w-5xl text-center">
+                    <p class="text-xl md:text-2xl font-bold text-primary mb-6">“対応できない”をなくすだけで、宿はもっと楽になる。</p>
+                    <a href="https://yadopera-frontend-production.onrender.com/admin/register" data-cta-label="final" class="js-ab-cta inline-block bg-primary text-white px-8 py-3 rounded-lg font-semibold bg-primary-hover">無料で今すぐ導入する</a>
+                </div>
+            </section>
+        </section>
+
+        <section id="contact-form" class="py-8 md:py-10 bg-gray-50 border-t border-gray-200">
             <div class="container mx-auto px-4">
-                <div class="max-w-3xl mx-auto bg-sky-50 rounded-2xl p-7 md:p-10 border border-sky-100">
-                    <h2 class="text-2xl md:text-3xl font-bold text-primary text-center mb-3">導入相談・開始案内の受付</h2>
-                    <p class="text-center text-gray-700 mb-8">新規登録やログイン公開の前に、導入相談を優先して受け付けています。</p>
+                <div class="max-w-2xl mx-auto rounded-lg border border-gray-200 bg-white p-5 md:p-6 shadow-sm">
+                    <h2 class="text-lg md:text-xl font-semibold text-gray-800 mb-2">メールでのお問い合わせ</h2>
+                    <p class="text-sm text-gray-600 mb-5">導入の進め方や料金など、確認したいことがあればこのフォームからお送りください。すぐに画面で試したい場合は、ページ上部の「無料で今すぐ導入する」から登録していただくのが早いです。</p>
                     <form action="https://formspree.io/f/xzdddjwn" method="POST" class="space-y-4">
                         <div>
                             <label for="facility_name" class="block text-sm font-medium text-gray-700 mb-2">施設名（任意）</label>
-                            <input type="text" id="facility_name" name="facility_name" placeholder="例：京都ゲストハウス" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <input type="text" id="facility_name" name="facility_name" placeholder="例：京都ゲストハウス" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-700 focus:border-transparent">
                         </div>
                         <div>
                             <label for="email" class="block text-sm font-medium text-gray-700 mb-2">メールアドレス <span class="text-red-500">*</span></label>
-                            <input type="email" id="email" name="email" required placeholder="example@guesthouse.com" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <input type="email" id="email" name="email" required placeholder="example@guesthouse.com" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-700 focus:border-transparent">
                         </div>
                         <div>
                             <label for="message" class="block text-sm font-medium text-gray-700 mb-2">ご相談内容（任意）</label>
-                            <textarea id="message" name="message" rows="4" placeholder="導入時期や施設規模など" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"></textarea>
+                            <textarea id="message" name="message" rows="4" placeholder="導入時期や施設規模など" class="w-full border border-gray-300 rounded-md px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-sky-700 focus:border-transparent"></textarea>
                         </div>
                         <input type="hidden" name="_subject" value="YadOPERA 導入相談">
                         <input type="hidden" name="_next" value="https://yadopera.com/thanks.html">
-                        <button type="submit" class="w-full bg-primary text-white font-medium py-3 rounded-md hover:bg-primary-hover transition-colors duration-200">
-                            送信する
-                        </button>
+                        <button type="submit" class="w-full bg-primary text-white font-medium py-3 rounded-md bg-primary-hover">送信する</button>
                     </form>
                 </div>
             </div>
@@ -249,5 +404,141 @@
             </div>
         </footer>
     </main>
+
+    <!-- 確認用: URL に ?lp=a または ?lp=b を付けるとそのパターンを表示し、sessionStorage に保存します（クエリは消えます）。 -->
+    <script>
+        (function () {
+            var key = 'lp_ab_variant';
+            var variant = null;
+            var forcedFromQuery = false;
+            try {
+                var params = new URLSearchParams(window.location.search);
+                var forced = (params.get('lp') || '').toLowerCase();
+                if (forced === 'a' || forced === 'b') {
+                    variant = forced;
+                    forcedFromQuery = true;
+                    sessionStorage.setItem(key, variant);
+                    if (window.history && window.history.replaceState) {
+                        var clean = window.location.pathname + window.location.hash;
+                        window.history.replaceState({}, '', clean);
+                    }
+                }
+            } catch (e) {}
+            if (forcedFromQuery && typeof gtag === 'function') {
+                gtag('event', 'lp_ab_assign', { variant: variant });
+            }
+            if (!variant) {
+                variant = sessionStorage.getItem(key);
+            }
+            if (!variant) {
+                variant = Math.random() < 0.5 ? 'a' : 'b';
+                sessionStorage.setItem(key, variant);
+                if (typeof gtag === 'function') {
+                    gtag('event', 'lp_ab_assign', { variant: variant });
+                }
+            }
+
+            var panelA = document.getElementById('lp-panel-a');
+            var panelB = document.getElementById('lp-panel-b');
+            if (panelA && panelB) {
+                panelA.classList.toggle('hidden', variant !== 'a');
+                panelB.classList.toggle('hidden', variant !== 'b');
+            }
+
+            if (typeof gtag === 'function') {
+                gtag('event', 'lp_ab_view', { variant: variant });
+            }
+
+            var mobileMenu = document.getElementById('mobile-menu');
+            var mobileMenuBtn = document.getElementById('mobile-menu-btn');
+            var mobileMenuClose = document.getElementById('mobile-menu-close');
+
+            function closeMobileMenu() {
+                if (!mobileMenu || !mobileMenuBtn) {
+                    return;
+                }
+                mobileMenu.classList.add('hidden');
+                mobileMenuBtn.setAttribute('aria-expanded', 'false');
+                mobileMenuBtn.setAttribute('aria-label', 'メニューを開く');
+                document.body.style.overflow = '';
+            }
+            function openMobileMenu() {
+                if (!mobileMenu || !mobileMenuBtn) {
+                    return;
+                }
+                mobileMenu.classList.remove('hidden');
+                mobileMenuBtn.setAttribute('aria-expanded', 'true');
+                mobileMenuBtn.setAttribute('aria-label', 'メニューを閉じる');
+                document.body.style.overflow = 'hidden';
+            }
+            if (mobileMenuBtn && mobileMenu) {
+                mobileMenuBtn.addEventListener('click', function () {
+                    if (mobileMenu.classList.contains('hidden')) {
+                        openMobileMenu();
+                    } else {
+                        closeMobileMenu();
+                    }
+                });
+            }
+            if (mobileMenuClose) {
+                mobileMenuClose.addEventListener('click', closeMobileMenu);
+            }
+            if (mobileMenu) {
+                mobileMenu.addEventListener('click', function (e) {
+                    var a = e.target.closest('a');
+                    if (!a || !mobileMenu.contains(a)) {
+                        return;
+                    }
+                    if (!a.classList.contains('js-ab-cta')) {
+                        closeMobileMenu();
+                    }
+                });
+            }
+            document.addEventListener('keydown', function (ev) {
+                if (ev.key === 'Escape' && mobileMenu && !mobileMenu.classList.contains('hidden')) {
+                    closeMobileMenu();
+                }
+            });
+
+            var ctas = document.querySelectorAll('.js-ab-cta');
+            ctas.forEach(function (cta) {
+                cta.addEventListener('click', function (event) {
+                    closeMobileMenu();
+                    var targetUrl = cta.getAttribute('href');
+                    if (!targetUrl) {
+                        return;
+                    }
+                    event.preventDefault();
+                    if (typeof gtag === 'function') {
+                        gtag('event', 'lp_ab_cta_click', {
+                            variant: variant,
+                            cta_label: cta.getAttribute('data-cta-label') || 'unknown',
+                            event_callback: function () {
+                                window.location.href = targetUrl;
+                            }
+                        });
+                        setTimeout(function () {
+                            window.location.href = targetUrl;
+                        }, 150);
+                    } else {
+                        window.location.href = targetUrl;
+                    }
+                });
+            });
+
+            var navLinks = document.querySelectorAll('[data-anchor]');
+            navLinks.forEach(function (link) {
+                link.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    var anchor = link.getAttribute('data-anchor');
+                    var target = document.getElementById(variant + '-' + anchor);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }
+                    closeMobileMenu();
+                });
+            });
+        })();
+    </script>
 </body>
 </html>
