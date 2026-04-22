@@ -417,32 +417,88 @@
             var key = 'lp_ab_variant';
             var variant = null;
             var forcedFromQuery = false;
+            var memoryVariant = null;
+            var assignSent = false;
+            var viewSent = false;
+
+            function normalizeVariant(value) {
+                return value === 'a' || value === 'b' ? value : null;
+            }
+
+            function getStoredVariant() {
+                try {
+                    return normalizeVariant(sessionStorage.getItem(key));
+                } catch (e) {
+                    return normalizeVariant(memoryVariant);
+                }
+            }
+
+            function persistVariant(value) {
+                var normalized = normalizeVariant(value);
+                if (!normalized) {
+                    return null;
+                }
+                memoryVariant = normalized;
+                try {
+                    sessionStorage.setItem(key, normalized);
+                } catch (e) {}
+                return normalized;
+            }
+
+            function ensureVariant() {
+                if (normalizeVariant(variant)) {
+                    return variant;
+                }
+                variant = getStoredVariant();
+                if (variant) {
+                    return variant;
+                }
+                variant = persistVariant(Math.random() < 0.5 ? 'a' : 'b');
+                return variant;
+            }
+
+            function setVariantUserProperty(currentVariant) {
+                if (!currentVariant || typeof gtag !== 'function') {
+                    return;
+                }
+                gtag('set', 'user_properties', { lp_variant: currentVariant });
+            }
+
+            function sendAssignEventIfNeeded(currentVariant) {
+                if (!currentVariant || assignSent || typeof gtag !== 'function') {
+                    return;
+                }
+                assignSent = true;
+                gtag('event', 'lp_ab_assign', { variant: currentVariant });
+            }
+
+            function sendViewEventIfNeeded(currentVariant) {
+                if (!currentVariant || viewSent || typeof gtag !== 'function') {
+                    return;
+                }
+                viewSent = true;
+                gtag('event', 'lp_ab_view', { variant: currentVariant });
+            }
             try {
                 var params = new URLSearchParams(window.location.search);
                 var forced = (params.get('lp') || '').toLowerCase();
                 if (forced === 'a' || forced === 'b') {
-                    variant = forced;
+                    variant = persistVariant(forced);
                     forcedFromQuery = true;
-                    sessionStorage.setItem(key, variant);
                     if (window.history && window.history.replaceState) {
                         var clean = window.location.pathname + window.location.hash;
                         window.history.replaceState({}, '', clean);
                     }
                 }
             } catch (e) {}
-            if (forcedFromQuery && typeof gtag === 'function') {
-                gtag('event', 'lp_ab_assign', { variant: variant });
+            var hadStoredVariant = !!getStoredVariant();
+            variant = ensureVariant();
+            if (forcedFromQuery) {
+                sendAssignEventIfNeeded(variant);
+            } else if (!hadStoredVariant) {
+                sendAssignEventIfNeeded(variant);
             }
-            if (!variant) {
-                variant = sessionStorage.getItem(key);
-            }
-            if (!variant) {
-                variant = Math.random() < 0.5 ? 'a' : 'b';
-                sessionStorage.setItem(key, variant);
-                if (typeof gtag === 'function') {
-                    gtag('event', 'lp_ab_assign', { variant: variant });
-                }
-            }
+            setVariantUserProperty(variant);
 
             var panelA = document.getElementById('lp-panel-a');
             var panelB = document.getElementById('lp-panel-b');
@@ -451,9 +507,7 @@
                 panelB.classList.toggle('hidden', variant !== 'b');
             }
 
-            if (typeof gtag === 'function') {
-                gtag('event', 'lp_ab_view', { variant: variant });
-            }
+            sendViewEventIfNeeded(variant);
 
             var mobileMenu = document.getElementById('mobile-menu');
             var mobileMenuBtn = document.getElementById('mobile-menu-btn');
@@ -524,8 +578,12 @@
                             redirected = true;
                             window.location.href = targetUrl;
                         };
+                        var currentVariant = ensureVariant();
+                        setVariantUserProperty(currentVariant);
+                        sendAssignEventIfNeeded(currentVariant);
+                        sendViewEventIfNeeded(currentVariant);
                         gtag('event', 'lp_ab_cta_click', {
-                            variant: variant,
+                            variant: currentVariant,
                             cta_label: cta.getAttribute('data-cta-label') || 'unknown',
                             transport_type: 'beacon',
                             event_callback: function () {
