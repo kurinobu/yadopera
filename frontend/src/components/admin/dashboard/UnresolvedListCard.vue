@@ -9,6 +9,9 @@
     </div>
     
     <div v-else class="space-y-3">
+      <p class="text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded px-3 py-2">
+        ゲストから受付番号を伝えられた場合は、同じ番号の行を開いて会話詳細を確認してください。
+      </p>
       <div
         v-for="escalation in escalations"
         :key="escalation.id"
