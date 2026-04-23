@@ -16,6 +16,7 @@ class MessageRole(str, enum.Enum):
     USER = "user"
     ASSISTANT = "assistant"
     SYSTEM = "system"
+    STAFF = "staff"
 
 
 class Message(Base):

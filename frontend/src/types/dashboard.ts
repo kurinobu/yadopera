@@ -93,6 +93,7 @@ export interface UnresolvedEscalation {
   session_id: string
   created_at: string
   message: string
+  contactability_status: 'contactable' | 'no_contact'
 }
 
 // ダッシュボードデータ

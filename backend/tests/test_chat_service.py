@@ -190,6 +190,126 @@ class TestChatService:
         )
         assert history is not None
         assert history.unresolved_escalation_id == escalation.id
+        assert history.contactability_status == "no_contact"
+
+    @pytest.mark.asyncio
+    async def test_create_staff_reply(self, db_session, test_facility):
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="test-session-staff-reply",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+            total_messages=0,
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+
+        escalation = Escalation(
+            facility_id=test_facility.id,
+            conversation_id=conversation.id,
+            trigger_type="staff_mode",
+            resolved_at=None,
+        )
+        db_session.add(escalation)
+        await db_session.commit()
+
+        chat_service = ChatService(db_session)
+        saved = await chat_service.create_staff_reply(
+            session_id="test-session-staff-reply",
+            facility_id=test_facility.id,
+            content="スタッフです。対応を開始します。",
+        )
+
+        assert saved.role == MessageRole.STAFF.value
+        assert "対応を開始" in saved.content
+
+    @pytest.mark.asyncio
+    async def test_create_staff_reply_requires_unresolved_escalation(self, db_session, test_facility):
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="test-session-staff-reply-no-esc",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+            total_messages=0,
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+
+        chat_service = ChatService(db_session)
+        with pytest.raises(ValueError, match="No unresolved escalation"):
+            await chat_service.create_staff_reply(
+                session_id="test-session-staff-reply-no-esc",
+                facility_id=test_facility.id,
+                content="返信",
+            )
+
+    @pytest.mark.asyncio
+    async def test_capture_contact_consent_updates_contactability(self, db_session, test_facility, monkeypatch):
+        monkeypatch.setenv("ENABLE_CONTACT_CAPTURE", "true")
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="test-session-consent",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+            total_messages=0,
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+
+        user_message = Message(
+            conversation_id=conversation.id,
+            role=MessageRole.USER.value,
+            content="スタッフに連絡できますか？",
+        )
+        db_session.add(user_message)
+        await db_session.commit()
+
+        chat_service = ChatService(db_session)
+        status_value = await chat_service.capture_contact_consent(
+            facility_id=test_facility.id,
+            session_id="test-session-consent",
+            email="guest@example.com",
+            guest_name="Guest",
+            consent=True,
+        )
+        assert status_value == "contactable"
+
+        history = await chat_service.get_conversation_history(
+            session_id="test-session-consent",
+            facility_id=test_facility.id,
+        )
+        assert history is not None
+        assert history.contactability_status == "contactable"
+        # 同意メタ情報は会話表示に混ぜない
+        assert len(history.messages) == 1
+        assert history.messages[0].role == MessageRole.USER.value
+
+    @pytest.mark.asyncio
+    async def test_capture_contact_consent_disabled(self, db_session, test_facility, monkeypatch):
+        monkeypatch.delenv("ENABLE_CONTACT_CAPTURE", raising=False)
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="test-session-consent-disabled",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+            total_messages=0,
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+
+        chat_service = ChatService(db_session)
+        with pytest.raises(ValueError, match="disabled"):
+            await chat_service.capture_contact_consent(
+                facility_id=test_facility.id,
+                session_id="test-session-consent-disabled",
+                email="guest@example.com",
+                guest_name="Guest",
+                consent=True,
+            )
 
     @pytest.mark.asyncio
     async def test_get_conversation_history_not_found(self, db_session):

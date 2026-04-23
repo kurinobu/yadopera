@@ -502,3 +502,108 @@ class TestDashboardServiceBillingPeriod:
         assert result.plan_limit == 200
         assert result.status == "overage"
 
+    @pytest.mark.asyncio
+    async def test_get_unresolved_escalations_contactability_enabled(self, db_session: AsyncSession, monkeypatch):
+        monkeypatch.setenv("ENABLE_CONTACT_CAPTURE", "true")
+        facility = Facility(
+            name="Test Hotel Contactable",
+            slug=f"test-hotel-contactable-{uuid.uuid4().hex[:8]}",
+            email=f"test-contactable-{uuid.uuid4().hex[:8]}@example.com",
+            plan_type="Small",
+            monthly_question_limit=200,
+            plan_started_at=pytz.UTC.localize(datetime(2026, 1, 15, 1, 0, 0)),
+            is_active=True,
+        )
+        db_session.add(facility)
+        await db_session.flush()
+
+        conversation = Conversation(
+            facility_id=facility.id,
+            session_id=f"test-contact-session-{uuid.uuid4().hex[:8]}",
+            started_at=pytz.UTC.localize(datetime(2026, 1, 20, 6, 0, 0)),
+            guest_language="ja",
+        )
+        db_session.add(conversation)
+        await db_session.flush()
+
+        user_message = Message(
+            conversation_id=conversation.id,
+            role=MessageRole.USER.value,
+            content="スタッフと話したいです",
+            created_at=pytz.UTC.localize(datetime(2026, 1, 20, 6, 0, 0)),
+        )
+        consent_message = Message(
+            conversation_id=conversation.id,
+            role=MessageRole.SYSTEM.value,
+            content='__contact_consent__:{"email":"guest@example.com","guest_name":"Guest","consent":true}',
+            created_at=pytz.UTC.localize(datetime(2026, 1, 20, 6, 1, 0)),
+        )
+        db_session.add(user_message)
+        db_session.add(consent_message)
+
+        escalation = Escalation(
+            facility_id=facility.id,
+            conversation_id=conversation.id,
+            trigger_type="staff_mode",
+            ai_confidence=Decimal("0.0"),
+            escalation_mode="normal",
+            created_at=pytz.UTC.localize(datetime(2026, 1, 20, 6, 2, 0)),
+            resolved_at=None,
+        )
+        db_session.add(escalation)
+        await db_session.commit()
+
+        service = DashboardService(db_session)
+        result = await service.get_unresolved_escalations(facility.id, limit=10)
+        assert len(result) == 1
+        assert result[0].contactability_status == "contactable"
+
+    @pytest.mark.asyncio
+    async def test_get_unresolved_escalations_contactability_disabled_default(self, db_session: AsyncSession, monkeypatch):
+        monkeypatch.delenv("ENABLE_CONTACT_CAPTURE", raising=False)
+        facility = Facility(
+            name="Test Hotel No Contact",
+            slug=f"test-hotel-no-contact-{uuid.uuid4().hex[:8]}",
+            email=f"test-no-contact-{uuid.uuid4().hex[:8]}@example.com",
+            plan_type="Small",
+            monthly_question_limit=200,
+            plan_started_at=pytz.UTC.localize(datetime(2026, 1, 15, 1, 0, 0)),
+            is_active=True,
+        )
+        db_session.add(facility)
+        await db_session.flush()
+
+        conversation = Conversation(
+            facility_id=facility.id,
+            session_id=f"test-no-contact-session-{uuid.uuid4().hex[:8]}",
+            started_at=pytz.UTC.localize(datetime(2026, 1, 20, 6, 0, 0)),
+            guest_language="ja",
+        )
+        db_session.add(conversation)
+        await db_session.flush()
+
+        consent_message = Message(
+            conversation_id=conversation.id,
+            role=MessageRole.SYSTEM.value,
+            content='__contact_consent__:{"email":"guest@example.com","guest_name":"Guest","consent":true}',
+            created_at=pytz.UTC.localize(datetime(2026, 1, 20, 6, 1, 0)),
+        )
+        db_session.add(consent_message)
+
+        escalation = Escalation(
+            facility_id=facility.id,
+            conversation_id=conversation.id,
+            trigger_type="staff_mode",
+            ai_confidence=Decimal("0.0"),
+            escalation_mode="normal",
+            created_at=pytz.UTC.localize(datetime(2026, 1, 20, 6, 2, 0)),
+            resolved_at=None,
+        )
+        db_session.add(escalation)
+        await db_session.commit()
+
+        service = DashboardService(db_session)
+        result = await service.get_unresolved_escalations(facility.id, limit=10)
+        assert len(result) == 1
+        assert result[0].contactability_status == "no_contact"
+

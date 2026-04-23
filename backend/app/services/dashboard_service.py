@@ -4,6 +4,7 @@
 """
 
 import logging
+import json
 from typing import List, Optional
 from datetime import datetime, timedelta
 from decimal import Decimal
@@ -35,10 +36,12 @@ from app.schemas.dashboard import (
     UnresolvedEscalation
 )
 from app.core.cache import get_cache, set_cache, cache_key
+from app.core.feature_flags import is_contact_capture_enabled
 from app.services.feedback_service import FeedbackService
 import asyncio
 
 logger = logging.getLogger(__name__)
+CONTACT_CONSENT_PREFIX = "__contact_consent__:"
 
 # キャッシュTTL（秒）
 DASHBOARD_CACHE_TTL = 300  # 5分（リアルタイム性を重視）
@@ -786,7 +789,10 @@ class DashboardService:
                     conversation_id=escalation.conversation_id,
                     session_id=session_id,
                     created_at=escalation.created_at,
-                    message=message
+                    message=message,
+                    contactability_status=self._get_contactability_status_for_messages(
+                        escalation.conversation.messages if escalation.conversation else []
+                    ),
                 ))
             
             return unresolved_list
@@ -797,6 +803,30 @@ class DashboardService:
                 exc_info=True
             )
             return []  # エラー時は空のリストを返す
+
+    def _get_contactability_status_for_messages(self, messages: List[Message]) -> str:
+        if not is_contact_capture_enabled():
+            return "no_contact"
+        for msg in messages:
+            if msg.role != MessageRole.SYSTEM.value or not isinstance(msg.content, str):
+                continue
+            if not msg.content.startswith(CONTACT_CONSENT_PREFIX):
+                continue
+            payload = self._parse_contact_consent(msg.content)
+            if payload and payload.get("consent") is True and payload.get("email"):
+                return "contactable"
+        return "no_contact"
+
+    @staticmethod
+    def _parse_contact_consent(content: str) -> Optional[dict]:
+        if not isinstance(content, str) or not content.startswith(CONTACT_CONSENT_PREFIX):
+            return None
+        raw = content[len(CONTACT_CONSENT_PREFIX):]
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else None
+        except json.JSONDecodeError:
+            return None
 
     async def get_coupon_lead_count(self, facility_id: int) -> int:
         """

@@ -4,6 +4,7 @@
 """
 
 import logging
+import json
 import re
 import time
 import uuid
@@ -41,8 +42,10 @@ from app.services.escalation_absence_routing import queue_escalation_if_staff_ab
 from app.services.overnight_queue_service import OvernightQueueService
 from app.services.stripe_service import is_stripe_configured, report_usage_to_meter
 from app.core.plan_limits import get_plan_limits
+from app.core.feature_flags import is_contact_capture_enabled
 
 logger = logging.getLogger(__name__)
+CONTACT_CONSENT_PREFIX = "__contact_consent__:"
 
 
 class ChatService:
@@ -727,9 +730,11 @@ class ChatService:
                 created_at=msg.created_at
             )
             for msg in messages
+            if not self._is_contact_consent_message(msg)
         ]
 
         unresolved_escalation_id: Optional[int] = None
+        contactability_status: Optional[str] = None
         if facility_id is not None:
             open_esc = await self.db.execute(
                 select(Escalation.id)
@@ -741,6 +746,7 @@ class ChatService:
                 .limit(1)
             )
             unresolved_escalation_id = open_esc.scalar_one_or_none()
+            contactability_status = self._get_contactability_status(messages)
         
         return ChatHistoryResponse(
             session_id=conversation.session_id,
@@ -751,7 +757,129 @@ class ChatService:
             last_activity_at=conversation.last_activity_at,
             messages=message_responses,
             unresolved_escalation_id=unresolved_escalation_id,
+            contactability_status=contactability_status,
         )
+
+    async def create_staff_reply(
+        self,
+        *,
+        session_id: str,
+        facility_id: int,
+        content: str,
+    ) -> Message:
+        """
+        管理者手動返信（role=staff）を保存する。
+        """
+        body = (content or "").strip()
+        if not body:
+            raise ValueError("Reply content is required")
+
+        result = await self.db.execute(
+            select(Conversation).where(
+                Conversation.session_id == session_id,
+                Conversation.facility_id == facility_id,
+            )
+        )
+        conversation = result.scalar_one_or_none()
+        if not conversation:
+            raise ValueError(f"Conversation not found: session_id={session_id}")
+
+        open_esc = await self.db.execute(
+            select(Escalation.id).where(
+                Escalation.conversation_id == conversation.id,
+                Escalation.facility_id == facility_id,
+                Escalation.resolved_at.is_(None),
+            ).limit(1)
+        )
+        if open_esc.scalar_one_or_none() is None:
+            raise ValueError("No unresolved escalation found for this conversation")
+
+        staff_message = Message(
+            conversation_id=conversation.id,
+            role=MessageRole.STAFF.value,
+            content=body,
+        )
+        self.db.add(staff_message)
+        conversation.last_activity_at = datetime.now(timezone.utc)
+        conversation.total_messages += 1
+        await self.db.commit()
+        await self.db.refresh(staff_message)
+        return staff_message
+
+    def _get_contactability_status(self, messages: List[Message]) -> str:
+        """
+        C-1: 連絡可能状態の最小定義。
+        C-3有効時は会話メッセージ内の同意メタ情報から判定する。
+        """
+        if is_contact_capture_enabled():
+            for msg in messages:
+                if not self._is_contact_consent_message(msg):
+                    continue
+                payload = self._parse_contact_consent(msg.content)
+                if payload and payload.get("consent") is True and payload.get("email"):
+                    return "contactable"
+        return "no_contact"
+
+    async def capture_contact_consent(
+        self,
+        *,
+        facility_id: int,
+        session_id: str,
+        email: str,
+        guest_name: Optional[str],
+        consent: bool,
+    ) -> str:
+        """
+        C-3: 連絡先提供同意を保存（feature flag ON時のみ）。
+        既存スキーマを変更せず messages(role=system) にメタ情報として記録する。
+        """
+        if not is_contact_capture_enabled():
+            raise ValueError("Contact capture feature is disabled")
+
+        result = await self.db.execute(
+            select(Conversation).where(
+                Conversation.session_id == session_id,
+                Conversation.facility_id == facility_id,
+            )
+        )
+        conversation = result.scalar_one_or_none()
+        if not conversation:
+            raise ValueError(f"Conversation not found: session_id={session_id}")
+
+        payload = {
+            "email": (email or "").strip(),
+            "guest_name": (guest_name or "").strip() or None,
+            "consent": bool(consent),
+            "captured_at": datetime.now(timezone.utc).isoformat(),
+        }
+        marker = Message(
+            conversation_id=conversation.id,
+            role=MessageRole.SYSTEM.value,
+            content=f"{CONTACT_CONSENT_PREFIX}{json.dumps(payload, ensure_ascii=False)}",
+        )
+        self.db.add(marker)
+        conversation.last_activity_at = datetime.now(timezone.utc)
+        await self.db.commit()
+        return "contactable" if payload["consent"] and payload["email"] else "no_contact"
+
+    @staticmethod
+    def _is_contact_consent_message(message: Message) -> bool:
+        return (
+            message.role == MessageRole.SYSTEM.value
+            and isinstance(message.content, str)
+            and message.content.startswith(CONTACT_CONSENT_PREFIX)
+        )
+
+    @staticmethod
+    def _parse_contact_consent(content: str) -> Optional[dict]:
+        if not isinstance(content, str) or not content.startswith(CONTACT_CONSENT_PREFIX):
+            return None
+        raw = content[len(CONTACT_CONSENT_PREFIX):]
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else None
+        except json.JSONDecodeError:
+            return None
     
     async def save_feedback(
         self,

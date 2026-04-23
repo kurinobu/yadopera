@@ -38,9 +38,12 @@
 
 ### 現在のフェーズ
 
-**Phase 0（準備期間）** - 進捗: 7/11ステップ完了（63.6%）
+**サービス開始後の運用フェーズ（2026-04時点）**
 
-詳細は [`docs/Phase0_進捗状況.md`](docs/Phase0_進捗状況.md) を参照してください。
+- サービス開始ロードマップ（A〜F）は完了
+- 現在はLP改善・運営導線改善・請求運用整合を継続
+
+現況の正本は [`docs/Summary/yadopera-v04-summary.md`](docs/Summary/yadopera-v04-summary.md) と [`docs/20260415_サービス開始ロードマップ.md`](docs/20260415_サービス開始ロードマップ.md) を参照してください。
 
 ## 技術スタック
 
@@ -66,9 +69,9 @@
 
 ### インフラ
 
-- **Docker & Docker Compose** - コンテナ環境
-- **Render.com** - 本番環境（予定）
-- **Cloudflare** - CDN、DDoS保護（予定）
+- **Docker & Docker Compose** - ローカル開発・検証環境
+- **Render.com** - SaaS本体（staging / production）
+- **GitHub Pages** - LP本番公開（`main` の `landing/**`）
 
 ## 開発環境セットアップ
 
@@ -132,6 +135,7 @@ cp backend/.env.example backend/.env
 | `ENVIRONMENT` | `development` | 環境（development/production） |
 | `DEBUG` | `True` | デバッグモード |
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:3000` | CORS許可オリジン（カンマ区切り） |
+| `ENABLE_CONTACT_CAPTURE` | `false` | C-3（同意ベース連絡先収集）機能フラグ。`true` で `/chat/contact-consent` を有効化 |
 
 ### Frontend環境変数
 
@@ -145,6 +149,7 @@ cp frontend/.env.example frontend/.env
 |--------|------|------------|
 | `VITE_API_BASE_URL` | Backend APIのベースURL | `http://localhost:8000` |
 | `VITE_APP_NAME` | アプリケーション名 | `YadOPERA` |
+| `VITE_ENABLE_CONTACT_CAPTURE` | C-3連絡先同意フォーム表示フラグ | `false` |
 
 ## サービス起動
 
@@ -301,27 +306,24 @@ docker-compose down -v
 - Docker環境での動作確認が完了してから、ステージング環境へのデプロイを検討する
 - この原則は、環境の違いによる不具合を防ぎ、本番環境に近い状態での検証を保証するために必須
 
-詳細は [`docs/Summary/yadopera-v03-summary.md`](docs/Summary/yadopera-v03-summary.md) の「0. 大原則（開発・実装の基本方針）」セクションを参照してください。
+詳細は [`docs/Summary/yadopera-v04-summary.md`](docs/Summary/yadopera-v04-summary.md) の「4. 大原則（継続拘束）」を参照してください。
 
 ### ブランチ戦略
 
-**採用戦略**: オプション2（サブドメインでのテストURL作成）
+**採用戦略**: `feature/* -> develop -> main`
 
-- `main`: 本番環境用ブランチ
-  - URL: `https://yadopera.com`
-  - データベース: Render.com PostgreSQL（Managed）
-  - Redis: Redis Cloud（External）
-- `develop`: ステージング環境用ブランチ
-  - URL: `https://staging.yadopera.com`
-  - データベース: Railway Hobby PostgreSQL（契約済み）
-  - Redis: Railway Hobby Redis（契約済み）
-- `feature/*`: 機能開発用ブランチ
+- `main`: 本番ブランチ
+  - SaaS本体はRender production系に反映
+  - LPは `landing/**` がGitHub Pagesで `https://yadopera.com` に反映
+- `develop`: ステージング検証ブランチ
+  - SaaS本体はRender staging系に反映
+- `feature/*`: 機能開発ブランチ
 
 **デプロイフロー**:
 1. `feature/*` → `develop`（マージ）
 2. `develop` → Render.com ステージング環境（自動デプロイ）
 3. テスト完了後、`develop` → `main`（マージ）
-4. `main` → Render.com 本番環境（自動デプロイ）
+4. `main` → 本番反映（SaaS: Render / LP: GitHub Pages）
 
 ### コミットメッセージ
 
@@ -338,21 +340,24 @@ docker-compose down -v
 ### デプロイ環境
 
 **ステージング環境**:
-- 実装フェーズ: Phase 1 Week 4
-- 目的: 開発・テスト用
-- データベース: Railway Hobby PostgreSQL（契約済み）
+- 目的: 機能検証・回帰確認
+- 定義: `render.yaml`（`yadopera-backend-staging`, `yadopera-frontend-staging`）
+- CI: `develop` への push / PR で `staging-deploy.yml`
 
 **本番環境**:
-- 実装フェーズ: Phase 4（本格展開準備）
-- 目的: 本番運用
-- データベース: Render.com PostgreSQL（Managed）
+- 目的: サービス運用
+- SaaS本体: Render production（ダッシュボード管理）
+- LP: GitHub Pages（`main` + `landing/**`）
 
-詳細は [`docs/やどぺら_v0.3_アーキテクチャ設計書.md`](docs/やどぺら_v0.3_アーキテクチャ設計書.md) の「14. デプロイメント」セクションを参照してください。
+詳細は [`docs/Summary/yadopera-v04-summary.md`](docs/Summary/yadopera-v04-summary.md) および [`docs/Architecture/やどぺら_v0.3_アーキテクチャ設計書.md`](docs/Architecture/やどぺら_v0.3_アーキテクチャ設計書.md) を参照してください。
 
 ## 関連ドキュメント
 
 ### プロジェクトドキュメント
 
+- [やどぺら v4 要約定義書（現行正本）](docs/Summary/yadopera-v04-summary.md)
+- [サービス開始ロードマップ（現況）](docs/20260415_サービス開始ロードマップ.md)
+- [サービス開始ロードマップ実行記録](docs/20260328_サービス開始ロードマップ_実行記録.md)
 - [Phase 0 ステップ計画](docs/Phase0_ステップ計画.md)
 - [Phase 0 進捗状況](docs/Phase0_進捗状況.md)
 - [Phase 0 引き継ぎ書](docs/Phase0_引き継ぎ書.md)
@@ -360,13 +365,13 @@ docker-compose down -v
 
 ### 設計ドキュメント
 
-- [やどぺら v0.3 要約定義書](docs/yadopera-v03-summary.md)
-- [やどぺら v0.3 アーキテクチャ設計書](docs/やどぺら_v0.3_アーキテクチャ設計書.md)
+- [やどぺら v4 要約定義書](docs/Summary/yadopera-v04-summary.md)
+- [やどぺら v0.3 アーキテクチャ設計書](docs/Architecture/やどぺら_v0.3_アーキテクチャ設計書.md)
 
 ### 外部リンク
 
 - GitHubリポジトリ: https://github.com/kurinobu/yadopera.git
-- Render.com: 本番環境（予定）
+- Render.com: SaaS運用基盤
 
 ## ライセンス
 
@@ -380,7 +385,7 @@ docker-compose down -v
 
 ---
 
-**Document Version**: v1.0  
-**Last Updated**: 2025-11-25  
-**Status**: Phase 0 進行中
+**Document Version**: v1.1  
+**Last Updated**: 2026-04-22  
+**Status**: サービス開始後運用中（v4準拠）
 

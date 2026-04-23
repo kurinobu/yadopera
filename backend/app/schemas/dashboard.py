@@ -108,6 +108,10 @@ class UnresolvedEscalation(BaseModel):
     session_id: str = Field(..., description="セッションID")
     created_at: datetime = Field(..., description="作成日時")
     message: str = Field(..., description="ゲストメッセージ")
+    contactability_status: str = Field(
+        default="no_contact",
+        description="連絡可能状態（contactable / no_contact）",
+    )
 
 
 class DashboardResponse(BaseModel):

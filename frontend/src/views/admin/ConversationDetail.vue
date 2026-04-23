@@ -46,6 +46,12 @@
               {{ history.unresolved_escalation_id }}
             </p>
           </div>
+          <div v-if="history.contactability_status">
+            <p class="text-sm text-gray-500 dark:text-gray-400">連絡可能状態</p>
+            <p class="text-sm font-semibold" :class="history.contactability_status === 'contactable' ? 'text-green-700 dark:text-green-300' : 'text-gray-700 dark:text-gray-300'">
+              {{ history.contactability_status === 'contactable' ? '連絡先あり' : '連絡先なし' }}
+            </p>
+          </div>
           <div>
             <p class="text-sm text-gray-500 dark:text-gray-400">セッションID</p>
             <p class="text-sm font-mono text-gray-900 dark:text-white">{{ history.session_id }}</p>
@@ -81,6 +87,33 @@
 
       <!-- メッセージ一覧 -->
       <div class="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+        <div class="mb-6 border border-gray-200 dark:border-gray-700 rounded-lg p-4">
+          <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">ゲストに返信</h3>
+          <textarea
+            v-model="replyContent"
+            rows="3"
+            class="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 px-3 py-2 text-sm"
+            placeholder="返信内容を入力してください"
+          />
+          <p v-if="replyError" class="mt-2 text-xs text-red-600 dark:text-red-400">{{ replyError }}</p>
+          <p
+            v-if="!canReplyToGuest"
+            class="mt-2 text-xs text-gray-600 dark:text-gray-300"
+          >
+            未解決エスカレーションがないため、返信は送信できません。
+          </p>
+          <div class="mt-3 flex justify-end">
+            <button
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+              :disabled="replySubmitting || !canReplyToGuest"
+              @click="submitStaffReply"
+            >
+              {{ replySubmitting ? '送信中…' : '返信を送信' }}
+            </button>
+          </div>
+        </div>
+
         <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
           メッセージ一覧
         </h2>
@@ -99,6 +132,8 @@
                       ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
                       : message.role === 'assistant'
                       ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                      : message.role === 'staff'
+                      ? 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
                       : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
                   ]"
                 >
@@ -163,6 +198,10 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 const history = ref<ChatHistoryResponse | null>(null)
 const faqs = ref<FAQ[]>([])
+const replyContent = ref('')
+const replySubmitting = ref(false)
+const replyError = ref<string | null>(null)
+const canReplyToGuest = computed(() => history.value?.unresolved_escalation_id != null)
 
 // 会話履歴取得
 const fetchHistory = async () => {
@@ -203,10 +242,36 @@ const getRoleName = (role: string): string => {
       return 'ゲスト'
     case 'assistant':
       return 'AI'
+    case 'staff':
+      return 'スタッフ'
     case 'system':
       return 'システム'
     default:
       return role
+  }
+}
+
+const submitStaffReply = async () => {
+  const body = replyContent.value.trim()
+  if (!canReplyToGuest.value) {
+    replyError.value = '未解決エスカレーションがありません'
+    return
+  }
+  if (!body) {
+    replyError.value = '返信内容を入力してください'
+    return
+  }
+  try {
+    replySubmitting.value = true
+    replyError.value = null
+    await chatApi.sendStaffReply(sessionId, { content: body })
+    replyContent.value = ''
+    await fetchHistory()
+  } catch (err: any) {
+    console.error('Failed to send staff reply:', err)
+    replyError.value = err.response?.data?.detail || '返信の送信に失敗しました'
+  } finally {
+    replySubmitting.value = false
   }
 }
 

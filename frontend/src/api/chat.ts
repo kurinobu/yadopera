@@ -6,7 +6,9 @@ import apiClient from './axios'
 import type { 
   ChatRequest, ChatResponse, ChatHistoryResponse, 
   FeedbackRequest, FeedbackResponse,
-  EscalationRequest, EscalationResponse
+  EscalationRequest, EscalationResponse,
+  StaffReplyRequest, StaffReplyResponse,
+  ContactConsentRequest, ContactConsentResponse
 } from '@/types/chat'
 
 export const chatApi = {
@@ -48,6 +50,22 @@ export const chatApi = {
    */
   async escalateToStaff(data: EscalationRequest): Promise<EscalationResponse> {
     const response = await apiClient.post<EscalationResponse>('/chat/escalate', data)
+    return response.data
+  },
+
+  /**
+   * 管理者手動返信（B-1）
+   */
+  async sendStaffReply(sessionId: string, data: StaffReplyRequest): Promise<StaffReplyResponse> {
+    const response = await apiClient.post<StaffReplyResponse>(`/admin/conversations/${sessionId}/reply`, data)
+    return response.data
+  },
+
+  /**
+   * ゲスト連絡先同意（C-3）
+   */
+  async captureContactConsent(data: ContactConsentRequest): Promise<ContactConsentResponse> {
+    const response = await apiClient.post<ContactConsentResponse>('/chat/contact-consent', data)
     return response.data
   }
 }

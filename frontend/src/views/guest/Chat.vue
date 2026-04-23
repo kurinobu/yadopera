@@ -165,6 +165,53 @@
       <p class="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
         {{ escalationSuccessBody }}
       </p>
+      <div
+        v-if="showContactConsentForm"
+        class="mt-4 p-3 rounded-lg border border-blue-100 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 space-y-3"
+      >
+        <p class="text-xs text-blue-800 dark:text-blue-200">
+          スタッフから直接連絡できるように、連絡先メールアドレスの提供に同意する場合は入力してください。
+        </p>
+        <input
+          v-model.trim="contactEmail"
+          type="email"
+          inputmode="email"
+          autocomplete="email"
+          class="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+          placeholder="メールアドレス"
+        >
+        <input
+          v-model.trim="contactGuestName"
+          type="text"
+          autocomplete="name"
+          class="w-full rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 px-3 py-2 text-sm text-gray-900 dark:text-gray-100"
+          placeholder="お名前（任意）"
+        >
+        <label class="flex items-start gap-2 text-xs text-gray-700 dark:text-gray-300">
+          <input
+            v-model="contactConsentChecked"
+            type="checkbox"
+            class="mt-0.5"
+          >
+          <span>私はスタッフからの連絡のために、この連絡先情報を提供することに同意します。</span>
+        </label>
+        <p v-if="contactConsentError" class="text-xs text-red-600 dark:text-red-400">
+          {{ contactConsentError }}
+        </p>
+        <p v-if="contactConsentDone" class="text-xs text-green-700 dark:text-green-300">
+          連絡先情報を受け付けました。
+        </p>
+        <div class="flex justify-end">
+          <button
+            type="button"
+            class="px-3 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50"
+            :disabled="contactConsentSubmitting || contactConsentDone"
+            @click="submitContactConsent"
+          >
+            {{ contactConsentSubmitting ? '送信中…' : '連絡先を送信' }}
+          </button>
+        </div>
+      </div>
       <template #footer>
         <button
           type="button"
@@ -199,6 +246,7 @@ import Modal from '@/components/common/Modal.vue'
 import type { ChatMessage } from '@/types/chat'
 import { log, warn } from '@/utils/logger'
 import { getEscalationGuestCopy } from '@/utils/escalationGuestCopy'
+import { ENABLE_CONTACT_CAPTURE } from '@/utils/constants'
 
 const route = useRoute()
 const router = useRouter()
@@ -249,6 +297,12 @@ const showEscalationConfirm = ref(false)
 const showEscalationSuccess = ref(false)
 const escalationSubmitting = ref(false)
 const lastEscalationId = ref<number | null>(null)
+const contactEmail = ref('')
+const contactGuestName = ref('')
+const contactConsentChecked = ref(false)
+const contactConsentSubmitting = ref(false)
+const contactConsentDone = ref(false)
+const contactConsentError = ref<string | null>(null)
 
 const escalationCopy = computed(() => getEscalationGuestCopy(language.value))
 const escalationSuccessBody = computed(() => {
@@ -256,6 +310,9 @@ const escalationSuccessBody = computed(() => {
   if (id == null) return ''
   return escalationCopy.value.successBody(id)
 })
+const showContactConsentForm = computed(() =>
+  ENABLE_CONTACT_CAPTURE && showEscalationSuccess.value && lastEscalationId.value != null
+)
 
 const escalationModalBeforeClose = async (): Promise<boolean> => {
   if (escalationSubmitting.value) return false
@@ -646,6 +703,11 @@ const submitEscalation = async () => {
       session_id: currentSessionId
     })
     lastEscalationId.value = response.escalation_id
+    contactConsentError.value = null
+    contactConsentDone.value = false
+    contactEmail.value = ''
+    contactGuestName.value = ''
+    contactConsentChecked.value = false
     showEscalationConfirm.value = false
     showEscalationSuccess.value = true
     log('[Chat.vue] submitEscalation: 成功', response)
@@ -662,6 +724,41 @@ const submitEscalation = async () => {
     error.value = msg
   } finally {
     escalationSubmitting.value = false
+  }
+}
+
+const submitContactConsent = async () => {
+  if (!ENABLE_CONTACT_CAPTURE) return
+  if (!facilityId.value) return
+  const currentSessionId = getOrCreateSessionId()
+  if (!currentSessionId) return
+  contactConsentError.value = null
+
+  const email = contactEmail.value.trim()
+  if (!contactConsentChecked.value) {
+    contactConsentError.value = '同意チェックをオンにしてください。'
+    return
+  }
+  if (!email || !email.includes('@')) {
+    contactConsentError.value = '有効なメールアドレスを入力してください。'
+    return
+  }
+
+  try {
+    contactConsentSubmitting.value = true
+    await chatApi.captureContactConsent({
+      facility_id: facilityId.value,
+      session_id: currentSessionId,
+      email,
+      guest_name: contactGuestName.value.trim() || undefined,
+      consent: true
+    })
+    contactConsentDone.value = true
+  } catch (err: any) {
+    const detail = String(err.response?.data?.detail || err.message || '')
+    contactConsentError.value = detail || '連絡先の送信に失敗しました。'
+  } finally {
+    contactConsentSubmitting.value = false
   }
 }
 

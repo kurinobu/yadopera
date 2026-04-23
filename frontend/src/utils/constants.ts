@@ -4,6 +4,7 @@
 
 // API設定
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
+export const ENABLE_CONTACT_CAPTURE = String(import.meta.env.VITE_ENABLE_CONTACT_CAPTURE || '').toLowerCase() === 'true'
 
 // 言語設定（ゲスト画面で選択可能。de・vi は削除、zh-CN 追加）
 export const SUPPORTED_LANGUAGES = [
