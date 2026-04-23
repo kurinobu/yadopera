@@ -5,13 +5,49 @@ RAG統合型AI対話エンジンテスト
 import pytest
 from decimal import Decimal
 from unittest.mock import AsyncMock, patch, MagicMock
+from datetime import time
 from app.ai.engine import RAGChatEngine
 from app.models.faq import FAQ
+from app.models.facility import Facility
 from app.schemas.chat import EscalationInfo, RAGEngineResponse
 
 
 class TestRAGEngine:
     """RAG統合型AI対話エンジンテスト"""
+
+    def test_build_context_includes_wifi_password_when_set(self):
+        """施設に WiFi パスワードがある場合、RAG コンテキストに含まれる（ゲスト回答用・公開 API とは別経路）"""
+        facility = Facility(
+            name="Ctx Hotel",
+            slug="ctx-wifi-has-pw",
+            email="ctx@example.com",
+            wifi_ssid="Guest-Net",
+            wifi_password="s3cret-wifi",
+            check_in_time=time(15, 0),
+            check_out_time=time(11, 0),
+            is_active=True,
+        )
+        engine = RAGChatEngine(MagicMock())
+        ctx = engine._build_context(facility, [], "WiFi password?", language="en")
+        assert "Guest-Net" in ctx
+        assert "s3cret-wifi" in ctx
+
+    def test_build_context_wifi_password_not_set_placeholder(self):
+        """パスワード未設定時は Not set のみ（捏造を促さない）"""
+        facility = Facility(
+            name="Ctx Hotel 2",
+            slug="ctx-wifi-no-pw",
+            email="ctx2@example.com",
+            wifi_ssid="Open-Net",
+            wifi_password=None,
+            check_in_time=time(15, 0),
+            check_out_time=time(11, 0),
+            is_active=True,
+        )
+        engine = RAGChatEngine(MagicMock())
+        ctx = engine._build_context(facility, [], "WiFi?", language="ja")
+        assert "Open-Net" in ctx
+        assert "Not set" in ctx
     
     @pytest.mark.asyncio
     @patch('app.ai.engine.generate_embedding')
