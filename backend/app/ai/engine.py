@@ -13,6 +13,7 @@ from app.ai.embeddings import generate_embedding
 from app.ai.vector_search import search_similar_faqs
 from app.ai.openai_client import OpenAIClient
 from app.ai.fallback import get_fallback_message
+from app.ai.prompts import format_facility_information_block
 from app.models.facility import Facility
 from app.models.faq import FAQ
 from app.schemas.chat import RAGEngineResponse, EscalationInfo
@@ -230,16 +231,7 @@ class RAGChatEngine:
         
         faq_context = "\n".join(faq_context_parts) if faq_context_parts else "No relevant FAQs found."
         
-        # 施設基本情報（約150トークン）
-        facility_info = f"""
-Facility: {facility.name}
-Check-in: {facility.check_in_time}
-Check-out: {facility.check_out_time}
-WiFi SSID: {facility.wifi_ssid or "Not available"}
-House Rules: {(facility.house_rules or "")[:500]}
-Local Info: {(facility.local_info or "")[:500]}
-Prohibited Items: {(getattr(facility, "prohibited_items", "") or "")[:500]}
-"""
+        facility_info = format_facility_information_block(facility)
         
         # 回答言語のラベル（プロンプト用・LLMが認識しやすくするため）
         _language_labels = {
@@ -257,7 +249,8 @@ Prohibited Items: {(getattr(facility, "prohibited_items", "") or "")[:500]}
 You are a helpful assistant for a guesthouse.
 Answer guests' questions based on the provided FAQs and facility information.
 Be friendly, concise (under 200 characters), and helpful.
-If you cannot answer confidently, suggest contacting staff.
+WiFi SSID and WiFi password under Facility Information are official guest-facing details supplied by the property. When guests ask about WiFi, state them exactly when set; do not refuse on generic security grounds when they appear there. If WiFi password shows "Not set", do not invent one—suggest asking staff at the property.
+Only if the answer is not supported by Facility Information or Relevant FAQs (and you would need to guess), suggest contacting staff.
 
 You MUST answer in the guest's selected language only. The selected language for this request is: {answer_language_label} (code: {language}). Even if the question is written in another language, translate and answer in the selected language above. Keep the response under 200 characters, friendly and helpful.
 """
