@@ -10,6 +10,7 @@ from unittest.mock import AsyncMock, patch
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.faq import FAQ
+from app.models.escalation import Escalation
 from app.core.jwt import create_access_token
 
 
@@ -104,6 +105,48 @@ class TestChatFlow:
         assert data["messages"][0]["role"] == "user"
         assert data["messages"][1]["role"] == "assistant"
 
+    @pytest.mark.asyncio
+    async def test_contact_consent_api_disabled_by_default(self, client, test_facility):
+        response = await client.post(
+            "/api/v1/chat/contact-consent",
+            json={
+                "facility_id": test_facility.id,
+                "session_id": "any-session",
+                "email": "guest@example.com",
+                "guest_name": "Guest",
+                "consent": True,
+            },
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    @pytest.mark.asyncio
+    async def test_contact_consent_api_enabled(self, client, db_session, test_facility, monkeypatch):
+        monkeypatch.setenv("ENABLE_CONTACT_CAPTURE", "true")
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="integration-contact-consent",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+
+        response = await client.post(
+            "/api/v1/chat/contact-consent",
+            json={
+                "facility_id": test_facility.id,
+                "session_id": "integration-contact-consent",
+                "email": "guest@example.com",
+                "guest_name": "Guest",
+                "consent": True,
+            },
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["success"] is True
+        assert data["contactability_status"] == "contactable"
+
 
 class TestAdminFlow:
     """管理画面フロー統合テスト"""
@@ -190,6 +233,57 @@ class TestAdminFlow:
         # 認証エラーではないことを確認
         assert response.status_code != status.HTTP_401_UNAUTHORIZED
         assert response.status_code != status.HTTP_403_FORBIDDEN
+
+    @pytest.mark.asyncio
+    async def test_staff_reply_api_success(self, client, db_session, test_facility, auth_headers):
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="integration-admin-reply",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+        await db_session.refresh(conversation)
+
+        escalation = Escalation(
+            facility_id=test_facility.id,
+            conversation_id=conversation.id,
+            trigger_type="staff_mode",
+            resolved_at=None,
+        )
+        db_session.add(escalation)
+        await db_session.commit()
+
+        response = await client.post(
+            "/api/v1/admin/conversations/integration-admin-reply/reply",
+            headers=auth_headers,
+            json={"content": "管理者より返信します"},
+        )
+        assert response.status_code == status.HTTP_201_CREATED
+        data = response.json()
+        assert data["success"] is True
+        assert data["message"]["role"] == "staff"
+
+    @pytest.mark.asyncio
+    async def test_staff_reply_api_requires_unresolved_escalation(self, client, db_session, test_facility, auth_headers):
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="integration-admin-reply-no-esc",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+
+        response = await client.post(
+            "/api/v1/admin/conversations/integration-admin-reply-no-esc/reply",
+            headers=auth_headers,
+            json={"content": "管理者より返信します"},
+        )
+        assert response.status_code == status.HTTP_404_NOT_FOUND
 
 
 class TestErrorHandling:

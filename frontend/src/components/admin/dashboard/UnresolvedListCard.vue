@@ -28,6 +28,18 @@
             <p class="text-xs font-medium text-gray-800 dark:text-gray-200">
               受付番号: {{ escalation.id }}
             </p>
+            <p class="text-xs mt-1">
+              <span
+                :class="[
+                  'inline-flex items-center px-2 py-0.5 rounded',
+                  escalation.contactability_status === 'contactable'
+                    ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                    : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+                ]"
+              >
+                {{ escalation.contactability_status === 'contactable' ? '連絡先あり' : '連絡先なし' }}
+              </span>
+            </p>
             <p class="text-sm text-gray-900 dark:text-white line-clamp-2 mt-1">
               {{ escalation.message || 'メッセージなし' }}
             </p>

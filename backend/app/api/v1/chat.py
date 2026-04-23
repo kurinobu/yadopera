@@ -9,7 +9,8 @@ from app.database import get_db
 from app.schemas.chat import (
     ChatRequest, ChatResponse, ChatHistoryResponse, 
     FeedbackRequest, FeedbackResponse,
-    EscalationRequest, EscalationResponse
+    EscalationRequest, EscalationResponse,
+    ContactConsentRequest, ContactConsentResponse
 )
 from app.services.chat_service import ChatService
 from app.services.escalation_service import EscalationService
@@ -19,6 +20,7 @@ from app.services.escalation_absence_routing import queue_escalation_if_staff_ab
 from app.services.escalation_notification_service import send_staff_escalation_notification
 from app.services.overnight_queue_service import OvernightQueueService
 from typing import Optional
+from app.core.feature_flags import is_contact_capture_enabled
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 
@@ -243,5 +245,41 @@ async def escalate_to_staff(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating escalation: {str(e)}"
+        )
+
+
+@router.post("/contact-consent", response_model=ContactConsentResponse)
+async def capture_contact_consent(
+    request: ContactConsentRequest,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    C-3: ゲスト連絡先提供同意を記録する（feature flag ON時のみ有効）。
+    """
+    if not is_contact_capture_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Contact capture is not enabled",
+        )
+    try:
+        chat_service = ChatService(db)
+        status_value = await chat_service.capture_contact_consent(
+            facility_id=request.facility_id,
+            session_id=request.session_id,
+            email=request.email,
+            guest_name=request.guest_name,
+            consent=request.consent,
+        )
+        return ContactConsentResponse(
+            success=True,
+            contactability_status=status_value,
+            message="連絡先同意情報を受け付けました。",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error capturing contact consent: {str(e)}",
         )
 

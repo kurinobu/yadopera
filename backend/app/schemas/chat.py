@@ -35,7 +35,7 @@ class MessageResponse(BaseModel):
     メッセージレスポンス
     """
     id: int
-    role: str  # 'user', 'assistant', 'system'
+    role: str  # 'user', 'assistant', 'system', 'staff'
     content: str
     ai_confidence: Optional[Decimal] = None
     matched_faq_ids: Optional[List[int]] = None
@@ -85,6 +85,10 @@ class ChatHistoryResponse(BaseModel):
     unresolved_escalation_id: Optional[int] = Field(
         default=None,
         description="未解決エスカレーションID（escalations.id）。ゲスト向け取得では常に null",
+    )
+    contactability_status: Optional[str] = Field(
+        default=None,
+        description="連絡可能状態（contactable / no_contact）。管理画面向けのみ",
     )
 
     class Config:
@@ -143,4 +147,40 @@ class EscalationResponse(BaseModel):
     success: bool = Field(..., description="エスカレーション作成成功")
     escalation_id: int = Field(..., description="エスカレーションID")
     message: str = Field(..., description="メッセージ")
+
+
+class ContactConsentRequest(BaseModel):
+    """
+    ゲスト連絡先の同意登録リクエスト（C-3）
+    """
+    facility_id: int = Field(..., description="施設ID")
+    session_id: str = Field(..., min_length=1, max_length=100, description="セッションID")
+    email: str = Field(..., min_length=3, max_length=255, description="連絡先メールアドレス")
+    guest_name: Optional[str] = Field(None, max_length=255, description="ゲスト名（任意）")
+    consent: bool = Field(..., description="連絡先提供への同意")
+
+
+class ContactConsentResponse(BaseModel):
+    """
+    ゲスト連絡先の同意登録レスポンス（C-3）
+    """
+    success: bool = Field(..., description="登録成功")
+    contactability_status: str = Field(..., description="連絡可能状態（contactable / no_contact）")
+    message: str = Field(..., description="メッセージ")
+
+
+class StaffReplyRequest(BaseModel):
+    """
+    管理者の手動返信リクエスト
+    """
+    content: str = Field(..., min_length=1, max_length=2000, description="返信本文")
+
+
+class StaffReplyResponse(BaseModel):
+    """
+    管理者の手動返信レスポンス
+    """
+    success: bool = Field(..., description="返信作成成功")
+    session_id: str = Field(..., description="セッションID")
+    message: MessageResponse = Field(..., description="保存された staff メッセージ")
 

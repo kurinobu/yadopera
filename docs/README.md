@@ -48,8 +48,8 @@ Phase 0（準備期間）関連のドキュメント
 - `やどぺら v0.1 要約定義書.md` - v0.1要約定義書
 - `yadopera-v01-summary.md` - v0.1要約定義書
 - `yadopera-v02-summary.md` - v0.2要約定義書
-- `yadopera-v03-summary.md` - v0.3要約定義書（デフォルト）
-- `yadopera-v03-summary.md` - v0.3要約（最新、英語版）
+- `yadopera-v03-summary.md` - v0.3要約定義書（旧版履歴）
+- `yadopera-v04-summary.md` - v4要約定義書（現行正本）
 
 ### Contracts/
 契約書関連
@@ -77,8 +77,13 @@ Phase 0（準備期間）関連のドキュメント
 
 ### 最新版
 
-- **要約定義書**: `Summary/yadopera-v03-summary.md`
+- **要約定義書（現行正本）**: `Summary/yadopera-v04-summary.md`
+- **要約定義書（旧版履歴）**: `Summary/yadopera-v03-summary.md`
 - **アーキテクチャ設計書**: `Architecture/やどぺら_v0.3_アーキテクチャ設計書.md`
+- **B+C 実装・運用正本**: `エスカレーション期待値と通知_最小着手ステップ計画.md`
+- **C-3 ステージング検証手順**: `operations/202604/20260423_C3_連絡先同意機能_ステージング検証手順.md`
+- **C-3 ステージング実施記録**: `operations/202604/20260423_C3_連絡先同意機能_ステージング実施記録.md`
+- **WiFi応答不整合 報告書（2026-04-23）**: `reports/20260423_WiFi応答不整合_調査分析_修正実装_反映報告書.md`
 - **引き継ぎ書**: `Phase0/Phase0_引き継ぎ書.md`
 - **進捗状況**: `Phase0/Phase0_進捗状況.md`
 
