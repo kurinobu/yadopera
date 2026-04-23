@@ -19,6 +19,49 @@ from app.models.escalation import Escalation
 class TestChatService:
     """チャットサービス統合テスト"""
     
+    def test_wifi_shortcut_with_password_answers_credentials(self):
+        """WiFi関連質問は施設設定のSSID/パスワードを明示し、誤誘導文言を返さない"""
+        facility = Facility(
+            name="Wifi Hotel",
+            slug=f"wifi-shortcut-{uuid.uuid4().hex[:6]}",
+            email=f"wifi-shortcut-{uuid.uuid4().hex[:6]}@example.com",
+            wifi_ssid="yadobito123",
+            wifi_password="wiwiwiwi",
+            plan_type="Free",
+            is_active=True,
+        )
+        service = ChatService(MagicMock())
+        response = service._build_wifi_shortcut_response(
+            facility=facility,
+            message="WiFiの使い方を教えてください",
+            language="ja",
+        )
+        assert response is not None
+        assert "yadobito123" in response.response
+        assert "wiwiwiwi" in response.response
+        assert "必要ありません" not in response.response
+
+    def test_wifi_shortcut_without_password_does_not_invent(self):
+        """パスワード未設定時は捏造せずスタッフ確認に誘導する"""
+        facility = Facility(
+            name="Wifi No Pass",
+            slug=f"wifi-no-pass-{uuid.uuid4().hex[:6]}",
+            email=f"wifi-no-pass-{uuid.uuid4().hex[:6]}@example.com",
+            wifi_ssid="guest-wifi",
+            wifi_password=None,
+            plan_type="Free",
+            is_active=True,
+        )
+        service = ChatService(MagicMock())
+        response = service._build_wifi_shortcut_response(
+            facility=facility,
+            message="WiFiの使い方",
+            language="ja",
+        )
+        assert response is not None
+        assert "未設定" in response.response
+        assert "wiwiwiwi" not in response.response
+
     @pytest.mark.asyncio
     @patch('app.services.chat_service.RAGChatEngine')
     async def test_process_chat_message_new_conversation(

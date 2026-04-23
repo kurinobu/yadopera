@@ -4,6 +4,7 @@
 """
 
 import logging
+import re
 import time
 import uuid
 from typing import Optional, List
@@ -124,8 +125,49 @@ class ChatService:
         self.db.add(user_message)
         await self.db.flush()
 
-        # プラン超過時・FAQ限定モード: 超過かつ overage_behavior==faq_only のときは RAG を呼ばず FAQ 検索のみ、Stripe 報告なし
         use_faq_only = await self._should_use_faq_only_path(facility)
+        wifi_shortcut_response = self._build_wifi_shortcut_response(
+            facility=facility,
+            message=request.message,
+            language=request.language,
+        )
+        # WiFi 関連は施設設定を正本として確定応答する。
+        # FAQ や一般知識優先での誤案内を防ぐため、RAG より先にここで返す。
+        if wifi_shortcut_response:
+            if not use_faq_only:
+                await self._report_usage_to_stripe_if_needed(facility)
+            ai_message = Message(
+                conversation_id=conversation.id,
+                role=MessageRole.ASSISTANT.value,
+                content=wifi_shortcut_response.response,
+                ai_confidence=wifi_shortcut_response.ai_confidence,
+                matched_faq_ids=wifi_shortcut_response.matched_faq_ids,
+                response_time_ms=wifi_shortcut_response.response_time_ms,
+            )
+            self.db.add(ai_message)
+            await self.db.flush()
+            conversation.last_activity_at = datetime.now(timezone.utc)
+            conversation.total_messages += 2
+            await self.db.commit()
+            await self.db.refresh(ai_message)
+            return ChatResponse(
+                message=MessageResponse(
+                    id=ai_message.id,
+                    role=ai_message.role,
+                    content=ai_message.content,
+                    ai_confidence=ai_message.ai_confidence,
+                    matched_faq_ids=ai_message.matched_faq_ids,
+                    response_time_ms=ai_message.response_time_ms,
+                    created_at=ai_message.created_at
+                ),
+                session_id=conversation.session_id,
+                ai_confidence=wifi_shortcut_response.ai_confidence,
+                is_escalated=False,
+                escalation_id=None,
+                escalation=wifi_shortcut_response.escalation
+            )
+
+        # プラン超過時・FAQ限定モード: 超過かつ overage_behavior==faq_only のときは RAG を呼ばず FAQ 検索のみ、Stripe 報告なし
         if use_faq_only:
             rag_response = await self._build_faq_only_response(
                 request.message, request.facility_id, request.language
@@ -281,6 +323,76 @@ class ChatService:
         )
         
         return new_chat_response
+
+    def _normalize_message_for_intent(self, message: str) -> str:
+        text = (message or "").strip().lower()
+        text = text.replace("　", " ")
+        text = text.replace("wi-fi", "wifi")
+        text = re.sub(r"\s+", " ", text)
+        return text
+
+    def _is_wifi_related_message(self, message: str) -> bool:
+        text = self._normalize_message_for_intent(message)
+        if not text:
+            return False
+        wifi_keywords = [
+            "wifi", "wi fi", "ワイファイ", "無線", "internet", "internet connection",
+            "ssid", "パスワード", "password", "接続", "つなが", "繋が", "使い方",
+            "how to connect", "how do i connect", "network",
+        ]
+        return any(k in text for k in wifi_keywords)
+
+    def _build_wifi_shortcut_response(
+        self,
+        facility: Facility,
+        message: str,
+        language: str
+    ) -> Optional[RAGEngineResponse]:
+        if not self._is_wifi_related_message(message):
+            return None
+
+        ssid = (getattr(facility, "wifi_ssid", None) or "").strip()
+        password = (getattr(facility, "wifi_password", None) or "").strip()
+        if language == "ja":
+            if ssid and password:
+                text = (
+                    f"WiFiのSSIDは「{ssid}」、パスワードは「{password}」です。"
+                    "接続先でSSIDを選び、パスワードを入力してください。"
+                )
+            elif ssid and not password:
+                text = (
+                    f"WiFiのSSIDは「{ssid}」です。パスワードは施設で未設定のため、"
+                    "フロントまたはスタッフにご確認ください。"
+                )
+            else:
+                text = "WiFi情報が未設定です。フロントまたはスタッフにご確認ください。"
+        else:
+            if ssid and password:
+                text = (
+                    f"The WiFi SSID is \"{ssid}\" and the password is \"{password}\". "
+                    "Please select the SSID and enter the password to connect."
+                )
+            elif ssid and not password:
+                text = (
+                    f"The WiFi SSID is \"{ssid}\". The password is not set in the facility settings, "
+                    "so please ask the staff at the property."
+                )
+            else:
+                text = "WiFi information is not configured. Please ask the staff at the property."
+
+        return RAGEngineResponse(
+            response=text,
+            ai_confidence=Decimal("0.95"),
+            matched_faq_ids=[],
+            response_time_ms=1,
+            escalation=EscalationInfo(
+                needed=False,
+                mode=None,
+                trigger_type=None,
+                reason=None,
+                notified=None,
+            ),
+        )
 
     async def _report_usage_to_stripe_if_needed(self, facility: Facility) -> None:
         """
