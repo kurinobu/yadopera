@@ -108,10 +108,12 @@ async def send_staff_escalation_notification(
   <h2 style="color: #0c4a6e;">YadOPERA — ゲストからスタッフへの連絡</h2>
   <p><strong>施設名:</strong> {facility_name}</p>
   <p><strong>受付番号:</strong> {receipt_id}</p>
+  <p><strong>セッションID:</strong> {session_id}</p>
   <p><strong>作成日時:</strong> {created_str}</p>
   <p>管理画面で会話の内容を確認できます。</p>
   <p><a href="{admin_url}" style="color: #2563eb;">{admin_url}</a></p>
   <p style="font-size: 12px; color: #666;">※ 受付番号はゲスト画面の表示と同一の番号です。</p>
+  <p style="font-size: 12px; color: #666;">※ ゲストが受付番号を伝えてきた場合は、同じ受付番号を管理画面で照合してください。</p>
   <hr style="margin: 24px 0; border: none; border-top: 1px solid #eee;" />
   <p style="font-size: 12px; color: #999;">© YadOPERA — 送信専用。返信は管理画面からお願いします。</p>
 </body>
@@ -122,12 +124,14 @@ async def send_staff_escalation_notification(
 
 施設名: {facility_name}
 受付番号: {receipt_id}
+セッションID: {session_id}
 作成日時: {created_str}
 
 管理画面（会話）:
 {admin_url}
 
 ※ 受付番号はゲスト画面の表示と同一の番号です。
+※ ゲストが受付番号を伝えてきた場合は、同じ受付番号を管理画面で照合してください。
 
 ---
 © YadOPERA

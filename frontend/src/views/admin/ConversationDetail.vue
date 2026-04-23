@@ -71,6 +71,12 @@
             <p class="text-sm text-gray-900 dark:text-white">{{ history.messages.length }}</p>
           </div>
         </div>
+        <p
+          v-if="history.unresolved_escalation_id != null"
+          class="mt-4 text-xs text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded px-3 py-2"
+        >
+          ゲストが伝えた受付番号と一致しているか確認してから対応を進めてください。
+        </p>
       </div>
 
       <!-- メッセージ一覧 -->
