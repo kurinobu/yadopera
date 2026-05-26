@@ -75,14 +75,22 @@ Phase 0（準備期間）関連のドキュメント
 - **Stripe Webhook ステージング（セッション引き継ぎ・2026-03-29）**: `20260329_セッション引き継ぎ_Stripe_Webhook_ステージング.md` — `acct` / `whsec` 整合、Runbook §3.4.1.1 と対応（§6.5 完走後の次アクションは同書末参照）
 - **Stripe インボイス・サンドボックス設定（セッション引き継ぎ・2026-03-30）**: `20260330_セッション引き継ぎ_Stripe_インボイス_ダッシュボード作業.md` — 作業内容・失敗・調査 URL・未完了・URL 一覧。正本手順の追記は `領収証_インボイス対応化_設定計画.md`（6.2）。ロードマップ実行記録の **優先7** 行を参照。
 
+### ConoHa 本番移行（2026-05-24〜2026-05-26）
+
+- **YadOPERA 移行完了・サービス開始可能**: `evidence/20260524_yadopera_conoha_migration_complete.md`
+- **Phase 6 完了（InfluBerry / キャラまるわかり）**: `evidence/20260526_phase6_motivation_app_complete.md`（2026-05-26）
+- **移行手順・Phase 表**: `maintenance/20260521_ConoHaVPS_移転統合_引き継ぎ.md`
+- **次 Phase**: Phase 7 DNS 本ドメイン化・HTTPS 化 — `maintenance/20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md`（新規会話）
+
 ### 最新版
 
-- **要約定義書（現行正本）**: `Summary/yadopera-v04-summary.md`
+- **要約定義書（現行正本）**: `Summary/yadopera-v04-summary.md`（**v4.1.1** — Phase 6 完了反映）
 - **要約定義書（旧版履歴）**: `Summary/yadopera-v03-summary.md`
 - **アーキテクチャ設計書**: `Architecture/やどぺら_v0.3_アーキテクチャ設計書.md`
 - **B+C 実装・運用正本**: `エスカレーション期待値と通知_最小着手ステップ計画.md`
 - **C-3 ステージング検証手順**: `operations/202604/20260423_C3_連絡先同意機能_ステージング検証手順.md`
 - **C-3 ステージング実施記録**: `operations/202604/20260423_C3_連絡先同意機能_ステージング実施記録.md`
+- **A-D 本番反映報告書（2026-04-23）**: `reports/202604/20260423_A-D本番反映_調査分析_作業報告.md`
 - **WiFi応答不整合 報告書（2026-04-23）**: `reports/20260423_WiFi応答不整合_調査分析_修正実装_反映報告書.md`
 - **引き継ぎ書**: `Phase0/Phase0_引き継ぎ書.md`
 - **進捗状況**: `Phase0/Phase0_進捗状況.md`
@@ -94,9 +102,9 @@ Phase 0（準備期間）関連のドキュメント
 
 ---
 
-**Document Version**: v1.2  
+**Document Version**: v1.5  
 **Author**: Air  
-**Last Updated**: 2026-03-30  
-**Status**: サービス開始関連に **20260328 ロードマップ実行記録**・**Runbook1.4 進行記録** を索引追加。§6.5 完走後の次工程を README 上で明示
+**Last Updated**: 2026-05-26  
+**Status**: Phase 6（InfluBerry / キャラまるわかり）完了。Phase 7（DNS 本ドメイン化）専用手順書を索引に追加。Render 記述は履歴扱い。
 
 
