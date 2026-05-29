@@ -38,9 +38,19 @@
 | [20260521_Phase4_DBリストア_実施手順.md](./20260521_Phase4_DBリストア_実施手順.md) | Phase 4 DB リストア ✅（2026-05-23） |
 | [20260521_Phase5_YadOPERAサービス再開_実施手順.md](./20260521_Phase5_YadOPERAサービス再開_実施手順.md) | Phase 5 ✅（2026-05-24） |
 | [20260521_Phase6_InfluBerry_キャラまるわかり_実施手順.md](./20260521_Phase6_InfluBerry_キャラまるわかり_実施手順.md) | Phase 6 ✅ 完了（2026-05-26・InfluBerry + motivation_app 両者 Deploy + 暫定 hostname 疎通確認済） |
-| [20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md) | Phase 7 **次会話は §次会話引き継ぎ（Phase 7 即開始）** から |
+| [20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md) | Phase 7 ✅ staging 完了（2026-05-29） |
+| [20260529_サービス再開_三本柱_実施計画.md](./20260529_サービス再開_三本柱_実施計画.md) | **サービス再開正本** — ①②③ **すべて ✅**（2026-05-29） |
+| [20260529_YadOPERA_サービス再開_計画.md](./20260529_YadOPERA_サービス再開_計画.md) | ① YadOPERA ✅ |
+| [20260529_InfluBerry_本番載せ替え_サービス再開_計画.md](./20260529_InfluBerry_本番載せ替え_サービス再開_計画.md) | ② InfluBerry ✅ |
+| [20260529_キャラまるわかり_本番載せ替え_サービス再開_計画.md](./20260529_キャラまるわかり_本番載せ替え_サービス再開_計画.md) | ③ キャラまるわかり ✅ |
+| [20260529_キャラまるわかり_本番載せ替え_実施手順.md](./20260529_キャラまるわかり_本番載せ替え_実施手順.md) | ③ 実施手順 ✅（MO-0〜MO-8 記録） |
+| [../evidence/20260529_influberry_prod_service_resumption_complete.md](../evidence/20260529_influberry_prod_service_resumption_complete.md) | ② 完了証跡（IB-8 含む） |
+| [../evidence/20260529_motivation_prod_service_resumption_complete.md](../evidence/20260529_motivation_prod_service_resumption_complete.md) | ③ 完了証跡（MO-0〜MO-8） |
+| [20260527_Phase8_Render_Railway_解約_実施手順.md](./20260527_Phase8_Render_Railway_解約_実施手順.md) | Phase 8 ✅ 完了（2026-05-27） |
 | [../evidence/20260524_yadopera_conoha_migration_complete.md](../evidence/20260524_yadopera_conoha_migration_complete.md) | **YadOPERA 移行完了・サービス開始可能**（2026-05-24） |
 | [../evidence/20260526_phase6_motivation_app_complete.md](../evidence/20260526_phase6_motivation_app_complete.md) | **Phase 6 完了**（2026-05-26・motivation_app Deploy Done + Phase 6 全体完了宣言） |
+| [../evidence/20260529_phase7_dns_complete.md](../evidence/20260529_phase7_dns_complete.md) | **Phase 7 staging 完了**（2026-05-29） |
+| [../evidence/20260527_phase8_render_railway_partial.md](../evidence/20260527_phase8_render_railway_partial.md) | **Phase 8 部分完了**（2026-05-27・Final $102.35 / $0.00 確定・6 月以降課金ゼロ） |
 
 ---
 

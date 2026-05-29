@@ -75,16 +75,19 @@ Phase 0（準備期間）関連のドキュメント
 - **Stripe Webhook ステージング（セッション引き継ぎ・2026-03-29）**: `20260329_セッション引き継ぎ_Stripe_Webhook_ステージング.md` — `acct` / `whsec` 整合、Runbook §3.4.1.1 と対応（§6.5 完走後の次アクションは同書末参照）
 - **Stripe インボイス・サンドボックス設定（セッション引き継ぎ・2026-03-30）**: `20260330_セッション引き継ぎ_Stripe_インボイス_ダッシュボード作業.md` — 作業内容・失敗・調査 URL・未完了・URL 一覧。正本手順の追記は `領収証_インボイス対応化_設定計画.md`（6.2）。ロードマップ実行記録の **優先7** 行を参照。
 
-### ConoHa 本番移行（2026-05-24〜2026-05-26）
+### ConoHa 本番移行（2026-05-24〜2026-05-29）
 
-- **YadOPERA 移行完了・サービス開始可能**: `evidence/20260524_yadopera_conoha_migration_complete.md`
-- **Phase 6 完了（InfluBerry / キャラまるわかり）**: `evidence/20260526_phase6_motivation_app_complete.md`（2026-05-26）
+- **サービス再開 三本柱（正本）**: `maintenance/20260529_サービス再開_三本柱_実施計画.md`（①②③ **すべて ✅** 2026-05-29）
+- **③ キャラまるわかり 実施手順**: `maintenance/20260529_キャラまるわかり_本番載せ替え_実施手順.md` ✅
+- **① YadOPERA サービス再開**: `maintenance/20260529_YadOPERA_サービス再開_計画.md` ✅
+- **② InfluBerry**: `maintenance/20260529_InfluBerry_本番載せ替え_サービス再開_計画.md` ✅ / `evidence/20260529_influberry_prod_service_resumption_complete.md`
+- **③ キャラまるわかり 証跡**: `evidence/20260529_motivation_prod_service_resumption_complete.md` ✅
 - **移行手順・Phase 表**: `maintenance/20260521_ConoHaVPS_移転統合_引き継ぎ.md`
-- **次 Phase**: Phase 7 DNS 本ドメイン化・HTTPS 化 — `maintenance/20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md`（新規会話）
+- **YadOPERA インフラ移行証跡**: `evidence/20260524_yadopera_conoha_migration_complete.md`（**サービス再開完了とは別**）
 
 ### 最新版
 
-- **要約定義書（現行正本）**: `Summary/yadopera-v04-summary.md`（**v4.1.1** — Phase 6 完了反映）
+- **要約定義書（現行正本）**: `Summary/yadopera-v04-summary.md`（**v4.2.0** — サービス再開 三本柱）
 - **要約定義書（旧版履歴）**: `Summary/yadopera-v03-summary.md`
 - **アーキテクチャ設計書**: `Architecture/やどぺら_v0.3_アーキテクチャ設計書.md`
 - **B+C 実装・運用正本**: `エスカレーション期待値と通知_最小着手ステップ計画.md`
@@ -102,9 +105,9 @@ Phase 0（準備期間）関連のドキュメント
 
 ---
 
-**Document Version**: v1.5  
+**Document Version**: v1.8  
 **Author**: Air  
-**Last Updated**: 2026-05-26  
-**Status**: Phase 6（InfluBerry / キャラまるわかり）完了。Phase 7（DNS 本ドメイン化）専用手順書を索引に追加。Render 記述は履歴扱い。
+**Last Updated**: 2026-05-29  
+**Status**: **サービス再開 三本柱** ①②③ **すべて ✅**（2026-05-29）。`olovolo.online` 本番 HTTPS 200。Phase 7 / Phase 8 完了。
 
 
