@@ -10,18 +10,9 @@
         'max-w-[80%] md:max-w-[70%] rounded-lg px-4 py-2',
         message.role === 'user'
           ? 'bg-blue-600 text-white'
-          : message.role === 'staff'
-          ? 'bg-amber-50 dark:bg-amber-900/30 text-gray-900 dark:text-amber-50 border border-amber-200 dark:border-amber-700'
           : 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700'
       ]"
     >
-      <p
-        v-if="message.role === 'staff'"
-        class="text-xs font-medium text-amber-800 dark:text-amber-200 mb-1"
-      >
-        {{ staffLabel }}
-      </p>
-
       <!-- メッセージ内容 -->
       <p class="text-sm whitespace-pre-wrap break-words">
         {{ message.content }}
@@ -41,8 +32,6 @@
           'text-xs mt-1',
           message.role === 'user'
             ? 'text-blue-100'
-            : message.role === 'staff'
-            ? 'text-amber-700 dark:text-amber-300'
             : 'text-gray-500 dark:text-gray-400'
         ]"
       >
@@ -60,11 +49,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { formatTime, formatConfidence } from '@/utils/formatters'
 import type { ChatMessage } from '@/types/chat'
-import { getStaffReplyGuestCopy } from '@/utils/staffReplyGuestCopy'
 import FeedbackButtons from './FeedbackButtons.vue'
 
 interface Props {
@@ -72,13 +58,9 @@ interface Props {
   showFeedback?: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {
+withDefaults(defineProps<Props>(), {
   showFeedback: true
 })
-
-const route = useRoute()
-const language = computed(() => (route.query.lang as string) || 'en')
-const staffLabel = computed(() => getStaffReplyGuestCopy(language.value).staffLabel)
 
 const emit = defineEmits<{
   feedback: [messageId: number, type: 'positive' | 'negative']
@@ -92,3 +74,5 @@ const handleFeedback = (messageId: number, type: 'positive' | 'negative') => {
 <style scoped>
 /* Component styles */
 </style>
+
+
