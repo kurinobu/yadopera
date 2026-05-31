@@ -175,7 +175,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useAuthStore } from '@/stores/auth'
 import Loading from '@/components/common/Loading.vue'
 import { chatApi } from '@/api/chat'
 import { faqApi } from '@/api/faq'
@@ -185,13 +184,9 @@ import type { FAQ, FAQCategory } from '@/types/faq'
 
 const route = useRoute()
 const router = useRouter()
-const authStore = useAuthStore()
 
 // パラメータからsession_idを取得
 const sessionId = route.params.session_id as string
-
-// facility_idを取得
-const facilityId = computed(() => authStore.user?.facility_id)
 
 // データ状態
 const loading = ref(true)
@@ -208,12 +203,22 @@ const fetchHistory = async () => {
   try {
     loading.value = true
     error.value = null
-    
-    const data = await chatApi.getHistory(sessionId, facilityId.value)
+
+    const data = await chatApi.getAdminConversation(sessionId)
     history.value = data
   } catch (err: any) {
     console.error('Failed to fetch conversation history:', err)
-    error.value = err.response?.data?.detail || '会話履歴の取得に失敗しました'
+    const status = err.response?.status
+    const detail = err.response?.data?.detail
+    if (status === 403) {
+      error.value =
+        detail ||
+        'この会話は別の施設のものです。通知メールを受け取った施設の管理者アカウントでログインしてから開いてください。'
+    } else if (status === 404) {
+      error.value = detail || '会話が見つかりません（削除済み、または URL が不正です）'
+    } else {
+      error.value = detail || '会話履歴の取得に失敗しました'
+    }
   } finally {
     loading.value = false
   }

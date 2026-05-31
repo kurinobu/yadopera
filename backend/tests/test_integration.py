@@ -11,6 +11,7 @@ from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
 from app.models.faq import FAQ
 from app.models.escalation import Escalation
+from app.models.facility import Facility
 from app.core.jwt import create_access_token
 
 
@@ -265,6 +266,69 @@ class TestAdminFlow:
         data = response.json()
         assert data["success"] is True
         assert data["message"]["role"] == "staff"
+
+    @pytest.mark.asyncio
+    async def test_admin_get_conversation_success(self, client, db_session, test_facility, auth_headers):
+        conversation = Conversation(
+            facility_id=test_facility.id,
+            session_id="integration-admin-get-conversation",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+        await db_session.refresh(conversation)
+
+        escalation = Escalation(
+            facility_id=test_facility.id,
+            conversation_id=conversation.id,
+            trigger_type="staff_mode",
+            resolved_at=None,
+        )
+        db_session.add(escalation)
+        await db_session.commit()
+
+        response = await client.get(
+            "/api/v1/admin/conversations/integration-admin-get-conversation",
+            headers=auth_headers,
+        )
+        assert response.status_code == status.HTTP_200_OK
+        data = response.json()
+        assert data["session_id"] == "integration-admin-get-conversation"
+        assert data["facility_id"] == test_facility.id
+        assert data["unresolved_escalation_id"] == escalation.id
+
+    @pytest.mark.asyncio
+    async def test_admin_get_conversation_forbidden_other_facility(
+        self, client, db_session, test_facility, auth_headers
+    ):
+        other_facility = Facility(
+            name="Other Hotel",
+            slug="other-hotel-admin-get",
+            email="other-admin-get@example.com",
+            phone="090-0000-0000",
+            address="Other Address",
+            is_active=True,
+        )
+        db_session.add(other_facility)
+        await db_session.flush()
+
+        conversation = Conversation(
+            facility_id=other_facility.id,
+            session_id="integration-admin-get-other-facility",
+            guest_language="ja",
+            started_at=datetime.utcnow(),
+            last_activity_at=datetime.utcnow(),
+        )
+        db_session.add(conversation)
+        await db_session.commit()
+
+        response = await client.get(
+            "/api/v1/admin/conversations/integration-admin-get-other-facility",
+            headers=auth_headers,
+        )
+        assert response.status_code == status.HTTP_403_FORBIDDEN
 
     @pytest.mark.asyncio
     async def test_staff_reply_api_requires_unresolved_escalation(self, client, db_session, test_facility, auth_headers):

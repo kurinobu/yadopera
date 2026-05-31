@@ -293,7 +293,16 @@ class EscalationService:
         
         if notification_channels is None:
             notification_channels = ["email"]
-        
+
+        conversation = await db.get(Conversation, conversation_id)
+        if not conversation:
+            raise ValueError(f"Conversation not found: conversation_id={conversation_id}")
+        if conversation.facility_id != facility_id:
+            raise ValueError(
+                f"Conversation facility mismatch: conversation_id={conversation_id}, "
+                f"conversation.facility_id={conversation.facility_id}, facility_id={facility_id}"
+            )
+
         escalation = Escalation(
             facility_id=facility_id,
             conversation_id=conversation_id,
@@ -308,10 +317,8 @@ class EscalationService:
         await db.refresh(escalation)
         
         # 会話のis_escalatedフラグを更新
-        conversation = await db.get(Conversation, conversation_id)
-        if conversation:
-            conversation.is_escalated = True
-            await db.commit()
+        conversation.is_escalated = True
+        await db.commit()
         
         logger.info(
             f"Escalation created: {escalation.id}",

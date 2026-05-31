@@ -268,11 +268,14 @@ class DashboardService:
         top_questions: List[TopQuestion] = []
         # TODO: メッセージ内容から頻出質問を抽出する実装（Phase 2で改善）
         
-        # 未解決数（エスカレーション済みで未解決）
+        # 未解決数（Conversation.facility_id を正本にする）
         unresolved_result = await self.db.execute(
             select(func.count(Escalation.id))
-            .where(Escalation.facility_id == facility_id)
-            .where(Escalation.resolved_at.is_(None))
+            .join(Conversation, Escalation.conversation_id == Conversation.id)
+            .where(
+                Conversation.facility_id == facility_id,
+                Escalation.resolved_at.is_(None),
+            )
         )
         unresolved_count = unresolved_result.scalar() or 0
         
@@ -729,13 +732,13 @@ class DashboardService:
             List[UnresolvedEscalation]: 未解決エスカレーションリスト
         """
         try:
-            # 未解決エスカレーションを取得
-            # Escalation.facility_id を基準にする（JOIN + Conversation.facility 条件で行が落ちる事故を防ぐ）
+            # 未解決エスカレーションを取得（Conversation.facility_id を正本にする）
             escalations_result = await self.db.execute(
                 select(Escalation)
+                .join(Conversation, Escalation.conversation_id == Conversation.id)
                 .where(
-                    Escalation.facility_id == facility_id,
-                    Escalation.resolved_at.is_(None)
+                    Conversation.facility_id == facility_id,
+                    Escalation.resolved_at.is_(None),
                 )
                 .order_by(Escalation.created_at.desc())
                 .limit(limit)
