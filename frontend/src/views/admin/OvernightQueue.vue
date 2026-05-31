@@ -152,6 +152,7 @@
       v-else
       :queue="queue"
       :show-resolve-button="true"
+      :show-view-all-button="false"
       @resolve="handleResolve"
     />
   </div>
