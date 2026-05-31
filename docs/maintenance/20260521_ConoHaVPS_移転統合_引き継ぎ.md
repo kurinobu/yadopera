@@ -2,27 +2,12 @@
 
 **作成日**: 2026-05-21  
 **目的**: Render / Railway から ConoHa VPS（12GB）へ集約移行する。  
-**次会話**: **Phase 7 — DNS 本ドメイン化 / HTTPS 化**。**Phase 6 は 2026-05-26 完了**（InfluBerry + motivation_app 両者 Deploy Done・暫定 hostname で疎通確認済）。**YadOPERA は 2026-05-24 完了・サービス開始可能**（[Phase 6 完了証跡](../evidence/20260526_phase6_motivation_app_complete.md) / [Phase 5 完了証跡](../evidence/20260524_yadopera_conoha_migration_complete.md)）。
-
-**貼るプロンプト**（Phase 7 開始・2026-05-26 19:25 版・推奨）:
-
-```
-Phase 7（DNS 本ドメイン化・HTTPS 化）を引き継ぎ再開します。
-正本: docs/maintenance/20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md
-親:   docs/maintenance/20260521_ConoHaVPS_移転統合_引き継ぎ.md §Phase 7
-前提: docs/evidence/20260526_phase6_motivation_app_complete.md（Phase 6 完了）
-
-正本「次会話引き継ぎ」§現在地点（Phase 7 着手前）から 1 Step ずつナビしてください。
-最初に 7-A の Owner 確認（GitHub Visibility / ムームー DNS 現状 / Brevo 認可 IP /
-C-1・C-2・C-3 ローテーション要否）を Owner と読み合わせてください。
-憶測禁止。コピペ用ブロックは 1 つのコード欄にまとめる。Mac≠VPS。git は Mac のみ。
-YadOPERA api/app・Stripe・既存 Brevo・既存 Dokploy env は触らない。
-Phase 6 は完了済み（暫定 hostname 'staging-influberry.local' / 'staging-motivation.local'
-で疎通確認済）。
-```  
+**次会話**: **三本柱 ①②③ 完了**（2026-05-29）。載せ替え・サービス再開の正本は [三本柱実施計画](./20260529_サービス再開_三本柱_実施計画.md)。全 URL 疎通記録は [証跡](../evidence/20260529_all_services_browser_path_check.md)。**2026-05-31 追記**: [Dokploy Auto Deploy 不発（SG 復旧）](./20260521_ConoHaVPS_移転統合_引き継ぎ.md#運用インシデント-dokploy-auto-deploy-不発2026-05-31)。**残**: Phase 8 カード削除（6/3・6/21 以降）／Phase 9 PublishDone／`www.*` DNS 後追い。
 **前提**: サーバー知識は最小。Cursor による画面・コマンド単位のナビ。代行業者は不要。
 
-**Phase 7 実施手順（次会話の正本）**: [20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md)  
+**サービス再開 三本柱（次会話の正本）**: [20260529_サービス再開_三本柱_実施計画.md](./20260529_サービス再開_三本柱_実施計画.md)  
+**Phase 8 実施手順**: [20260527_Phase8_Render_Railway_解約_実施手順.md](./20260527_Phase8_Render_Railway_解約_実施手順.md) ✅（2026-05-27）  
+**Phase 7 実施手順（完了・staging）**: [20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md) ✅（2026-05-29・[完了証跡](../evidence/20260529_phase7_dns_complete.md)）  
 **Phase 6 実施手順（完了）**: [20260521_Phase6_InfluBerry_キャラまるわかり_実施手順.md](./20260521_Phase6_InfluBerry_キャラまるわかり_実施手順.md) ✅（2026-05-26）  
 **Phase 5 実施手順（完了）**: [20260521_Phase5_YadOPERAサービス再開_実施手順.md](./20260521_Phase5_YadOPERAサービス再開_実施手順.md) ✅（2026-05-24）  
 **Phase 4 実施手順（完了）**: [20260521_Phase4_DBリストア_実施手順.md](./20260521_Phase4_DBリストア_実施手順.md)  
@@ -41,10 +26,11 @@ Phase 6 は完了済み（暫定 hostname 'staging-influberry.local' / 'staging-
 | **2** | ConoHa 初期設定 | **3〜6 時間** | 1〜2 日 | ✅ **完了**（2026-05-21・[実施手順](./20260521_Phase2_ConoHa初期設定_実施手順.md)） |
 | **3** | YadOPERA 実装（デプロイ準備） | **4〜8 時間** | 2〜3 日 | ✅ **完了**（2026-05-22・[実施手順](./20260521_Phase3_YadOPERAデプロイ準備_実施手順.md)） |
 | **4** | Railway 統合（DB リストア） | **1.5〜3 時間** | 半日 | ✅ **完了**（2026-05-23・[実施手順](./20260521_Phase4_DBリストア_実施手順.md)） |
-| **5** | YadOPERA サービス再開 | **2〜5 時間** | 1 日（DNS 反映待ち除く） | ✅ **完了**（2026-05-24・[実施手順](./20260521_Phase5_YadOPERAサービス再開_実施手順.md)・[証跡](../evidence/20260524_conoha_phase5_service_resume.md)） |
-| **6** | InfluBerry・キャラまるわかり実装 | **3〜6 時間** | 1〜2 日 | ✅ **完了**（2026-05-26・[実施手順](./20260521_Phase6_InfluBerry_キャラまるわかり_実施手順.md)・[InfluBerry 完了証跡](../evidence/20260525_phase6_influberry_partial.md)・[motivation_app 完了証跡](../evidence/20260526_phase6_motivation_app_complete.md)） |
-| **7** | DNS 本ドメイン化・HTTPS 化（InfluBerry / motivation_app） | **1〜3 時間** | 半日 | ⏳ **次会話** |
-| **8** | Render 解約 | **0.5〜1 時間** | 当日 | 未 |
+| **5** | YadOPERA ConoHa 本番公開（**インフラ**） | **2〜5 時間** | 1 日 | ✅ **完了**（2026-05-24）+ ① サービス再開 ✅ |
+| **6** | InfluBerry・キャラまるわかり **staging** 実装 | **3〜6 時間** | 1〜2 日 | ✅ **完了**（2026-05-26） |
+| **7** | DNS 本ドメイン化・HTTPS 化（**staging**） | **1〜3 時間** | 半日 | ✅ **完了**（2026-05-29） |
+| **SR** | **サービス再開 三本柱** ①→②→③ | **各 2〜5 時間** | 数日 | ✅ **完了**（2026-05-29・[正本](./20260529_サービス再開_三本柱_実施計画.md)・[全 URL 証跡](../evidence/20260529_all_services_browser_path_check.md)） |
+| **8** | Render 解約・Railway クローズアウト | **0.5〜1 時間** | 当日 | ✅ **完了**（2026-05-27） |
 | **9** | PublishDone 実装開始 | **着手 2〜4 時間**（以降は別計画） | 別トラック | 未 |
 
 ### 合計イメージ（Phase 1〜8・やどぺら再開まで）
@@ -63,7 +49,18 @@ Phase 6 は完了済み（暫定 hostname 'staging-influberry.local' / 'staging-
 Phase 1 → 2 → 3 → 4 → 5  ≒ 作業 11〜23 時間（カレンダー 3〜5 日〜2 週間）
 ```
 
-Phase 6〜7 はやどぺら安定後でよい。Phase 8 は 5 完了後すみやかに。
+Phase 6〜7 はやどぺら安定後でよい。**Phase 8 は 2026-05-27 に Phase 7 へ先回り完了**。
+
+### サービス再開 三本柱（2026-05-29 正本・順序固定）
+
+| 順 | プロダクト | 計画書 | 状態 |
+|----|-----------|--------|------|
+| **①** | YadOPERA サービス再開 | [計画](./20260529_YadOPERA_サービス再開_計画.md) | ✅ |
+| **②** | InfluBerry 本番載せ替え + 再開 | [計画](./20260529_InfluBerry_本番載せ替え_サービス再開_計画.md) | ✅ |
+| **③** | キャラまるわかり 本番載せ替え + 再開 | [計画](./20260529_キャラまるわかり_本番載せ替え_サービス再開_計画.md) | ✅ |
+
+正本: [20260529_サービス再開_三本柱_実施計画.md](./20260529_サービス再開_三本柱_実施計画.md) · 全 URL 証跡: [20260529_all_services_browser_path_check.md](../evidence/20260529_all_services_browser_path_check.md)  
+訂正根拠: [調査報告](../reports/202605/20260529_サービス再開_認識訂正_調査報告.md)
 
 ### 実施順の注意（Phase 3 と 4）
 
@@ -110,7 +107,12 @@ DNS: ムームー → api / app 等を ConoHa 向け
 | [Phase4 DB リストア 実施手順](./20260521_Phase4_DBリストア_実施手順.md) | Phase 4 画面・コマンド ✅ |
 | [Phase5 サービス再開 実施手順](./20260521_Phase5_YadOPERAサービス再開_実施手順.md) | Phase 5 ✅（2026-05-24） |
 | [Phase6 InfluBerry・キャラまるわかり 実施手順](./20260521_Phase6_InfluBerry_キャラまるわかり_実施手順.md) | Phase 6 ✅ 完了（2026-05-26） |
-| [Phase7 DNS本ドメイン・HTTPS化 実施手順](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md) | Phase 7 **次会話の正本** |
+| [サービス再開 三本柱 実施計画](./20260529_サービス再開_三本柱_実施計画.md) | **正本** ①②③ ✅ |
+| [全サービス疎通証跡](../evidence/20260529_all_services_browser_path_check.md) | 本番・staging 9 URL 検証記録 |
+| [check_service_resumption_all.sh](./scripts/check_service_resumption_all.sh) | 疎通再実行スクリプト |
+| [Phase7 DNS staging 実施手順](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md) | Phase 7 ✅ staging 完了 |
+| [Phase8 Render・Railway 解約 実施手順](./20260527_Phase8_Render_Railway_解約_実施手順.md) | Phase 8 主要作業完了（2026-05-27）+ カード削除残（6/3 / 6/21 以降） |
+| [Phase 8 部分完了証跡](../evidence/20260527_phase8_render_railway_partial.md) | Render Hobby 化・Railway 全プロジェクト削除 + Plan Cancel・Final $102.35 / $0.00 確定 |
 | [Phase 6 完了証跡](../evidence/20260526_phase6_motivation_app_complete.md) | motivation_app Deploy Done + Phase 6 全体完了宣言 |
 | [motivation_app 事前調査報告書（訂正版）](../reports/202605/20260525_motivation_app_事前調査_調査分析報告書.md) | C-1/C-2/C-3 + 誓約遵守記録 |
 | [やどぺら v4 要約定義書](../Summary/yadopera-v04-summary.md) | 正本 v4.1.0・ConoHa 運用・ブランチ `develop→main` |
@@ -647,35 +649,65 @@ InfluBerry と同流派の暫定 hostname 戦略を踏襲し、Dokploy Applicati
 
 ---
 
-# Phase 7: DNS 本ドメイン化・HTTPS 化（InfluBerry / キャラまるわかり） ⏳ 次会話
+---
+
+# サービス再開 三本柱 ✅ 完了（2026-05-29）
+
+**正本**: [20260529_サービス再開_三本柱_実施計画.md](./20260529_サービス再開_三本柱_実施計画.md)  
+**全 URL 疎通記録**: [20260529_all_services_browser_path_check.md](../evidence/20260529_all_services_browser_path_check.md)  
+**再検証スクリプト**: [`scripts/check_service_resumption_all.sh`](./scripts/check_service_resumption_all.sh)
+
+| 順 | 計画書 | 状態 |
+|----|--------|------|
+| ① | [YadOPERA サービス再開](./20260529_YadOPERA_サービス再開_計画.md) | ✅ [証跡](../evidence/20260529_yadopera_service_resumption_complete.md) |
+| ② | [InfluBerry 本番 + 再開](./20260529_InfluBerry_本番載せ替え_サービス再開_計画.md) | ✅ [証跡](../evidence/20260529_influberry_prod_service_resumption_complete.md) |
+| ③ | [キャラまるわかり 本番 + 再開](./20260529_キャラまるわかり_本番載せ替え_サービス再開_計画.md) | ✅ [証跡](../evidence/20260529_motivation_prod_service_resumption_complete.md) |
+
+**任意残**: `www.influberry.jp` / `www.olovolo.online`（ルート URL で運用中）
+
+---
+
+# Phase 7: DNS 本ドメイン化・HTTPS 化（InfluBerry / キャラまるわかり） ✅ staging 完了（2026-05-29）
 
 **目安時間**: 1〜3 時間（DNS 反映待ちを含めると半日〜1 日）  
-**前提**: Phase 6 完了（暫定 hostname `staging-influberry.local` / `staging-motivation.local` で Deploy Done + 疎通 200 確認済）  
-**実施手順（正本）**: [20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md) — **§次会話引き継ぎ（Phase 7 即開始）** を最初に読む
+**前提**: Phase 6 完了  
+**実施手順（正本）**: [20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md)  
+**完了証跡**: [20260529_phase7_dns_complete.md](../evidence/20260529_phase7_dns_complete.md)
 
-## 7.0 Phase 7 着手前確認（Owner 必須 — 7-P1〜7-P6）
+## 7.0 完了サマリ（2026-05-29）
 
-| # | 項目 | アクション | 担当 | 詳細 |
-|---|------|-----------|------|------|
-| 7-P1 | GitHub `kurinobu/motivation_app` Visibility | Web UI で Public/Private 確認 | Owner | [手順書 §4.1](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md#41-7-p1-github-kurinobumotivation_app-visibility) |
-| 7-P2 | GitHub `kurinobu/influberry` Visibility | 同上 | Owner | [手順書 §4.2](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md#42-7-p2-github-kurinobuinfluberry-visibility) |
-| 7-P3 | C-2 Brevo キー ローテーション要否 | 7-P1/7-P2 が Public なら即時必須・Private なら Owner 判断 | Owner | [手順書 §4.3](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md#43-7-p3-c-2-brevo-api-キー-ローテーション要否) |
-| 7-P4 | C-3 管理者パスワード変更要否（`'kurikuri'` のまま運用継続するか） | A 据え置き / B Dokploy Env 化 / C コード PR | Owner | [手順書 §4.4](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md#44-7-p4-c-3-管理者パスワード-kurikuri-の取扱) |
-| 7-P5 | ムームードメイン現状 | ムームー画面で現向き先確認 | Owner | [手順書 §4.5](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md#45-7-p5-ムームードメイン現状) |
-| 7-P6 | DNS 切替先（本ドメイン）の確定値 | InfluBerry / motivation_app それぞれ確定 | Owner | [手順書 §9](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md#9-phase-7-着手前-owner-必須確認7-p1-7-p6) |
+| 区分 | URL | 状態 |
+|------|-----|------|
+| staging InfluBerry | `https://staging.influberry.jp/` | HTTPS 200 ✅ |
+| staging motivation_app | `https://staging.olovolo.online/` | HTTPS 200 ✅ |
+| **本番** InfluBerry | `influberry.jp` | ⏳ A = `216.24.57.1`（未切替） |
+| **本番** motivation_app | `olovolo.online` | ⏳ A = `216.24.57.1`（未切替） |
+| YadOPERA | api/app / staging | 無影響 ✅ |
+
+**C-2 / C-3**: Owner 判断で据え置き（後日対応可）。
 
 ## 7.1 Phase 7 実施項目（手順書 §3 実施順序）
 
-- [ ] 7-A Owner 確認（7-P1〜7-P6）→ 手順書 §11 に Owner 記入
-- [ ] 7-B DNS 現状記録 + 事前ベースライン curl（YadOPERA / Phase 6 暫定 hostname 全 200 確認）
-- [ ] 7-C C-2 / C-3 ローテーション判断・実施（必要なら）
-- [ ] 7-D InfluBerry Dokploy Domains 切替（暫定 hostname → 本ドメイン）
-- [ ] 7-E motivation_app Dokploy Domains 切替（暫定 hostname → 本ドメイン）
-- [ ] 7-F TLS letsencrypt 発行確認
-- [ ] 7-G 本ドメインで HTTPS 疎通確認（YadOPERA / InfluBerry / motivation_app 全 200 + title 取得）
-- [ ] 7-H 完了証跡 `docs/evidence/202605xx_phase7_dns_complete.md` 作成・親引き継ぎ Phase 7 ✅ 化
+- [x] 7-0 安全復帰ゲート（責務マトリクス承認・YadOPERA 凍結ルール確認）
+- [x] 7-A Owner 確認（7-P1〜7-P6）→ 手順書 §11 に Owner 記入
+- [x] 7-B DNS 現状記録 + 事前ベースライン curl
+- [x] 7-C C-2 / C-3 ローテーション判断（据え置き）
+- [x] 7-D InfluBerry Dokploy Domains 切替（`staging.influberry.jp`）
+- [x] 7-E motivation_app Dokploy Domains 切替（`staging.olovolo.online`）
+- [x] 7-F TLS letsencrypt 発行確認
+- [x] 7-G staging 本ドメインで HTTPS 疎通確認（全 7 行 OK）
+- [x] 7-H 完了証跡 [20260529_phase7_dns_complete.md](../evidence/20260529_phase7_dns_complete.md) 作成・親引き継ぎ Phase 7 ✅ 化
 
-## 7.2 Phase 7 で触らない（凍結）
+## 7.2 本番載せ替え + サービス再開（②③ — ① 完了後）
+
+| 順 | 計画書 |
+|----|--------|
+| ② InfluBerry | [20260529_InfluBerry_本番載せ替え_サービス再開_計画.md](./20260529_InfluBerry_本番載せ替え_サービス再開_計画.md) |
+| ③ キャラまるわかり | [20260529_キャラまるわかり_本番載せ替え_サービス再開_計画.md](./20260529_キャラまるわかり_本番載せ替え_サービス再開_計画.md) |
+
+着手条件: [① YadOPERA サービス再開](./20260529_YadOPERA_サービス再開_計画.md) 完了 → ② → ③（順序固定）
+
+## 7.3 Phase 7 で触らなかった（凍結遵守）
 
 - YadOPERA api/app の Dokploy env／Stripe Webhook／既存 Brevo Authorized IPs（流用するが新規追加なし）
 - influberry-staging / motivation-app-staging の Environment Settings（**DNS / Domain のみ変更**・他 env は変更しない）
@@ -683,23 +715,88 @@ InfluBerry と同流派の暫定 hostname 戦略を踏襲し、Dokploy Applicati
 - C-2 / C-3 のコード fail-fast 化（別 PR・別 Phase）
 - Render 解約（Phase 8）
 
-## 7.3 Phase 7 失敗時のロールバック
+## 7.4 Phase 7 失敗時のロールバック（参考・完了済）
 
 万一 7-D / 7-E で本ドメイン化失敗または letsencrypt 発行不可の場合、Dokploy Domains を暫定 hostname に戻す（Phase 6 完了状態に復帰）。YadOPERA は触っていないため影響なし。
 
 ---
 
-# Phase 8: Render 解約
+# Phase 8: Render 解約・Railway クローズアウト ✅ 完了（2026-05-27）
 
-**目安時間**: 0.5〜1 時間
+**目安時間**: 主要作業 0.5〜1 時間（実績 30〜45 分・2026-05-27）／カード削除は別途各社請求サイクル後  
+**実施手順（正本）**: [20260527_Phase8_Render_Railway_解約_実施手順.md](./20260527_Phase8_Render_Railway_解約_実施手順.md)  
+**部分完了証跡**: [20260527_phase8_render_railway_partial.md](../evidence/20260527_phase8_render_railway_partial.md)  
+**Owner 方針**: **Phase 7（DNS 本ドメイン化）に先行して Phase 8 を実施・コスト即時停止優先・Free 化（Hobby 化）でワークスペースは残置**（過去請求書閲覧用）
 
-**サービスは既に削除済み。** 課金・カードの整理。
+## 8.0 進捗（2026-05-27）
 
-- [ ] Render ダッシュボードでワークスペース・請求の確認
-- [ ] 不要カードの解除
-- [ ] Railway `soothing-acceptance` プロジェクト削除（未使用）
+| Step | 内容 | 状態 |
+|------|------|------|
+| 8-A | Render Pro → Hobby（Free 相当）Downgrade | ✅（2026-05-27） |
+| 8-D-R1 | ローカルダンプ存在確認（5 ファイル必須） | ✅ |
+| 8-D-R2 | Railway 全プロジェクト削除（soothing-acceptance / yadopera-postgres-staging / supportive-surprise） | ✅（48h ソフト削除中） |
+| 8-D-R3 | Railway Hobby Plan Cancel（Final $0.00 確定） | ✅ |
+| 8-B | Render カード削除（5月分 $102.35 Paid 確認後・6/3 以降） | 🔜 |
+| 8-D-R4 | Railway カード削除（Free 落ち確認後・6/21 以降） | 🔜 |
+| 8-Z | Phase 8 完全完了証跡更新 | 🔜（カード削除完了後） |
 
-**Railway** は Phase 4 完了・ConoHa 安定後に Hobby 解約を検討。
+## 8.1 確定金額・スケジュール
+
+| 月 | Render | Railway | 合計 | 備考 |
+|----|--------|---------|------|------|
+| 2026-05 | **$102.35**（Services $94.08 + Datastores $8.27・Team Members $19 は遡及除外）／**6/1〜6/3 のいずれかに JCB 4178 へ自動課金予定** | $5.00（5/20 既払・以降ゼロ） | $107.35 | Render 全削除済・Railway クローズ操作日 |
+| 2026-06 以降 | **$0** | **$0**（6/20 で完全停止 → 6/21 以降 Free 落ち） | **$0** | Phase 8 効果開始・**永久ゼロ** |
+
+## 8.2 完了確認の作業フロー（残）
+
+1. **2026-06-01〜06-03 頃**: Render `Billing → Invoice History` で「May 2026 / Paid / $102.35」確認
+2. **2026-06-03〜06-05 頃**: Render `Billing → Payment Method` でカード `Edit payment details → Remove`
+3. **2026-06-21 以降**: Railway `https://railway.com/workspace/plans` で Plan が Free / Trial 切替確認
+4. **2026-06-21 以降**: Railway カード削除（`Replace` 経由）
+5. **完全完了後**: 部分完了証跡を最終版へ更新・親引き継ぎ Phase 8 ✅ 化
+
+## 8.3 触っていないこと（運用無影響）
+
+- ConoHa VPS（`160.251.199.237`）の Dokploy 設定・Postgres・Redis（YadOPERA / InfluBerry / motivation_app 全て稼働継続）
+- `api.yadopera.com` / `app.yadopera.com` / `staging-app.yadopera.com` の DNS・Stripe Webhook・Brevo Authorized IPs
+- InfluBerry / motivation_app の Dokploy `Domain` 設定（Phase 6 暫定 `*.local`・Phase 7 で本ドメイン化予定）
+- ローカル `~/Documents/yadopera-disaster-recovery-20260519/railway-dumps/` ダンプファイル群（無変更・残置）
+- 各リポジトリのコード（YadOPERA / InfluBerry / motivation_app すべて無変更）
+
+## 8.4 Phase 7 復帰時の前提更新
+
+- C-1（旧 Render DB ハードコード `motivation_app/app.py:50-52`）: **Render DB 削除済 + Render プラン Hobby 化済 → 接続不可・実質的な脅威消滅**（Workspace 残置中も DB 復元は不可）
+- C-2 / C-3: Phase 7+ で Owner 判断（変化なし）
+
+→ Phase 7 着手前 Owner 確認（7-P1〜7-P6）の判断材料に **C-1 は Phase 8 で実質処理済** を反映。
+
+---
+
+# 運用インシデント: Dokploy Auto Deploy 不発（2026-05-31）
+
+**正本証跡**: [20260531_dokploy_autodeploy_security_group_remediation.md](../evidence/20260531_dokploy_autodeploy_security_group_remediation.md)  
+**作業報告**: [20260531_会話詳細404とDokploy_AutoDeploy_SG復旧_作業報告.md](../reports/202605/20260531_会話詳細404とDokploy_AutoDeploy_SG復旧_作業報告.md)
+
+## 概要（2 件）
+
+| # | 事象 | 原因 | 復旧 |
+|---|------|------|------|
+| A | 本番 管理画面 会話詳細 404 | ゲスト API + JWT 施設不一致（コード） | `5f46809` / `f82ea19` デプロイ |
+| B | git push 後 Dokploy 未更新 | ConoHa SG `air-edison-admin-3000` が port **3000** を自宅 IP のみ許可 → GitHub Webhook **`failed to connect to host`** | SG に GitHub `hooks` CIDR 4 件追加 + Redeliver |
+
+## B の要点（インフラ・全 App 共通）
+
+| 項目 | 値 |
+|------|-----|
+| 誤解しやすい点 | Autodeploy **ON**・`health` **200** でも **コード未反映**になりうる |
+| Webhook URL | `http://160.251.199.237:3000/api/deploy/github`（正しいが GitHub から到達不可だった） |
+| SG 修正前 | `113.153.22.54/32` のみ（port 3000 In） |
+| SG 修正 | 上記に加え `192.30.252.0/22` 等 **4 CIDR**（[Phase2 Step 0.2](./20260521_Phase2_ConoHa初期設定_実施手順.md#02-ポート-3000-用の独自セキュリティグループを作る)） |
+| 確認 | GitHub Advanced → Redeliver **緑チェック** → Deployments に `f82ea19` |
+
+## 他 Application
+
+InfluBerry / motivation_app 等も **同一 SG・同一 GitHub App** のため、SG 修正前の push は Auto Deploy されていない可能性あり。**Deployments commit と Git 先端を突合**し、ずれていれば Deploy。
 
 ---
 
@@ -715,7 +812,7 @@ InfluBerry と同流派の暫定 hostname 戦略を踏襲し、Dokploy Applicati
 
 ## 次会話の開始プロンプト例
 
-**推奨（Phase 7）**: 文書先頭の **Phase 7 ブロック** または [Phase6 実施手順 §次会話引き継ぎ（Phase 7 開始）](./20260521_Phase6_InfluBerry_キャラまるわかり_実施手順.md#次会話引き継ぎphase-7-開始2026-05-26)
+**推奨（次会話）**: Phase 8 カード削除（[Phase 8 手順](./20260527_Phase8_Render_Railway_解約_実施手順.md)）または Phase 9 PublishDone。全 URL 再確認は [`check_service_resumption_all.sh`](./scripts/check_service_resumption_all.sh)。
 
 **済**: Phase 2〜6 [実施手順](./20260521_Phase2_ConoHa初期設定_実施手順.md) / [Phase3](./20260521_Phase3_YadOPERAデプロイ準備_実施手順.md) / [Phase4](./20260521_Phase4_DBリストア_実施手順.md) / [Phase5](./20260521_Phase5_YadOPERAサービス再開_実施手順.md) / [Phase6](./20260521_Phase6_InfluBerry_キャラまるわかり_実施手順.md)
 
@@ -747,3 +844,7 @@ InfluBerry と同流派の暫定 hostname 戦略を踏襲し、Dokploy Applicati
 | 2026-05-25 17:32 | Phase 6 6-D 事前調査完了・[調査分析報告書](../reports/202605/20260525_motivation_app_事前調査_調査分析報告書.md) 作成。C-1（app.py:52 旧 Render DB ハードコード）・C-2（services.py Brevo キー ハードコード）を発見。Owner 方針「Render と同じ状態で載せ替え／コード修正なし／問題は証跡」確定。 |
 | 2026-05-26 19:10 | **Phase 6 全体完了**：motivation_app Deploy Done（commit `604aefa`・41 秒）・疎通 200 + `<title>キャラまるわかり - 3つの心理学理論で自己診断</title>` 取得・YadOPERA / InfluBerry 全 200 維持。事前調査報告書を 2026-05-26 訂正版に更新（M-1〜M-4 誓約遵守記録・**C-3 app.py:138 管理者パスワード 'kurikuri' コード固定**を新規発見として追加）。6-D-6 のテンプレを **dotenv パーサー版**に置換（大原則 1 根本解決）。証跡 [20260526_phase6_motivation_app_complete.md](../evidence/20260526_phase6_motivation_app_complete.md) を新規作成。**Phase 7（DNS 切替・HTTPS 化）次会話プロンプト**を冒頭に提示。 |
 | 2026-05-26 19:25 | **Phase 7 専用手順書**を新規作成 — [20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md](./20260526_Phase7_DNS本ドメイン_HTTPS化_実施手順.md)。7-A 着手前 Owner 確認（7-P1〜7-P6）・7-B〜7-H Step・§11 Owner 記入欄・§12 完了チェックリスト・誓約継承を明記。本書を Phase 7 手順書リンクで強化、§Phase 7 セクションを手順書参照型に更新。索引文書 3 件（`docs/Summary/yadopera-v04-summary.md` を v4.1.1 / `docs/README.md` を v1.5 / `docs/maintenance/README.md`）を Phase 6 完了 + Phase 7 手順書追加で更新。 |
+| 2026-05-27 09:44 | **Phase 8 主要作業完了**（Phase 7 に先行実施・Owner 方針）。Render Pro → Hobby（Free 相当）Downgrade で 6 月以降課金ゼロ確定・5月分 Final **$102.35**（Team Members $19 遡及除外）。Railway 全プロジェクト 3 件削除（48h ソフト削除）+ Hobby Plan Cancel で Final **$0.00**・6/20 で完全停止 → 6/21 以降 Free 落ち。**Phase 8 専用手順書**を新規作成 — [20260527_Phase8_Render_Railway_解約_実施手順.md](./20260527_Phase8_Render_Railway_解約_実施手順.md)。**部分完了証跡**を新規作成 — [20260527_phase8_render_railway_partial.md](../evidence/20260527_phase8_render_railway_partial.md)。残作業はカード削除のみ（Render 6/3 以降・Railway 6/21 以降）。本書 §Phase 8 を手順書参照型 + 進捗表 + 確定金額表に更新・ロードマップ 8 行を 🟡 主要作業完了に変更・C-1 脅威消滅を Phase 7 復帰前提に追記。 |
+| 2026-05-29 | **サービス再開 三本柱** 正本 [20260529_サービス再開_三本柱_実施計画.md](./20260529_サービス再開_三本柱_実施計画.md) 新設。① YadOPERA / ② InfluBerry / ③ キャラまるわかりを分離。順序 ①→②→③ 固定。Phase 5/6 の「完了」をインフラ層とサービス再開で訂正。[認識訂正 調査報告](../reports/202605/20260529_サービス再開_認識訂正_調査報告.md)。 |
+| 2026-05-29 | **三本柱 ①②③ 完了**・[全サービス疎通証跡](../evidence/20260529_all_services_browser_path_check.md)・[`check_service_resumption_all.sh`](./scripts/check_service_resumption_all.sh)。引き継ぎの「次会話 ①」表記を完了に更新。 |
+| 2026-05-31 | **運用インシデント** — 会話詳細 admin API 修正（`f82ea19`）+ Dokploy Auto Deploy 不発（ConoHa SG `air-edison-admin-3000` に GitHub hooks CIDR 追加で復旧）。[証跡](../evidence/20260531_dokploy_autodeploy_security_group_remediation.md)・[作業報告](../reports/202605/20260531_会話詳細404とDokploy_AutoDeploy_SG復旧_作業報告.md)・[Phase2 Step 0.2 追記](./20260521_Phase2_ConoHa初期設定_実施手順.md#02-ポート-3000-用の独自セキュリティグループを作る)。 |

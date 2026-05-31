@@ -50,7 +50,11 @@
 | [../evidence/20260524_yadopera_conoha_migration_complete.md](../evidence/20260524_yadopera_conoha_migration_complete.md) | **YadOPERA 移行完了・サービス開始可能**（2026-05-24） |
 | [../evidence/20260526_phase6_motivation_app_complete.md](../evidence/20260526_phase6_motivation_app_complete.md) | **Phase 6 完了**（2026-05-26・motivation_app Deploy Done + Phase 6 全体完了宣言） |
 | [../evidence/20260529_phase7_dns_complete.md](../evidence/20260529_phase7_dns_complete.md) | **Phase 7 staging 完了**（2026-05-29） |
+| [../evidence/20260529_all_services_browser_path_check.md](../evidence/20260529_all_services_browser_path_check.md) | **全サービス疎通**（本番・staging 9 URL・2026-05-29） |
+| [scripts/check_service_resumption_all.sh](./scripts/check_service_resumption_all.sh) | 上記の再実行スクリプト |
 | [../evidence/20260527_phase8_render_railway_partial.md](../evidence/20260527_phase8_render_railway_partial.md) | **Phase 8 部分完了**（2026-05-27・Final $102.35 / $0.00 確定・6 月以降課金ゼロ） |
+| [../evidence/20260531_dokploy_autodeploy_security_group_remediation.md](../evidence/20260531_dokploy_autodeploy_security_group_remediation.md) | **Dokploy Auto Deploy 不発** — ConoHa SG + GitHub hooks CIDR 復旧（2026-05-31） |
+| [../reports/202605/20260531_会話詳細404とDokploy_AutoDeploy_SG復旧_作業報告.md](../reports/202605/20260531_会話詳細404とDokploy_AutoDeploy_SG復旧_作業報告.md) | 会話詳細 404 修正 + SG 復旧 作業報告 |
 
 ---
 
