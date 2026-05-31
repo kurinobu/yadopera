@@ -25,6 +25,17 @@ export const chatApi = {
   },
 
   /**
+   * 管理画面用会話履歴取得（JWT 施設スコープ、24h 期限なし）
+   */
+  async getAdminConversation(sessionId: string): Promise<ChatHistoryResponse> {
+    const response = await apiClient.get<ChatHistoryResponse>(
+      `/admin/conversations/${sessionId}`,
+      { timeout: 30000 }
+    )
+    return response.data
+  },
+
+  /**
    * 会話履歴取得
    */
   async getHistory(sessionId: string, facilityId?: number): Promise<ChatHistoryResponse> {
