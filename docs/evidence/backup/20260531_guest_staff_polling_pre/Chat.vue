@@ -40,27 +40,6 @@
       />
     </div>
 
-    <!-- スタッフ返信待ち（B-2: ポーリング・手動更新） -->
-    <div
-      v-if="showStaffReplyNotice"
-      class="flex-shrink-0 px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800"
-    >
-      <p class="text-xs text-amber-900 dark:text-amber-100 leading-relaxed">
-        {{ staffReplyCopy.noticeAutoUpdate }}
-        {{ staffReplyCopy.noticeManualRefresh }}
-      </p>
-      <div class="mt-2 flex justify-end">
-        <button
-          type="button"
-          class="px-3 py-1.5 text-xs font-medium text-amber-900 dark:text-amber-100 bg-amber-100 dark:bg-amber-800/50 hover:bg-amber-200 dark:hover:bg-amber-800 rounded-lg disabled:opacity-50"
-          :disabled="historyRefreshBusy"
-          @click="handleManualHistoryRefresh"
-        >
-          {{ historyRefreshBusy ? staffReplyCopy.refreshing : staffReplyCopy.refreshButton }}
-        </button>
-      </div>
-    </div>
-
     <!-- 初回表示時の待ち受け（URL に message/question ありのとき施設取得・トークン・初期送信の間） -->
     <div
       v-if="isInitialLoadPending"
@@ -247,7 +226,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useChat } from '@/composables/useChat'
 import { useSession } from '@/composables/useSession'
@@ -264,10 +243,9 @@ import SessionTokenDisplay from '@/components/guest/SessionTokenDisplay.vue'
 import SessionTokenInput from '@/components/guest/SessionTokenInput.vue'
 import DarkModeToggle from '@/components/common/DarkModeToggle.vue'
 import Modal from '@/components/common/Modal.vue'
-import type { ChatMessage, ChatHistoryResponse } from '@/types/chat'
+import type { ChatMessage } from '@/types/chat'
 import { log, warn } from '@/utils/logger'
 import { getEscalationGuestCopy } from '@/utils/escalationGuestCopy'
-import { getStaffReplyGuestCopy } from '@/utils/staffReplyGuestCopy'
 import { ENABLE_CONTACT_CAPTURE } from '@/utils/constants'
 
 const route = useRoute()
@@ -326,21 +304,7 @@ const contactConsentSubmitting = ref(false)
 const contactConsentDone = ref(false)
 const contactConsentError = ref<string | null>(null)
 
-const STAFF_REPLY_POLL_INTERVAL_MS = 30_000
-const STAFF_REPLY_POLL_MAX_MS = 10 * 60 * 1000
-
 const escalationCopy = computed(() => getEscalationGuestCopy(language.value))
-const staffReplyCopy = computed(() => getStaffReplyGuestCopy(language.value))
-
-const unresolvedEscalationId = ref<number | null>(null)
-const historyRefreshBusy = ref(false)
-let staffPollIntervalId: ReturnType<typeof setInterval> | null = null
-let staffPollDeadline = 0
-
-const hasStaffMessage = computed(() =>
-  messages.value.some((m) => m.role === 'staff')
-)
-
 const escalationSuccessBody = computed(() => {
   const id = lastEscalationId.value
   if (id == null) return ''
@@ -360,83 +324,6 @@ const initialQuestionSent = ref(false)
 const initialMessageSent = ref(false)
 // 初回表示時の待ち受け（URL に message/question ありのとき施設取得・トークン・初期送信の間）
 const isInitialLoadPending = ref(false)
-
-const showStaffReplyNotice = computed(
-  () =>
-    !isInitialLoadPending.value &&
-    !hasStaffMessage.value &&
-    (lastEscalationId.value != null || unresolvedEscalationId.value != null)
-)
-
-function syncHistoryState(history: ChatHistoryResponse | null) {
-  if (!history) return
-  if (history.unresolved_escalation_id != null) {
-    unresolvedEscalationId.value = history.unresolved_escalation_id
-  }
-}
-
-function stopStaffReplyPolling() {
-  if (staffPollIntervalId != null) {
-    clearInterval(staffPollIntervalId)
-    staffPollIntervalId = null
-  }
-}
-
-function shouldKeepStaffReplyPolling(): boolean {
-  if (hasStaffMessage.value) return false
-  if (Date.now() > staffPollDeadline) return false
-  return lastEscalationId.value != null || unresolvedEscalationId.value != null
-}
-
-function startStaffReplyPolling() {
-  stopStaffReplyPolling()
-  if (hasStaffMessage.value) return
-  staffPollDeadline = Date.now() + STAFF_REPLY_POLL_MAX_MS
-  staffPollIntervalId = setInterval(() => {
-    if (!shouldKeepStaffReplyPolling()) {
-      stopStaffReplyPolling()
-      return
-    }
-    void refreshConversationHistory(true)
-  }, STAFF_REPLY_POLL_INTERVAL_MS)
-}
-
-function maybeStartStaffReplyPollingFromHistory(history: ChatHistoryResponse | null) {
-  syncHistoryState(history)
-  if (shouldKeepStaffReplyPolling()) {
-    startStaffReplyPolling()
-  }
-}
-
-async function refreshConversationHistory(silent = false) {
-  const currentSessionId = getOrCreateSessionId()
-  if (!currentSessionId || facilityId.value === null) return null
-  if (historyRefreshBusy.value) return null
-  try {
-    historyRefreshBusy.value = true
-    const history = await loadHistory(currentSessionId, facilityId.value, { silent })
-    syncHistoryState(history)
-    if (hasStaffMessage.value) {
-      stopStaffReplyPolling()
-    } else if (shouldKeepStaffReplyPolling() && staffPollIntervalId == null) {
-      startStaffReplyPolling()
-    }
-    return history
-  } catch (err: unknown) {
-    warn('[Chat.vue] refreshConversationHistory: エラー', err)
-    return null
-  } finally {
-    historyRefreshBusy.value = false
-  }
-}
-
-async function handleManualHistoryRefresh() {
-  await refreshConversationHistory(false)
-}
-
-onUnmounted(() => {
-  stopStaffReplyPolling()
-})
 
 // 初期メッセージまたは質問を送信
 onMounted(async () => {
@@ -588,8 +475,7 @@ onMounted(async () => {
           sessionId: currentSessionId,
           facilityId: facilityId.value
         })
-        const history = await loadHistory(currentSessionId, facilityId.value)
-        maybeStartStaffReplyPollingFromHistory(history)
+        await loadHistory(currentSessionId, facilityId.value)
         log('[Chat.vue] onMounted: 会話履歴読み込み完了', {
           messagesCount: messages.value.length,
           messages: messages.value
@@ -721,10 +607,6 @@ const handleMessageSubmit = async (message: string) => {
       messagesAfter: messages.value
     })
 
-    if (lastEscalationId.value != null || unresolvedEscalationId.value != null) {
-      await refreshConversationHistory(true)
-    }
-
     // エスカレーションが必要な場合
     if (response.is_escalated) {
       // TODO: エスカレーション処理（Week 4で実装）
@@ -829,8 +711,6 @@ const submitEscalation = async () => {
     showEscalationConfirm.value = false
     showEscalationSuccess.value = true
     log('[Chat.vue] submitEscalation: 成功', response)
-    await refreshConversationHistory(true)
-    startStaffReplyPolling()
   } catch (err: any) {
     console.error('[Chat.vue] submitEscalation: エラー', err)
     showEscalationConfirm.value = false
@@ -910,8 +790,7 @@ const handleTokenLink = async (token: string) => {
       // 会話履歴を再読み込み
       const currentSessionId = getOrCreateSessionId()
       if (currentSessionId) {
-        const history = await loadHistory(currentSessionId, facilityId.value)
-        maybeStartStaffReplyPollingFromHistory(history)
+        await loadHistory(currentSessionId, facilityId.value)
       }
     }
 

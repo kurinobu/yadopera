@@ -71,24 +71,16 @@ export function useChat() {
     }
   }
 
-  async function loadHistory(
-    sessionId: string,
-    facilityId?: number,
-    options?: { silent?: boolean }
-  ) {
-    const silent = options?.silent === true
+  async function loadHistory(sessionId: string, facilityId?: number) {
     log('[useChat] loadHistory: 開始', {
       sessionId,
       facilityId,
-      silent,
       messagesCountBefore: chatStore.messages.length,
       messagesBefore: chatStore.messages
     })
     
     try {
-      if (!silent) {
-        chatStore.setLoading(true)
-      }
+      chatStore.setLoading(true)
       const history = await chatApi.getHistory(sessionId, facilityId)
       log('[useChat] loadHistory: APIレスポンス受信', {
         history,
@@ -128,9 +120,7 @@ export function useChat() {
       })
       throw error
     } finally {
-      if (!silent) {
-        chatStore.setLoading(false)
-      }
+      chatStore.setLoading(false)
     }
   }
 
