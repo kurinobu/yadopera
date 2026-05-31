@@ -18,7 +18,7 @@
             {{ queue.length }}件
           </span>
           <button
-            v-if="queue.length > 0"
+            v-if="queue.length > 0 && showViewAllButton"
             @click="handleViewAll"
             class="px-3 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 rounded-lg transition-colors"
           >
@@ -100,10 +100,12 @@ import type { OvernightQueue } from '@/types/dashboard'
 interface Props {
   queue: OvernightQueue[]
   showResolveButton?: boolean  // 対応済みボタンを表示するか（専用ページ用）
+  showViewAllButton?: boolean  // ヘッダー「対応する」ボタン（ダッシュボード用）
 }
 
 withDefaults(defineProps<Props>(), {
-  showResolveButton: false
+  showResolveButton: false,
+  showViewAllButton: true
 })
 
 const router = useRouter()
